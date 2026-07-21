@@ -1,0 +1,25 @@
+# Copyrighted paper — do not redistribute (kept locally only)
+*.pdf
+# Python / build cruft
+__pycache__/
+*.pyc
+# Abaqus run products
+*.odb
+*.dat
+*.msg
+*.sta
+*.com
+*.prt
+*.sim
+*.lck
+*.log
+*.fil
+*.res
+*.stt
+*.mdl
+*.ipm
+*.abq
+*.pac
+*.sel
+*_ss.csv
+ss_curves_by_temperature.png
