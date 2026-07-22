@@ -18,6 +18,8 @@ src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for      UMAT: KYARN30 (yarn) + KMTRX30 (matrix
 abaqus/ZHANG2022_{RT23,T500,T1000}_V1_0.inp   verified baseline decks (plasticity/Eq.18 OFF)
 abaqus/ZHANG2022_{RT23,T500,T1000}_V2_0.inp   FULL-MODEL decks (plasticity + Eq.18 ON) -> run these
 abaqus/make_v2_fullmodel.py               regenerates the V2_0 decks from V1_0 (card swap only)
+abaqus/assemble_inp.py                    splice material cards + 3 steps onto ANY TexGen mesh
+abaqus/MESH_REGEN_GUIDE.md                coarse-mesh (20-40k) trend-check workflow
 verification/
   VERIFICATION_REPORT.md                   full property + equation audit (READ THIS)
   CALIBRATION_GUIDE.md                     how to tune the unpublished params to Table 3
