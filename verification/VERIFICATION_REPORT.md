@@ -193,6 +193,17 @@ Notes:
 - The mesh (#5) differs from the paper's; even with identical constants the numbers
   will differ slightly because the TexGen geometry/mesh was regenerated.
 
+**Update — V2_0 full model (with Ge 2018 [17] in hand).** The source model paper
+(Ge et al., CST 157, 2018) was obtained and confirms: the UMAT implements Ge Eqs.
+(1)–(33) in full; Ge Table 2 lists the same T300 filament (E1=230, Xt=3580, Xc=2470);
+Ge Table 3 gives the parameter structure and fracture energies (Gf,1t=12.5,
+Gf,2t=1.0 N/mm). The `abaqus/*_V2_0.inp` decks now **enable** the previously-off
+physics (#2 Eq.18, #4 matrix plasticity) and set #1 longitudinal yarn strengths from
+T300 rule-of-mixtures (Xt=Vf·3580=2835, Xc=Vf·2470=1956). Remaining unknowns (yarn
+transverse/shear strengths, X_PO/rF/K1, SY0/HISO) are calibration knobs — see
+`CALIBRATION_GUIDE.md`. Material-point stability of the V2_0 starting values is
+confirmed by `verify_fullmodel.py` (`figures/fullmodel_vs_baseline.png`).
+
 ---
 
 ## 6. Path to matching the paper's Table 3 (on your Abaqus machine)
