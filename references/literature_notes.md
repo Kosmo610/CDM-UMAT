@@ -231,3 +231,20 @@ KOR1(Zhang·Ge, 2026.1)이 **동일 RVC로 기계적 loading-unloading 사이클
 3. **사이클점프(B02)** = 다수 열사이클 계산비용 문제의 해법 → 채택 권장.
 4. **D=1−E/E0** 5~6편 일치 → 통일 손상척도 확정.
 5. **경쟁 리스크 상향**: 기반 그룹(Ge/Zhang)이 사이클 C/SiC 활발 출판 → 차별화(열+TRS+열화맵)가 노벨티 사활.
+
+---
+
+# Batch 5 (최종) — 파괴기준·파괴인성·고온강도 클러스터 (KOR2, C05–C08)
+
+## 요약
+- **C08 = 2D C/SiC 고온 in-plane 전단강도(RT~1873K)**: **1273K(=1000°C)까지 증가 후 감소**(TRS 완화→계면 강화, 그 뒤 압축TRS·매트릭스균열). 공정온도 1000°C 재확인. CTE 섬유 1e-6/SiC 4.8e-6.
+- **KOR2 = 2D C/SiC Mode I 층간 파괴인성**: **GIe≈0.107±0.017 N/mm**, E11=74.5/E22=21.3GPa. → crack-band/CZM 입력 참고.
+- **C05 = DLR 손상기반 파괴기준**(Barbero CDM + Tsai-Wu 2차), d1·d2·d12=강성손실(D=1−E/E0 7편째). C/C-SiC+WHIPOX.
+- **C06 = Yang C/SiC 파괴기준**: Tsai-Hill/Hoffman/Tsai-Wu + **D-criterion**((D11/D̃11)²+…=1). D=1−E/E0. 2D C/SiC 오프축강도 256.7/203.8/195.6MPa(15/30/45°).
+- **C07 = DLR C/C-SiC(LSI) 탄성·파괴**: max stress/Tsai-Wu/max strain 비교(Tsai-Wu 우수). genuine orthotropic. 굽힘/인장 강도비 1.7-2.0.
+
+## 활용
+- **고온 강도 트렌드(C08)**: 강성·강도가 ~1000-1273K서 최고 후 감소 — Zhang2022 고온강화(TRS완화)와 정합. 고온 검증(L5) 데이터.
+- **파괴인성 Gf**: 야른 G1t=12.5N/mm(Ge2018), 매트릭스 Gm=1.0(Ge2018), 층간 GIe≈0.107(KOR2) — crack-band 정규화 입력.
+- **파괴기준 선택지**: Tsai-Wu(C07) 또는 D-criterion(C06/A11/C05) — 강도예측·파괴모드 판정용.
+- **D=1−E/E0 총 7~8편 일치** → 통일 손상척도 확정.
