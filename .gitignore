@@ -23,3 +23,8 @@ __pycache__/
 *.sel
 *_ss.csv
 ss_curves_by_temperature.png
+
+# material-point verification build artifacts
+verification/matpoint/run_umat
+*.o
+fort.*
