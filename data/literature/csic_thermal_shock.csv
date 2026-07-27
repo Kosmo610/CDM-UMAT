@@ -1,0 +1,13 @@
+# Published cyclic-thermal-shock data for C/SiC and related CMCs.
+# Used as the L3 (macro-scale) validation target -- see docs/THESIS_PLAN.md 5.
+# READ data/literature/README.md BEFORE USING: the `confidence` column says
+# whether a row was taken from the full text, from an abstract, or from a
+# secondary summary that still needs the original checked.
+#
+# ratio  = property after N cycles / property of the as-received material
+# abs    = absolute value in MPa where the source gives one (blank otherwise)
+source_key,material,process,quench,T_hi_C,T_lo_C,dT_C,cycles,property,ratio,abs_MPa,confidence,note
+SUN2002,3D C/SiC,CVI,air quench,1300,300,1000,100,flexural_strength,0.83,,abstract,"retained 83% of original strength after 100 quenches"
+SUN2002,3D C/SiC,CVI,air quench,1300,300,1000,50,critical_cycles,,,abstract,"critical number of thermal shocks ~50; beyond this the strength does NOT decrease further because the crack density saturates"
+SUN2002,3D C/SiC,CVI,combustion,,,700,,critical_dT,,,abstract,"critical dT in a combustion environment = 700 C"
+UNVERIFIED1,C/SiC,,,1000,,,12,strength_degradation,0.75,,secondary,"'strength degradation after 12 thermal shock cycles reaches up to 25.0% at 1000 C' -- seen only in a search summary; ORIGINAL NOT IDENTIFIED, do not cite until traced"
