@@ -64,19 +64,60 @@ import assemble_inp as ai   # mesh filtering + material cards are reused verbati
 # --------------------------------------------------------------------------
 # Constituent THERMAL properties (for the conductivity/quench decks).
 #
-# WARNING -- PLACEHOLDERS.  These are NOT in Zhang 2022 / Ge 2018 and are NOT
-# verified anywhere in this repository.  They are order-of-magnitude values for
-# CVI SiC and T300-type carbon fibre so the deck is runnable; replace them with
-# sourced data before any result is used.  Tracked in
-# data/literature/README.md item 3.
+# NO LONGER PLACEHOLDERS.  The yarn conductivities are COMPUTED from sourced
+# constituent values by data/properties/conductivity_bounds.py rather than
+# typed in here, per the project rule that property numbers live in code, not
+# in hand-copied tables.
+#
+#   fibre  k11 = 8, k22 = 1 W/(m.K)   refs/[22] Table 1 and refs/[17] Table 1
+#                                     (two independent papers, same numbers)
+#   SiC    k   = 25 W/(m.K)           refs/[17] Table 3
+#   yarn   -> rule of mixtures along the fibre, Rayleigh across it,
+#            at the yarn-level Vf of 0.79194
+#
+# WHY NOT SNEAD.  data/properties/matrix_SiC_vsT.csv carries the Snead Eq.12
+# single-crystal conductivity (293 W/(m.K) at RT).  conductivity_bounds.py
+# proves that value cannot reproduce the measured composite conductivity of
+# 6.29 W/(m.K) (refs/[12]) even with a zero-conductivity fibre.  It is the
+# documented upper sensitivity endpoint, not the input.
+#
+# STILL MISSING: POROSITY.  Our mesh is 100 % dense, so this deck will
+# OVERPREDICT kbar and make the quench gradient too shallow -- the
+# non-conservative direction.  Run --porosity to bracket it.
+#
 # Units: conductivity W/(mm.K), density tonne/mm^3, specific heat mJ/(tonne.K)
 # (the Abaqus mm-N-tonne-s-MPa system the rest of the model already uses).
 # --------------------------------------------------------------------------
-THERMAL_PLACEHOLDER = {
-    "matrix": dict(k=0.060, rho=3.21e-9, cp=6.7e8),          # CVI SiC
-    "yarn_axial": dict(k=0.030, rho=1.76e-9, cp=7.1e8),      # C fibre, along
-    "yarn_trans": 0.005,                                     # C fibre, across
-}
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "data", "properties"))
+import conductivity_bounds as cb          # noqa: E402
+
+#: W/(m.K) -> W/(mm.K)
+_WMK = 1.0e-3
+
+
+def thermal_properties(porosity=0.0, k_matrix=25.0, k1_f=8.0, k2_f=1.0):
+    """Constituent thermal card values, derived not typed.
+
+    SIMPLIFICATION TO DECLARE: `porosity` is applied to the SAME SiC for both
+    the inter-yarn matrix and the matrix inside a yarn.  In a real CVI or PIP
+    composite the intra-yarn matrix is usually denser than the inter-yarn
+    pockets, because infiltration reaches the tow interior first and the large
+    inter-tow voids close last.  Treating them alike therefore UNDERSTATES the
+    yarn conductivity and OVERSTATES the matrix-pocket conductivity; the two
+    errors partly cancel in kbar3.  Splitting them needs a porosity
+    measurement per region, which we do not have.
+    """
+    km = cb.porous_matrix(k_matrix, porosity) if porosity > 0.0 else k_matrix
+    k_long, k_trans = cb.yarn_conductivity(k1_f, k2_f, km)
+    return {
+        "matrix": dict(k=km * _WMK, rho=3.21e-9, cp=6.7e8),
+        "yarn_axial": dict(k=k_long * _WMK, rho=1.76e-9, cp=7.1e8),
+        "yarn_trans": k_trans * _WMK,
+        "_meta": dict(porosity=porosity, k_matrix_dense=k_matrix,
+                      k_matrix_eff=km, k1_f=k1_f, k2_f=k2_f,
+                      k_long=k_long, k_trans=k_trans),
+    }
 
 SHEAR_ORDERS = {
     "xy-xz-yz": (3, 4, 5),   # driver3=g12, driver4=g13, driver5=g23
@@ -345,11 +386,24 @@ def face_nsets(coords, tol_frac=1.0e-6):
     return "\n".join(out), box
 
 
-def thermal_materials(matrix_es, yarn_es, orient):
-    tp = THERMAL_PLACEHOLDER
+def thermal_materials(matrix_es, yarn_es, orient, tp=None):
+    tp = tp or thermal_properties()
+    m = tp["_meta"]
     L = []
-    L.append("** PLACEHOLDER thermal properties -- see the header of "
-             "make_rve_virtual_tests.py")
+    L.append("** Thermal properties DERIVED by data/properties/"
+             "conductivity_bounds.py")
+    L.append("**   fibre  k11 = %g, k22 = %g W/(m.K)   refs/[22], refs/[17]"
+             % (m["k1_f"], m["k2_f"]))
+    L.append("**   SiC    k = %g W/(m.K) dense, %.3f effective at %.1f %% "
+             "porosity" % (m["k_matrix_dense"], m["k_matrix_eff"],
+                           100.0 * m["porosity"]))
+    L.append("**   yarn   k_long = %.3f, k_trans = %.3f W/(m.K) at Vf = %.5f"
+             % (m["k_long"], m["k_trans"], cb.VF_YARN))
+    if m["porosity"] <= 0.0:
+        L.append("** !! ZERO POROSITY -- this deck will OVERPREDICT kbar and "
+                 "make the")
+        L.append("**    quench gradient too shallow.  Use --porosity to "
+                 "bracket it.")
     L.append("*Material, Name=SIC_MATRIX_THERMAL")
     L.append("*Conductivity\n%.6g," % tp["matrix"]["k"])
     L.append("*Density\n%.6g," % tp["matrix"]["rho"])
@@ -431,6 +485,10 @@ def main():
     ap.add_argument("--trs", choices=["on", "off"], default="on",
                     help="include the 1050 degC manufacturing cooling before "
                          "the strength tests (default: on)")
+    ap.add_argument("--porosity", type=float, default=0.0,
+                    help="SiC matrix porosity for the COND deck (0-0.5). "
+                         "The mesh is 100 %% dense, so leaving this at 0 "
+                         "OVERPREDICTS kbar; refs/[22] measures 0.24.")
     ap.add_argument("--only", choices=["ELAS", "CTE", "STR", "COND"],
                     default=None)
     ap.add_argument("--modes", nargs="+", default=sorted(MODES),
@@ -522,14 +580,21 @@ def main():
                 "%s=[%.6g, %.6g]" % (a, lo, hi)
                 for a, (lo, hi) in zip("xyz", box)))
             th_blocks = to_heat_transfer_elements(kept)
+            tprops = thermal_properties(porosity=args.porosity)
+            tm = tprops["_meta"]
+            print("  thermal: SiC %.2f W/(m.K) (%.0f %% porous), yarn "
+                  "%.2f / %.2f W/(m.K)"
+                  % (tm["k_matrix_eff"], 100.0 * tm["porosity"],
+                     tm["k_long"], tm["k_trans"]))
             parts = ["*Heading",
                      " RVE virtual test: homogenised conductivity kbar "
-                     "(PLACEHOLDER constituent thermal properties)",
+                     "(porosity %.1f %%)" % (100.0 * args.porosity),
                      ai.emit_blocks(th_blocks)]
             if allnodes:
                 parts.append(allnodes)
             parts.append(nsets)
-            parts.append(thermal_materials(matrix_es, yarn_es, orient))
+            parts.append(thermal_materials(matrix_es, yarn_es, orient,
+                                          tprops))
             parts.append(steps_conductivity(box))
             write("%s_COND.inp" % args.prefix, parts)
 

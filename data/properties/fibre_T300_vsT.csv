@@ -15,25 +15,37 @@
 # status:   verified | literature | placeholder    (placeholder rows are refused
 #           by build_temperature_tables.py unless --allow-placeholder is given)
 T_C,E1,E2,G12,G23,nu12,alpha1,alpha2,Xt,Xc,k1,k2,cp,rho,cte_type,cte_ref_C,status,source
-23,230000,40000,24000,14300,0.26,-0.3e-6,3.1e-6,3580,2470,,,,,secant,1050,verified,"Zhang 2022 Table 1 + Ge 2018 Table 2 (RT anchor)"
-500,228317.4,40000.0,24000.0,14300.0,0.26,2.978873e-07,3.035128e-06,3733.3,2575.8,4.571984e-02,,1.438651e+09,1.750000e-09,secant,1050,literature,"see eval_correlations.py"
-1000,226550.0,40000.0,24000.0,14300.0,0.26,6.022770e-07,2.967128e-06,3894.3,2686.9,7.156605e-02,,2.251945e+09,1.750000e-09,secant,1050,literature,"see eval_correlations.py"
+23,230000,40000,24000,14300,0.26,-0.3e-6,3.1e-6,3580,2470,,1.000000e-03,,,secant,1050,verified,"Zhang 2022 Table 1 + Ge 2018 Table 2 (RT anchor)"
+500,228317.4,40000.0,24000.0,14300.0,0.26,2.978873e-07,3.035128e-06,3733.3,2575.8,4.571984e-02,1.000000e-03,1.438651e+09,1.750000e-09,secant,1050,literature,"see eval_correlations.py"
+1000,226550.0,40000.0,24000.0,14300.0,0.26,6.022770e-07,2.967128e-06,3894.3,2686.9,7.156605e-02,1.000000e-03,2.251945e+09,1.750000e-09,secant,1050,literature,"see eval_correlations.py"
 # E1 ratio: Sauder 2002 Table 1 PAN fibre E/E0.  Xt,Xc ratio: same table sigma_R.
 # alpha: Pradere & Sauder 2008 Tables 3/4, PANEX 33 (ex-PAN, E=230 GPa), offset
 #        onto the verified 23 C card value -- see eval_correlations.py.
 # k1, cp, rho: Pradere 2009 Table 1 + Fig. 5, PANEX 33 as received.
 # E2, G12, G23: NO temperature data exists; held at the RT value (assumption).
 #
-# !! k2 (TRANSVERSE fibre conductivity) IS DELIBERATELY EMPTY.
-#    Pradere 2009 measures only the LONGITUDINAL diffusivity, and inventing a
-#    transverse value would silently drive the through-thickness kbar that the
-#    quench analysis depends on most.  Two honest routes:
-#      (a) find a source for transverse carbon-fibre conductivity, or
-#      (b) INVERSE-CALIBRATE it: pick k2 so the RVE conductivity homogenisation
-#          reproduces a measured composite kbar (refs/[12], [13]).  That makes
-#          one composite measurement an INPUT rather than validation, so it
-#          must be stated explicitly in the thesis -- everything else stays
-#          predicted.
+# k2 (TRANSVERSE fibre conductivity) = 1.0 W/(m.K) = 1.0e-3 W/(mm.K).
+#    Route (a) succeeded: it did NOT have to be inverse-calibrated.
+#    TWO INDEPENDENT SOURCES give the same number for carbon fibre in a C/SiC
+#    multiscale model -- Sun et al., Ceram. Int. 47 (2021) 7925 Table 1
+#    (refs/[22]) and Zhang et al., J. Mater. Res. Technol. 29 (2024) 2016
+#    Table 1 (refs/[17]), both k11 = 8, k22 = 1 W/(m.K).  refs/[17] uses
+#    E11 = 230 GPa, Xt = 3530, Xc = 2470 MPa, i.e. essentially OUR fibre, so
+#    the value transfers.  Held constant with temperature: neither source
+#    gives a transverse temperature dependence (assumption, flagged).
+#    Sensitivity is quantified in conductivity_bounds.py: k2 over its full
+#    literature range 1-8 moves the homogenised kbar3 by a factor of 2.2,
+#    whereas the MATRIX conductivity moves it by 9.3.  k2 is the second-order
+#    unknown here; the matrix row is the first-order one.
+#
+# !! k1 CONFLICT, UNRESOLVED ON PURPOSE.  The k1 column below comes from
+#    Pradere 2009 (~46-72 W/(m.K)), but refs/[17] and refs/[22] both use
+#    8 W/(m.K) for the same kind of fibre -- a factor of 6-9.  Pradere
+#    measures a single filament in a dedicated rig; the two modelling papers
+#    take the conventional handbook value.  k1 barely affects the
+#    through-thickness kbar3 (the fibres are transverse to it) but it does
+#    affect the IN-PLANE kbar1, so the disagreement has to be carried as a
+#    sensitivity case, not silently resolved.  See conductivity_bounds.py.
 # !! cp below 800 K and k1 below 800 K are NOT measurements.  Pradere 2009
 #    measures 800-2000 K; the paper states fibre Cp is close to bulk graphite,
 #    so bulk graphite anchors the low end.  The 23 C row is therefore the

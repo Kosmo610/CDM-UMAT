@@ -19,7 +19,27 @@ T_C,E,nu,alpha,Xt,Xc,k,cp,rho,cte_type,cte_ref_C,process,status,source
 # E ratio: Snead 2007 Eq.18 (Wachtman).  alpha: Snead Eq.16 integrated exactly
 #          and offset onto the card value (they agree to 2.3 % anyway).
 # cp: Snead Eq.10.  rho: 3.21 g/cm3 theoretical.
-# !! k is Snead Eq.12, the SINGLE-CRYSTAL UPPER LIMIT (293 W/m.K at RT).  A PIP
-#    matrix is far lower.  Use as an upper bound / sensitivity endpoint ONLY;
-#    the composite-level kbar must come from the RVE or refs/[12],[13].
+# !! k is Snead Eq.12, the SINGLE-CRYSTAL UPPER LIMIT (293 W/m.K at RT).
+#
+#    THIS ROW IS NOW KNOWN TO BE UNUSABLE AS AN INPUT, not merely suspect.
+#    conductivity_bounds.py shows that with k = 293 the homogenised
+#    through-thickness conductivity cannot be brought below 61 W/(m.K) even
+#    by setting the fibre transverse conductivity to ZERO, while the measured
+#    value for C/SiC is 6.29 W/(m.K) (refs/[12], stated in the text).  The
+#    matrix alone short-circuits the composite.  That is a proof, not an
+#    estimate, and it needs no solver.
+#
+#    Two modelling papers on C/SiC use 25 W/(m.K) for the SiC matrix
+#    (refs/[17] Table 3) and refs/[13] uses 70 for a denser CVI matrix.
+#    Only the 25 W/(m.K) class reproduces the measured composite value.
+#    Keep the Snead column as the documented UPPER SENSITIVITY ENDPOINT and
+#    add a 25 W/(m.K) case as the physically representative one; the choice
+#    must be stated in the thesis because the quench gradient depends on it
+#    more than on anything else.
+#
+#    Porosity is the other half: refs/[22] measures 24 % matrix porosity by
+#    X-ray CT and treats voids as air (0.025 W/(m.K)).  Our RVE mesh has
+#    100 % fill, so RVE_COND will OVERPREDICT kbar and make the quench
+#    gradient too shallow -- the non-conservative direction.  Decide this
+#    before M4.
 # Xt, Xc held constant: no SiC strength-vs-temperature source yet (gap).
