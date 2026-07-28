@@ -156,9 +156,10 @@ python3 verification/verify_thermshock.py       # V3_0 기능 + 보정
 python3 verification/cross_check_fortran.py     # 컴파일된 Fortran vs Python
 python3 data/properties/eval_correlations.py --check
 python3 abaqus/build_temperature_tables.py --selftest
+python3 abaqus/make_macro_thermalshock.py --selftest   # 거시 카드 정적 검증
 ```
 
-**커밋 전에 위 7개를 전부 통과시킨다.**
+**커밋 전에 위 8개를 전부 통과시킨다.**
 
 ## 현재 병목
 

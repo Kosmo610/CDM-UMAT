@@ -263,13 +263,20 @@ def macro_card(E1=105000.0, E2=105000.0, E3=52000.0,
                A=2.0, dmax1=0.99, dmaxt=0.99, eta=0.0,
                hclo=0.0, cycon=0.0, C=0.0, n=4.0, k=1.0,
                rth=0.30, dcymax=0.95, w1=0.30,
-               cycrate=0.0, predefn=0, ttab=None):
-    """Build the 47+8*NT slot MACRO card as a 1-based dict.
+               cycrate=0.0, predefn=0, ttab=None,
+               icrit=0, fs12=-0.5, fs23=-0.5, idmode=2,
+               dc1=0.5224, dct=0.5224, dcs=0.5405, di12=0.0):
+    """Build the 47+8*NT (+9) slot MACRO card as a 1-based dict.
 
     DEFAULT ELASTIC/STRENGTH VALUES ARE PLACEHOLDERS.  They are of the right
     order for a 2D plain-weave C/SiC laminate but are NOT yet the homogenised
     values -- those come from the RVE virtual tests (abaqus/make_rve_virtual_
     tests.py -> postprocess/homogenize.py) once Abaqus has run the RVE.
+
+    dc1/dct/dcs default to the 2D C/SiC values measured by Yang et al.,
+    Compos. Part A 77 (2015) 181 (D11max = D22max = 0.5224, D66max = 0.5405).
+    Those are for a CVI cross-woven composite with a STRONG interface -- a
+    starting point, not our material.  See data/literature/failure_criteria.csv.
     """
     ttab = ttab or []
     P = {}
@@ -301,7 +308,52 @@ def macro_card(E1=105000.0, E2=105000.0, E3=52000.0,
         for v in row:
             P[slot] = v
             slot += 1
+    if icrit:
+        for v in (float(icrit), fs12, fs23, float(idmode),
+                  dc1, dct, dcs, di12, 41.0):
+            P[slot] = v
+            slot += 1
     return P, ttab
+
+
+def ktsaiwu(s, Xt, Xc, Yt, Yc, S12, S13, S23, fs12, fs23):
+    """Mirror of KTSAIWU: Tsai-Wu as a strength-ratio index."""
+    if min(Xt, Xc, Yt, Yc, S12, S13, S23) <= 0.0:
+        return 0.0
+    F1 = 1.0 / Xt - 1.0 / Xc
+    F2 = 1.0 / Yt - 1.0 / Yc
+    F11 = 1.0 / (Xt * Xc)
+    F22 = 1.0 / (Yt * Yc)
+    F44, F55, F66 = 1.0 / S23 ** 2, 1.0 / S13 ** 2, 1.0 / S12 ** 2
+    F12 = fs12 * math.sqrt(F11 * F22)
+    F13 = F12
+    F23 = fs23 * F22
+    a = (F11 * s[0] ** 2 + F22 * (s[1] ** 2 + s[2] ** 2)
+         + F66 * s[3] ** 2 + F55 * s[4] ** 2 + F44 * s[5] ** 2
+         + 2.0 * F12 * s[0] * s[1] + 2.0 * F13 * s[0] * s[2]
+         + 2.0 * F23 * s[1] * s[2])
+    b = F1 * s[0] + F2 * (s[1] + s[2])
+    if a > 1.0e-30:
+        disc = b * b + 4.0 * a
+        if disc <= 0.0:
+            return 0.0
+        R = (-b + math.sqrt(disc)) / (2.0 * a)
+    elif b > 1.0e-30:
+        R = 1.0 / b
+    else:
+        return 0.0
+    return 1.0 / R if R > 1.0e-30 else 0.0
+
+
+def kdcrit(d1, dt, d12, d13, d23, dc1, dct, dcs, di12, idmode):
+    """Mirror of KDCRIT: damage-based failure index."""
+    if min(dc1, dct, dcs) <= 0.0:
+        return 0.0
+    q = (d1 / dc1) ** 2 + (dt / dct) ** 2 + (d12 / dcs) ** 2
+    if idmode >= 2:
+        q += (dt / dct) ** 2 + (d13 / dcs) ** 2 + (d23 / dcs) ** 2
+    q += di12 * d1 * dt
+    return math.sqrt(q) if q > 0.0 else 0.0
 
 
 def macro_point(eps, sv, P, ttab=None, temp=23.0, dtime=1.0, rate=None,
@@ -430,6 +482,21 @@ def macro_point(eps, sv, P, ttab=None, temp=23.0, dtime=1.0, rate=None,
     svn[18] = rdrv
     svn[19], svn[20] = d1m, dtm
     svn[21] = float(sum(1 for i in range(3) if eps[i] < 0.0))
+
+    j0 = 48 + 8 * len(ttab or [])
+    icrit = int(P[j0]) if (j0 + 8) in P else 0
+    if icrit > 0:
+        fitw = ktsaiwu(se, Xt, Xc, Yt, Yc, S12, S13, S23, P[j0 + 1], P[j0 + 2])
+        fidc = kdcrit(d1, dt, ds12, ds31, ds23, P[j0 + 4], P[j0 + 5],
+                      P[j0 + 6], P[j0 + 7], int(P[j0 + 3]))
+        svn[22], svn[23] = fitw, fidc
+        flag = svn[24]
+        for bit, fi, islot in ((1, rdrv, 25), (2, fitw, 26), (4, fidc, 27)):
+            if fi >= 1.0 and int(flag) // bit % 2 == 0:
+                flag += float(bit)
+                svn[islot] = svn[17]
+        svn[24] = flag
+
     dj = max(abs(d1t - d1t0), abs(d1c - d1c0), abs(dtt - dtt0),
              abs(dtc - dtc0), abs(dcy - dcy0))
     _cutback(svn, dj, P[25], max(1.0, P[29]), P[30], P[31], P[27], 13)
@@ -440,7 +507,7 @@ def macro_point(eps, sv, P, ttab=None, temp=23.0, dtime=1.0, rate=None,
     return stress, CD, svn
 
 
-def new_sv(n=22):
+def new_sv(n=28):
     return [0.0] * n
 
 
@@ -746,6 +813,148 @@ def t6_cycle_jump():
     return ok
 
 
+def t7_tsaiwu():
+    """Tsai-Wu must reproduce the uniaxial strengths it was built from.
+
+    This is the only test that can catch a swapped strength slot or a sign
+    error in the linear terms: under pure sigma_1 = Xt the index must be
+    exactly 1.0, and under sigma_1 = -Xc it must also be exactly 1.0.
+    """
+    print("\nT7  Tsai-Wu index -- calibration and comparability")
+    Xt, Xc, Yt, Yc = 220.0, 480.0, 200.0, 460.0
+    S12, S13, S23 = 110.0, 90.0, 95.0
+    args = (Xt, Xc, Yt, Yc, S12, S13, S23, -0.5, -0.5)
+
+    def fi(sig):
+        return ktsaiwu(np.array(sig, dtype=float), *args)
+
+    ok = True
+    for name, sig, want in (
+            ("uniaxial tension  s1 = +Xt", [Xt, 0, 0, 0, 0, 0], 1.0),
+            ("uniaxial compr.   s1 = -Xc", [-Xc, 0, 0, 0, 0, 0], 1.0),
+            ("transverse tens.  s2 = +Yt", [0, Yt, 0, 0, 0, 0], 1.0),
+            ("transverse compr. s2 = -Yc", [0, -Yc, 0, 0, 0, 0], 1.0),
+            ("through-thk tens. s3 = +Yt", [0, 0, Yt, 0, 0, 0], 1.0),
+            ("in-plane shear    t12 = S12", [0, 0, 0, S12, 0, 0], 1.0),
+            ("shear             t13 = S13", [0, 0, 0, 0, S13, 0], 1.0),
+            ("shear             t23 = S23", [0, 0, 0, 0, 0, S23], 1.0)):
+        got = fi(sig)
+        ok &= check("  " + name + " -> index = 1", close(got, want, rtol=1e-12),
+                    "got %.15f" % got)
+
+    ok &= check("  unloaded state gives index 0", fi([0] * 6) == 0.0)
+    ok &= check("  sign of shear does not matter (even function)",
+                close(fi([0, 0, 0, 70.0, 0, 0]), fi([0, 0, 0, -70.0, 0, 0])))
+
+    # Homogeneous of degree one: this is what makes it comparable with the
+    # Hashin index.  The RAW polynomial is quadratic and would fail this.
+    half = fi([0.5 * Xt, 0.3 * Yt, 0, 40.0, 0, 0])
+    full = fi([1.0 * Xt, 0.6 * Yt, 0, 80.0, 0, 0])
+    ok &= check("  index scales linearly with proportional load",
+                close(full, 2.0 * half, rtol=1e-12),
+                "FI(x1)=%.6f  FI(x2)=%.6f  ratio=%.12f"
+                % (half, full, full / half))
+
+    # Tension/compression asymmetry is the whole reason Tsai-Wu is in the
+    # comparison: Hashin's transverse-tension branch cannot see it this way.
+    ok &= check("  tension is more damaging than equal compression",
+                fi([150.0, 0, 0, 0, 0, 0]) > fi([-150.0, 0, 0, 0, 0, 0]),
+                "FI(+150)=%.4f  FI(-150)=%.4f"
+                % (fi([150.0, 0, 0, 0, 0, 0]), fi([-150.0, 0, 0, 0, 0, 0])))
+
+    # Closed surface requires |F*| < 1; sweep the interaction coefficient
+    # because it is the acknowledged weak point of the criterion.
+    biax = [120.0, 120.0, 0, 0, 0, 0]
+    lo = ktsaiwu(np.array(biax), Xt, Xc, Yt, Yc, S12, S13, S23, -0.9, -0.5)
+    hi = ktsaiwu(np.array(biax), Xt, Xc, Yt, Yc, S12, S13, S23, 0.0, -0.5)
+    ok &= check("  F12* changes the biaxial prediction (sensitivity is real)",
+                abs(lo - hi) / hi > 0.05,
+                "F12*=-0.9 -> %.4f   F12*=0.0 -> %.4f  (%.1f %% apart)"
+                % (lo, hi, 100.0 * abs(lo - hi) / hi))
+    return ok
+
+
+def t8_dcriterion():
+    """D-criterion must fire exactly at the measured critical damages."""
+    print("\nT8  D-criterion -- calibration, 2D/3D forms, cycle coupling")
+    dc1, dct, dcs = 0.5224, 0.5224, 0.5405     # Yang 2015, 2D C/SiC
+    ok = True
+
+    f2 = lambda a, b, c: kdcrit(a, b, c, 0.0, 0.0, dc1, dct, dcs, 0.0, 1)
+    ok &= check("  D11 = D11max alone -> index = 1",
+                close(f2(dc1, 0, 0), 1.0, rtol=1e-12), "%.15f" % f2(dc1, 0, 0))
+    ok &= check("  D22 = D22max alone -> index = 1",
+                close(f2(0, dct, 0), 1.0, rtol=1e-12))
+    ok &= check("  D66 = D66max alone -> index = 1",
+                close(f2(0, 0, dcs), 1.0, rtol=1e-12))
+    ok &= check("  undamaged -> index = 0", f2(0, 0, 0) == 0.0)
+
+    # The published form is plane stress.  A quench is not, so the 3-D
+    # extension must be strictly more conservative when out-of-plane
+    # components exist, and must NOT differ when they are absent.
+    a2 = kdcrit(0.3, 0.0, 0.2, 0.0, 0.0, dc1, dct, dcs, 0.0, 1)
+    a3 = kdcrit(0.3, 0.0, 0.2, 0.0, 0.0, dc1, dct, dcs, 0.0, 2)
+    ok &= check("  3D form reduces to the 2D form when D22=D13=D23=0",
+                close(a2, a3, rtol=1e-12), "2D=%.10f  3D=%.10f" % (a2, a3))
+    b2 = kdcrit(0.3, 0.1, 0.2, 0.15, 0.05, dc1, dct, dcs, 0.0, 1)
+    b3 = kdcrit(0.3, 0.1, 0.2, 0.15, 0.05, dc1, dct, dcs, 0.0, 2)
+    ok &= check("  3D form is more conservative once out-of-plane damage exists",
+                b3 > b2 * 1.05, "2D=%.4f  3D=%.4f (%.1f %% higher)"
+                % (b2, b3, 100.0 * (b3 / b2 - 1.0)))
+
+    c0 = kdcrit(0.3, 0.3, 0.0, 0, 0, dc1, dct, dcs, 0.0, 1)
+    cp = kdcrit(0.3, 0.3, 0.0, 0, 0, dc1, dct, dcs, 1.0, 1)
+    cm = kdcrit(0.3, 0.3, 0.0, 0, 0, dc1, dct, dcs, -1.0, 1)
+    ok &= check("  I12 > 0 weakens, I12 < 0 strengthens (Yang 2015 Eq.10b)",
+                cm < c0 < cp, "I12=-1: %.4f  I12=0: %.4f  I12=+1: %.4f"
+                % (cm, c0, cp))
+
+    # End to end through the constitutive routine: the criteria must be
+    # PASSIVE.  Same load, criteria on and off -> identical stress.
+    eps = np.array([2.0e-3, 3.0e-4, -1.0e-4, 5.0e-4, 0.0, 0.0])
+    Poff, tt = macro_card()
+    Pon, _ = macro_card(icrit=1)
+    s_off, _, sv_off = macro_point(eps, new_sv(), Poff, tt)
+    s_on, _, sv_on = macro_point(eps, new_sv(), Pon, tt)
+    ok &= check("  switching the criteria ON does not change the stress",
+                np.allclose(s_off, s_on, rtol=0.0, atol=0.0),
+                "max |ds| = %.3e" % float(np.max(np.abs(s_off - s_on))))
+    ok &= check("  STATEV 1..22 are untouched by the criteria block",
+                all(a == b for a, b in zip(sv_off[:22], sv_on[:22])))
+    ok &= check("  criteria write STATEV 23/24", sv_on[22] > 0.0 and
+                sv_on[23] > 0.0, "FI_TW=%.4f  FI_D=%.4f" % (sv_on[22],
+                                                            sv_on[23]))
+
+    # Cycle damage must be able to trigger the D-criterion on its own:
+    # that is the whole point of putting it in a thermal-shock model.
+    Pc, ttc = macro_card(cycon=1.0, C=2.0e-2, n=3.0, k=0.0, rth=0.30,
+                         icrit=1, dc1=0.80, dct=0.80, dcs=0.80)
+    sv1, _ = thermal_cycle(Pc, ttc, 1, EPS_HOT, EPS_COLD,
+                           rate=1.0, dtime_cycle=1.0)
+    fi1 = sv1[23]
+    sv2, _ = thermal_cycle(Pc, ttc, 120, EPS_HOT, EPS_COLD,
+                           rate=1.0, dtime_cycle=1.0)
+    ok &= check("  the first cycle alone does NOT fail (so the rest is cyclic)",
+                fi1 < 1.0 and sv1[24] < 4.0, "FI_D(N=1) = %.4f" % fi1)
+    ok &= check("  D-criterion index grows with cycles (monotonic CDM alone "
+                "would be flat)", sv2[23] > fi1 * 1.05,
+                "FI_D: %.4f (N=1) -> %.4f (N=120)" % (fi1, sv2[23]))
+    ok &= check("  cycle damage alone drove it past 1.0 at N > 1",
+                sv2[24] >= 4.0 and sv2[27] > 1.0,
+                "latched at N = %.1f, flag = %d" % (sv2[27], int(sv2[24])))
+
+    # The latch must record the FIRST crossing, so running further cycles
+    # must not move it.  A re-latching bug would silently report the last
+    # cycle instead of the failure cycle.
+    sv3, _ = thermal_cycle(Pc, ttc, 200, EPS_HOT, EPS_COLD,
+                           rate=1.0, dtime_cycle=1.0)
+    ok &= check("  the latch is not overwritten by later cycles",
+                close(sv3[27], sv2[27], rtol=1e-12),
+                "N_fail(120 cycles run) = %.1f   N_fail(200 run) = %.1f"
+                % (sv2[27], sv3[27]))
+    return ok
+
+
 LITDIR = os.path.join(os.path.dirname(HERE), "data", "literature")
 
 
@@ -1028,6 +1237,8 @@ def main():
     t4_unilateral()
     _, h_off, h_on = t5_shakedown()
     t6_cycle_jump()
+    t7_tsaiwu()
+    t8_dcriterion()
 
     cal = calibrate_to_literature()
 

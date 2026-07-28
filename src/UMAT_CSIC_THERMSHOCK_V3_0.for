@@ -86,7 +86,8 @@ C            fE -> E (and HISO), fX -> Xt,Xc, fSY -> SY0
 C     (no HCLO: the matrix already switches tensile/compressive damage
 C      on sign(I1) per Ge Eq.7, which is its unilateral effect.)
 C
-C  MACRO  NPROPS = 47 + 8*NT
+C  MACRO  NPROPS = 47 + 8*NT            -> damage law only
+C         NPROPS = 47 + 8*NT + 9        -> plus the failure-criterion block
 C     1      phase id (3.0)
 C     2-10   E1 E2 E3 nu12 nu13 nu23 G12 G13 G23   (homogenised)
 C     11-17  Xt Xc Yt Yc S12 S13 S23               (homogenised)
@@ -107,11 +108,23 @@ C     47     NT
 C     48..   NT rows of 8:  T, fE1, fE2, fG, fX, fY, fS, fC
 C            fC -> CCYC (oxidation/interface-wear acceleration with T)
 C
+C  MACRO failure-criterion block (optional, 9 slots).  Let J0 = 48+8*NT:
+C     J0+0   ICRIT   0 = off, 1 = evaluate and record (never drives damage)
+C     J0+1   FS12    Tsai-Wu normalised interaction F12* (default -0.5)
+C     J0+2   FS23    Tsai-Wu normalised interaction F23* (default -0.5)
+C     J0+3   IDMODE  D-criterion form: 1 = published plane-stress (2D),
+C                    2 = 3-D extension of this work (all six components)
+C     J0+4   DC1     critical longitudinal damage  D11,max
+C     J0+5   DCT     critical transverse damage    D22,max
+C     J0+6   DCS     critical shear damage         D66,max
+C     J0+7   DI12    D-criterion 1-2 coupling I12 (0 = uncoupled, Eq.10a)
+C     J0+8   CARD KEY = 41.0 (guard for this block)
+C
 C  STATE VARIABLES
 C  ---------------
 C  YARN   NSTATV >= 16, as V1_0.  17 (optional) = closure flag.
 C  MATRIX NSTATV >= 20, identical to V1_0.
-C  MACRO  NSTATV >= 22:
+C  MACRO  NSTATV >= 22 (>= 28 when ICRIT > 0):
 C     1 D1T  2 D1C  3 DTT  4 DTC     (monotonic, per mode)
 C     5 R1T  6 R1C  7 RTT  8 RTC     (damage thresholds)
 C     9 D1   10 DT                   (TOTAL, incl. cycle damage)
@@ -121,6 +134,25 @@ C     18 NCUM   accumulated cycles seen by this point
 C     19 RDRV   current driving failure index
 C     20 D1MONO 21 DTMONO            (monotonic only, for post-proc)
 C     22 CLOFLG number of closed directions this increment (0..3)
+C   -- failure-criterion comparison, written only when ICRIT > 0 --
+C     23 FITW   Tsai-Wu index      (1.0 = failure)
+C     24 FIDC   D-criterion index  (1.0 = failure)
+C     25 NFLAG  bit sum, latching: 1 = Hashin fired, 2 = Tsai-Wu fired,
+C               4 = D-criterion fired
+C     26 NFHA   accumulated cycles when Hashin first reached 1.0
+C     27 NFTW   accumulated cycles when Tsai-Wu first reached 1.0
+C     28 NFDC   accumulated cycles when the D-criterion first reached 1.0
+C
+C  The three criteria are evaluated at every integration point from the
+C  SAME state, but only Hashin drives the damage evolution.  Tsai-Wu and
+C  the D-criterion are passive observers, so switching them on cannot
+C  change the mechanical answer -- the comparison is free.  Provenance:
+C  Tsai & Wu, J. Compos. Mater. 5 (1971) 58; D-criterion from Yang,
+C  Jiao & Guo, Theor. Appl. Mech. Lett. 4 (2014) 021007 Eq.(12) and
+C  Yang et al., Compos. Part A 77 (2015) 181 Eq.(10a)/(10b).  The 3-D
+C  extension (IDMODE=2) is an addition of this work: both papers are
+C  restricted to plane stress, whereas a quench produces a genuinely
+C  three-dimensional state.
 C
 C  Provenance of the base model: Ge et al., Compos. Sci. Technol. 157
 C  (2018) 86-98, as used by Zhang et al., Ceram. Int. 48 (2022)
@@ -171,16 +203,33 @@ C
             CALL XIT
          END IF
          NT=NINT(PROPS(47))
-         IF (NT.LT.0 .OR. NPROPS.NE.47+8*NT) THEN
-            WRITE(7,*) 'V3_0 MACRO: NPROPS must equal 47+8*NT.'
+         IF (NT.LT.0 .OR.
+     1       (NPROPS.NE.47+8*NT .AND. NPROPS.NE.56+8*NT)) THEN
+            WRITE(7,*) 'V3_0 MACRO: NPROPS must be 47+8*NT, or'
+            WRITE(7,*) '56+8*NT with the failure-criterion block.'
             WRITE(7,*) 'NT,NPROPS=',NT,NPROPS
             CALL XIT
+         END IF
+C        The criterion block carries its own key so a card that is the
+C        right LENGTH but the wrong CONTENT is still rejected.
+         IF (NPROPS.EQ.56+8*NT) THEN
+            IF (ABS(PROPS(56+8*NT)-41.0D0).GT.1.0D-6) THEN
+               WRITE(7,*) 'V3_0 MACRO: failure-criterion block must end'
+               WRITE(7,*) 'with PROPS(56+8*NT)=41.0. Got',
+     1                    PROPS(56+8*NT)
+               CALL XIT
+            END IF
+            IF (NINT(PROPS(48+8*NT)).GT.0 .AND. NSTATV.LT.28) THEN
+               WRITE(7,*) 'V3_0 MACRO: ICRIT>0 needs NSTATV>=28. Got',
+     1                    NSTATV
+               CALL XIT
+            END IF
          END IF
 C        Cycle rate from a *FIELD variable when PREDEFN>0.
          FLDV=0.0D0
          IPF=NINT(PROPS(46))
          IF (IPF.GT.0) FLDV=PREDEF(1)+DPRED(1)
-         CALL KMACRO31(EPS,STRESS,DDSDDE,STATEV,PROPS,NT,
+         CALL KMACRO31(EPS,STRESS,DDSDDE,STATEV,PROPS,NPROPS,NT,
      1        DTIME,TEMP,DTEMP,FLDV,PNEWDT,KSTEP,CELENT)
       ELSE IF (INDEX(CMNAME,'YARN').GT.0) THEN
          IF (NSTATV.LT.16) THEN
@@ -634,8 +683,8 @@ C
       RETURN
       END
 C=======================================================================
-      SUBROUTINE KMACRO31(EPS,STRESS,CTAN,SV,P,NT,DTIME,TEMP,DTEMP,
-     1 FLDV,PNEWDT,KSTEP,CELENT)
+      SUBROUTINE KMACRO31(EPS,STRESS,CTAN,SV,P,NPROPS,NT,DTIME,TEMP,
+     1 DTEMP,FLDV,PNEWDT,KSTEP,CELENT)
 C     Homogenised orthotropic CDM for the macro scale.
 C     Same 3-D Hashin + exponential-softening skeleton as the yarn law
 C     (it is a general orthotropic CDM), driven by RVE-homogenised
@@ -661,7 +710,9 @@ C     d_cyc is what makes repeated thermal shock degrade the material.
       DOUBLE PRECISION D1M,DTM,D1,DT,D1E,DT2E,DT3E
       DOUBLE PRECISION DCY0,DCY,DDCY,EXC,DS12,DS23,DS31
       DOUBLE PRECISION DJ,RFAC,REQ,CREQ,B1T,B1C,BTT,BTC
-      INTEGER I,J,KSTEP,MODE,NT,IPF,NCLO
+      DOUBLE PRECISION FS12,FS23,DC1,DCT,DCS,DI12,FITW,FIDC,FIHA
+      DOUBLE PRECISION NCUM,FLAG
+      INTEGER I,J,KSTEP,MODE,NT,IPF,NCLO,NPROPS,J0,ICRIT,IDMODE
 C
       E1=P(2)
       E2=P(3)
@@ -878,6 +929,45 @@ C
       SV(21)=DTM
       SV(22)=DBLE(NCLO)
 C
+C     Failure-criterion comparison.  Passive: nothing below feeds back
+C     into STRESS, CTAN or PNEWDT, so ICRIT only adds output.
+      J0=48+8*NT
+      ICRIT=0
+      IF (NPROPS.EQ.J0+8) ICRIT=NINT(P(J0))
+      IF (ICRIT.GT.0) THEN
+         FS12=P(J0+1)
+         FS23=P(J0+2)
+         IDMODE=NINT(P(J0+3))
+         DC1=P(J0+4)
+         DCT=P(J0+5)
+         DCS=P(J0+6)
+         DI12=P(J0+7)
+C        Both indices are evaluated on the SAME effective stress SE and
+C        the SAME total damage that the Hashin law uses, so the three
+C        curves are directly comparable increment by increment.
+         CALL KTSAIWU(SE,XT,XC,YT,YC,S12,S13,S23,FS12,FS23,FITW)
+         CALL KDCRIT(D1,DT,DS12,DS31,DS23,DC1,DCT,DCS,DI12,IDMODE,
+     1        FIDC)
+         FIHA=SV(19)
+         NCUM=SV(18)
+         SV(23)=FITW
+         SV(24)=FIDC
+         FLAG=SV(25)
+         IF (FIHA.GE.1.0D0 .AND. MOD(NINT(FLAG),2).EQ.0) THEN
+            FLAG=FLAG+1.0D0
+            SV(26)=NCUM
+         END IF
+         IF (FITW.GE.1.0D0 .AND. MOD(NINT(FLAG)/2,2).EQ.0) THEN
+            FLAG=FLAG+2.0D0
+            SV(27)=NCUM
+         END IF
+         IF (FIDC.GE.1.0D0 .AND. MOD(NINT(FLAG)/4,2).EQ.0) THEN
+            FLAG=FLAG+4.0D0
+            SV(28)=NCUM
+         END IF
+         SV(25)=FLAG
+      END IF
+C
       DJ=MAX(ABS(D1T-D1T0),ABS(D1C-D1C0),
      1       ABS(DTT-DTT0),ABS(DTC-DTC0),ABS(DCY-DCY0))
       IF (DJMAX.GT.0.0D0 .AND. DJ.GT.CUTTRG*DJMAX) THEN
@@ -894,6 +984,92 @@ C
          SV(15)=TEND
          SV(16)=RFAC
       END IF
+      RETURN
+      END
+C=======================================================================
+      SUBROUTINE KTSAIWU(S,XT,XC,YT,YC,S12,S13,S23,FS12,FS23,FI)
+C     Tsai-Wu tensor polynomial in 3-D, returned as a STRENGTH-RATIO
+C     index so it is directly comparable with the Hashin index.
+C
+C     The raw polynomial  Fij si sj + Fi si  is NOT comparable: it is
+C     quadratic in load, so a value of 0.25 does not mean "half way to
+C     failure".  Instead solve  a R^2 + b R = 1  for the load multiplier
+C     R that brings the current state onto the failure surface, and
+C     report FI = 1/R.  FI is then homogeneous of degree one in stress,
+C     exactly like the Hashin index, and both reach 1.0 at failure.
+C
+C     FS12 and FS23 are the NORMALISED interaction coefficients
+C     F12* = F12/sqrt(F11 F22) and F23* = F23/F22.  The classical
+C     generalised-von-Mises choice is -0.5 for both; the value is the
+C     well-known weak point of Tsai-Wu and is left on the card so it can
+C     be swept.  |F*| < 1 is required for a closed surface (Tsai & Wu).
+      IMPLICIT NONE
+      DOUBLE PRECISION S(6),XT,XC,YT,YC,S12,S13,S23,FS12,FS23,FI
+      DOUBLE PRECISION F1,F2,F11,F22,F44,F55,F66,F12,F13,F23
+      DOUBLE PRECISION A,B,DISC,R
+      FI=0.0D0
+      IF (XT.LE.0.0D0 .OR. XC.LE.0.0D0 .OR. YT.LE.0.0D0 .OR.
+     1    YC.LE.0.0D0 .OR. S12.LE.0.0D0 .OR. S13.LE.0.0D0 .OR.
+     2    S23.LE.0.0D0) RETURN
+      F1=1.0D0/XT-1.0D0/XC
+      F2=1.0D0/YT-1.0D0/YC
+      F11=1.0D0/(XT*XC)
+      F22=1.0D0/(YT*YC)
+      F44=1.0D0/(S23*S23)
+      F55=1.0D0/(S13*S13)
+      F66=1.0D0/(S12*S12)
+C     Transverse isotropy about axis 1: the 1-2 and 1-3 interactions are
+C     the same, and 2-3 is normalised on F22 because both are transverse.
+      F12=FS12*SQRT(F11*F22)
+      F13=F12
+      F23=FS23*F22
+      A=F11*S(1)*S(1)+F22*(S(2)*S(2)+S(3)*S(3))
+     1 +F66*S(4)*S(4)+F55*S(5)*S(5)+F44*S(6)*S(6)
+     2 +2.0D0*F12*S(1)*S(2)+2.0D0*F13*S(1)*S(3)
+     3 +2.0D0*F23*S(2)*S(3)
+      B=F1*S(1)+F2*(S(2)+S(3))
+      IF (A.GT.1.0D-30) THEN
+         DISC=B*B+4.0D0*A
+         IF (DISC.LE.0.0D0) RETURN
+         R=(-B+SQRT(DISC))/(2.0D0*A)
+      ELSE IF (B.GT.1.0D-30) THEN
+C        Degenerate: purely linear, e.g. hydrostatic on a surface whose
+C        quadratic part vanishes.  R = 1/b.
+         R=1.0D0/B
+      ELSE
+         RETURN
+      END IF
+      IF (R.GT.1.0D-30) FI=1.0D0/R
+      RETURN
+      END
+C=======================================================================
+      SUBROUTINE KDCRIT(D1,DT,D12,D13,D23,DC1,DCT,DCS,DI12,IDMODE,FI)
+C     Damage-based failure criterion (D-criterion).
+C
+C     IDMODE=1  published plane-stress form, Yang, Jiao & Guo (2014)
+C               Eq.(12) / Yang et al. (2015) Eq.(10a):
+C                  (D11/D11max)^2 + (D22/D22max)^2 + (D66/D66max)^2 = 1
+C               with the optional I12 D11 D22 coupling of Eq.(10b).
+C     IDMODE=2  3-D extension of this work: the two out-of-plane shear
+C               damages and the through-thickness normal damage are
+C               added on the same footing.  A quench loads the
+C               through-thickness direction, which plane stress cannot
+C               represent, so the published form would silently ignore
+C               the very components the thermal shock creates.
+C
+C     Returned as sqrt(sum) so that FI, like the other two indices, is
+C     1.0 on the failure surface and scales linearly along a radius in
+C     damage space.
+      IMPLICIT NONE
+      DOUBLE PRECISION D1,DT,D12,D13,D23,DC1,DCT,DCS,DI12,FI
+      DOUBLE PRECISION Q
+      INTEGER IDMODE
+      FI=0.0D0
+      IF (DC1.LE.0.0D0 .OR. DCT.LE.0.0D0 .OR. DCS.LE.0.0D0) RETURN
+      Q=(D1/DC1)**2+(DT/DCT)**2+(D12/DCS)**2
+      IF (IDMODE.GE.2) Q=Q+(DT/DCT)**2+(D13/DCS)**2+(D23/DCS)**2
+      Q=Q+DI12*D1*DT
+      IF (Q.GT.0.0D0) FI=SQRT(Q)
       RETURN
       END
 C=======================================================================

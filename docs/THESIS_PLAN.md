@@ -406,6 +406,8 @@ Ch.7 결론 및 향후과제
 | 5 | 열전도 균질화 입력덱 생성기 | ✅ 완료 | `<prefix>_COND.inp` (면 NSet을 좌표에서 자동 생성) |
 | 6 | 문헌 검증 데이터 정리 | ✅ 1차 완료 | `data/literature/` (원문 곡선 디지타이즈는 미완) |
 | + | **Fortran/Python 크로스체크** (계획에 없던 추가) | ✅ 완료 | `verification/cross_check_fortran.py` |
+| + | **파손기준 3종 병렬 평가 (C4)** | ✅ 완료 | `KTSAIWU`/`KDCRIT`, T7/T8, SDV 23–28 |
+| + | **거시 카드 정적 검증기** | ✅ 완료 | `make_macro_thermalshock.py --selftest` (13 케이스) |
 
 7번(추가)으로 넣은 크로스체크는 원래 계획에 없었지만 필요했습니다. Python 검증은
 *모델*이 맞다는 뜻이지 *Fortran*이 맞다는 뜻이 아니어서, 카드 슬롯 뒤바뀜이나 부호

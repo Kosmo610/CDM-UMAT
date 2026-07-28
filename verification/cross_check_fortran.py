@@ -117,11 +117,13 @@ def flat(P, n):
     return [P[i + 1] for i in range(n)]
 
 
-def macro_props(hclo, cycon, C, n, k, rth, dcymax, w1, cycrate, ttab):
+def macro_props(hclo, cycon, C, n, k, rth, dcymax, w1, cycrate, ttab,
+                **crit):
     P, _ = vt.macro_card(hclo=hclo, cycon=cycon, C=C, n=n, k=k, rth=rth,
                          dcymax=dcymax, w1=w1, cycrate=cycrate, predefn=0,
-                         ttab=ttab)
-    return flat(P, 47 + 8 * len(ttab)), P
+                         ttab=ttab, **crit)
+    n_slot = 47 + 8 * len(ttab) + (9 if crit.get("icrit") else 0)
+    return flat(P, n_slot), P
 
 
 def yarn_props(hclo, ttab):
@@ -140,14 +142,18 @@ def case_macro(exe, rng):
     ttab = [[23.0, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
             [500.0, 0.94, 0.88, 0.90, 0.96, 0.83, 0.86, 1.60],
             [1000.0, 0.86, 0.72, 0.78, 0.91, 0.64, 0.70, 3.20]]
+    # The failure-criterion block is switched ON here: it appends nine card
+    # slots AFTER the temperature table, which is exactly the kind of layout
+    # change that a Python-only test cannot police.
     props, P = macro_props(0.7, 1.0, 3.0e-2, 3.0, -1.0, 0.30, 0.95, 0.30,
-                           2.0, ttab)
+                           2.0, ttab, icrit=1, fs12=-0.45, fs23=-0.60,
+                           idmode=2, dc1=0.52, dct=0.48, dcs=0.54, di12=0.3)
     worst = 0.0
     npass = 0
     for it in range(24):
         eps = np.array([rng.uniform(-2.5e-3, 3.0e-3) for _ in range(3)]
                        + [rng.uniform(-2.0e-3, 2.0e-3) for _ in range(3)])
-        sv = [0.0] * 22
+        sv = [0.0] * 28
         # start from a partly damaged state on half the cases
         if it % 2:
             sv[0] = rng.uniform(0.0, 0.5)
@@ -156,6 +162,12 @@ def case_macro(exe, rng):
             sv[6] = rng.uniform(1.0, 2.0)
             sv[16] = rng.uniform(0.0, 0.4)
             sv[17] = rng.uniform(0.0, 50.0)
+            # Pre-set some latch bits so the "fire only once" logic is
+            # exercised from a non-zero state, not just from rest.
+            sv[24] = float(rng.choice([0, 1, 2, 4, 3, 5, 6, 7]))
+            sv[25] = rng.uniform(0.0, 20.0)
+            sv[26] = rng.uniform(0.0, 20.0)
+            sv[27] = rng.uniform(0.0, 20.0)
         temp = rng.choice([23.0, 260.0, 500.0, 780.0, 1000.0, 1400.0, -50.0])
         dtime = rng.choice([0.01, 0.1, 1.0])
 

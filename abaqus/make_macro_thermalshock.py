@@ -59,6 +59,7 @@ from __future__ import print_function
 
 import argparse
 import os
+import re
 import sys
 
 STRESS_FREE_C = 1050.0
@@ -313,7 +314,11 @@ def _mech_output(restart):
            "*Node Output\nU, RF, NT\n"
            "*Output, history, frequency=1\n"
            "*Node Output, nset=XHI\nU, RF\n"
-           "*Element Output, elset=ALL\nSDV9, SDV10, SDV17, SDV18\n")
+           # SDV9/10 damage, 17 d_cyc, 18 N, 19 Hashin, 23 Tsai-Wu,
+           # 24 D-criterion, 25 latch flag -- the failure-criterion
+           # comparison needs all three indices at every history frame.
+           "*Element Output, elset=ALL\n"
+           "SDV9, SDV10, SDV17, SDV18, SDV19, SDV23, SDV24, SDV25\n")
     if restart:
         out += "*Restart, write, overlay\n"
     return out
@@ -324,6 +329,194 @@ def write(path, parts):
     with open(path, "w") as f:
         f.write("\n".join(parts) + "\n")
     print("  wrote %s" % path)
+
+
+def check_macro_card(card_text, where=""):
+    """Mirror KMACRO31's own card guards in Python.
+
+    Every rejection below is one that the UMAT would raise as a CALL XIT at
+    job start.  Catching it here costs nothing; catching it in Abaqus costs a
+    submission, a queue wait and a confusing .msg.
+    """
+    lines = card_text.splitlines()
+    ndep, vals, head = None, [], None
+    for i, ln in enumerate(lines):
+        s = ln.lstrip().lower()
+        if s.startswith("*depvar"):
+            for j in range(i + 1, len(lines)):
+                t = lines[j].strip()
+                if t.startswith("*"):
+                    break
+                ndep = int(float(t.split(",")[0]))
+                break
+        if s.startswith("*user material"):
+            head = i
+            for j in range(i + 1, len(lines)):
+                if lines[j].lstrip().startswith("*"):
+                    break
+                vals.extend(v.strip() for v in lines[j].split(",") if v.strip())
+            break
+    tag = (" in " + where) if where else ""
+    if head is None:
+        raise SystemExit("macro card%s: no *User Material line" % tag)
+    p = [float(v) for v in vals]
+    n = len(p)
+
+    declared = None
+    m = re.search(r"constants\s*=\s*(\d+)", lines[head], re.I)
+    if m:
+        declared = int(m.group(1))
+    if declared is not None and declared != n:
+        raise SystemExit("macro card%s: constants=%d but %d values are listed"
+                         % (tag, declared, n))
+    if n < 47 or abs(p[35] - 31.0) > 1e-9:
+        raise SystemExit("macro card%s: PROPS(36) must be 31.0 (got %s), "
+                         "NPROPS >= 47 (got %d)" % (tag, p[35] if n >= 36
+                                                    else "n/a", n))
+    nt = int(round(p[46]))
+    if nt < 0 or n not in (47 + 8 * nt, 56 + 8 * nt):
+        raise SystemExit("macro card%s: NT=%d needs NPROPS = %d or %d, got %d"
+                         % (tag, nt, 47 + 8 * nt, 56 + 8 * nt, n))
+    if n == 56 + 8 * nt:
+        if abs(p[55 + 8 * nt] - 41.0) > 1e-9:
+            raise SystemExit("macro card%s: failure-criterion block must end "
+                             "with 41.0, got %g" % (tag, p[55 + 8 * nt]))
+        icrit = int(round(p[47 + 8 * nt]))
+        idmode = int(round(p[50 + 8 * nt]))
+        dcs = p[51 + 8 * nt:54 + 8 * nt]
+        if icrit > 0:
+            if ndep is None or ndep < 28:
+                raise SystemExit("macro card%s: ICRIT>0 needs *Depvar >= 28, "
+                                 "got %s" % (tag, ndep))
+            if idmode not in (1, 2):
+                raise SystemExit("macro card%s: IDMODE must be 1 or 2, got %d"
+                                 % (tag, idmode))
+            if min(dcs) <= 0.0 or max(dcs) > 1.0:
+                raise SystemExit("macro card%s: critical damages must lie in "
+                                 "(0,1], got %s" % (tag, dcs))
+        for k, name in ((48 + 8 * nt, "F12*"), (49 + 8 * nt, "F23*")):
+            if abs(p[k]) >= 1.0:
+                raise SystemExit("macro card%s: Tsai-Wu %s = %g gives an OPEN "
+                                 "failure surface (|F*| < 1 required)"
+                                 % (tag, name, p[k]))
+    elif ndep is not None and ndep < 22:
+        raise SystemExit("macro card%s: *Depvar >= 22 required, got %d"
+                         % (tag, ndep))
+    return dict(nprops=n, nt=nt, ndepvar=ndep,
+                criteria=(n == 56 + 8 * nt and
+                          int(round(p[47 + 8 * nt])) > 0))
+
+
+def _mangle(card, slot=None, value=None, depvar=None, drop=0):
+    """Return PLACEHOLDER_CARD with one thing deliberately broken."""
+    out = card
+    if depvar is not None:
+        out = re.sub(r"(\*Depvar\n)\d+,", r"\g<1>%d," % depvar, out)
+    if slot is not None:
+        out = patch_card(out, slot, value)
+    if drop:
+        lines = out.splitlines()
+        head = next(i for i, l in enumerate(lines)
+                    if l.lstrip().lower().startswith("*user material"))
+        vals = []
+        tail = len(lines)
+        for j in range(head + 1, len(lines)):
+            if lines[j].lstrip().startswith("*"):
+                tail = j
+                break
+            vals.extend(v.strip() for v in lines[j].split(",") if v.strip())
+        vals = vals[:-drop]
+        body = [", ".join(vals[k:k + 8]) for k in range(0, len(vals), 8)]
+        lines[head] = re.sub(r"constants\s*=\s*\d+",
+                             "constants=%d" % len(vals), lines[head])
+        out = "\n".join(lines[:head + 1] + body + lines[tail:])
+    return out
+
+
+def selftest():
+    """The card validator has to REJECT, not just accept.
+
+    Each case below is a real mistake that would otherwise be found only when
+    Abaqus aborts the job: a card that is the right length but the wrong
+    content, a *Depvar that was not grown with the card, an interaction
+    coefficient that opens the failure surface.
+    """
+    print("check_macro_card selftest")
+    fails = []
+
+    def expect_ok(name, card):
+        try:
+            info = check_macro_card(card, name)
+            print("  [PASS] accepts %-38s NPROPS=%d Depvar=%s"
+                  % (name, info["nprops"], info["ndepvar"]))
+        except SystemExit as exc:
+            fails.append(name)
+            print("  [FAIL] rejected a VALID card %s: %s" % (name, exc))
+
+    def expect_reject(name, card):
+        try:
+            check_macro_card(card, name)
+        except SystemExit as exc:
+            print("  [PASS] rejects %-38s (%s)"
+                  % (name, str(exc).split(":")[-1].strip()[:46]))
+            return
+        fails.append(name)
+        print("  [FAIL] ACCEPTED a broken card: %s" % name)
+
+    c = PLACEHOLDER_CARD
+    expect_ok("placeholder card, criteria on", c)
+    expect_ok("criteria off (47 slots, Depvar 22)",
+              _mangle(c, depvar=22, drop=9))
+
+    expect_reject("wrong card key PROPS(36)", _mangle(c, slot=36, value=30.0))
+    expect_reject("missing block guard PROPS(56)",
+                  _mangle(c, slot=56, value=0.0))
+    expect_reject("ICRIT on but *Depvar still 22", _mangle(c, depvar=22))
+    expect_reject("truncated card (55 slots)", _mangle(c, drop=1))
+    expect_reject("NT says 2 but no table rows", _mangle(c, slot=47, value=2.0))
+    expect_reject("IDMODE = 3", _mangle(c, slot=51, value=3.0))
+    expect_reject("critical damage = 0", _mangle(c, slot=52, value=0.0))
+    expect_reject("critical damage > 1", _mangle(c, slot=54, value=1.4))
+    expect_reject("F12* = -1.0 (open surface)", _mangle(c, slot=49, value=-1.0))
+    expect_reject("F23* = +1.2 (open surface)", _mangle(c, slot=50, value=1.2))
+
+    bad = c.replace("constants=56", "constants=48")
+    expect_reject("constants= disagrees with the values", bad)
+
+    # Cross-module: the card that postprocess/homogenize.py will actually
+    # emit after the RVE virtual tests must pass this validator.  Without
+    # this the two files can drift apart and nobody notices until M3.
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "postprocess"))
+        import homogenize as hz
+    except ImportError as exc:
+        print("  [SKIP] homogenize.py not importable (%s)" % exc)
+    else:
+        elastic = dict(E1=105000.0, E2=105000.0, E3=52000.0, nu12=0.10,
+                       nu13=0.25, nu23=0.25, G12=36000.0, G13=22000.0,
+                       G23=22000.0)
+        strength = dict(Xt=220.0, Xc=480.0, Yt=220.0, Yc=480.0,
+                        S12=110.0, S13=90.0, S23=90.0)
+        for temps in ([23.0], [23.0, 500.0, 1000.0]):
+            by_T = {}
+            for i, T in enumerate(temps):
+                f = 1.0 - 0.1 * i
+                by_T[T] = dict(
+                    elastic={k: v * f for k, v in elastic.items()},
+                    strength={k: v * f for k, v in strength.items()},
+                    alpha=(2.5e-6, 2.5e-6, 5.0e-6))
+            for crit, tag in ((hz.DEFAULT_CRIT, "on"), (None, "off")):
+                expect_ok("homogenize.py card, NT=%d, criteria %s"
+                          % (len(temps), tag),
+                          hz.macro_card(by_T, hz.DEFAULT_CYC, temps,
+                                        crit=crit))
+
+    if fails:
+        print("\nSELFTEST FAILED: %s" % ", ".join(fails))
+        return 1
+    print("\nSELFTEST PASSED")
+    return 0
 
 
 def patch_card(card_text, slot, value):
@@ -372,14 +565,21 @@ PLACEHOLDER_CARD = """** PLACEHOLDER macro card -- replace with the RVE output
 ** Running with these numbers produces a WORKING deck but MEANINGLESS results.
 *Material, Name=CSIC_MACRO_CDM
 *Depvar
-22,
-*User Material, constants=47
+28,
+23, FITW, FITW
+24, FIDC, FIDC
+25, NFLAG, NFLAG
+26, NFHA, NFHA
+27, NFTW, NFTW
+28, NFDC, NFDC
+*User Material, constants=56
 3., 105000., 105000., 52000., 0.10, 0.25, 0.25, 36000.
 22000., 22000., 220., 480., 220., 480., 110., 90.
 90., 2., 2., 2., 2., 0.99, 0.99, 0.02
 0.10, 1000000., 0.25, 1., 1., 0.5, 1., 0.
 0., 0., 0., 31., 0.8, 1., 8.2882e-02, 3.
-1., 0.30, 0.95, 0.30, 0., 1., 0."""
+1., 0.30, 0.95, 0.30, 0., 1., 0., 1.
+-0.5, -0.5, 2., 0.5224, 0.5224, 0.5405, 0., 41."""
 
 PLACEHOLDER_EXPANSION = """*Expansion, type=ORTHO, zero=1050.
 2.5e-06, 2.5e-06, 5.0e-06"""
@@ -418,11 +618,16 @@ def main():
     ap.add_argument("--validation-zhang2013", action="store_true",
                     help="preset for refs/[03]: 900<->300 C, N up to 60")
     ap.add_argument("--list-checks", action="store_true")
+    ap.add_argument("--selftest", action="store_true",
+                    help="check that check_macro_card() accepts good cards "
+                         "and rejects every broken one")
     args = ap.parse_args()
 
     if args.list_checks:
         print(CHECKS)
         return 0
+    if args.selftest:
+        return selftest()
 
     if args.validation_zhang2013:
         args.sev = ["M"]
@@ -442,6 +647,16 @@ def main():
         print("  !! using the PLACEHOLDER macro card -- results are meaningless")
     if not args.thermal:
         print("  !! using PLACEHOLDER thermal properties -- run RVE_COND first")
+
+    info = check_macro_card(card, os.path.basename(args.card or "placeholder"))
+    print("  macro card OK: NPROPS=%d (NT=%d), *Depvar=%s, "
+          "failure criteria %s"
+          % (info["nprops"], info["nt"], info["ndepvar"],
+             "ON" if info["criteria"] else "OFF"))
+    if not info["criteria"]:
+        print("  !! failure-criterion block is OFF.  Turning it on LATER means "
+              "re-running\n     every macro job -- it only adds STATEV.  "
+              "See postprocess/homogenize.py DEFAULT_CRIT.")
 
     sets2 = dict(sets)
     sets2["SURF_PROBE"] = [nodes[0][0], nodes[-1][0]]
