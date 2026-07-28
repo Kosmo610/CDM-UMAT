@@ -768,10 +768,15 @@ def load_literature():
                 header = parts
                 continue
             rows.append(dict(zip(header, parts)))
-    anchors = {}
+    anchors = {"modulus": []}
     for r in rows:
         if r.get("confidence") == "secondary":
             continue
+        # PRIMARY target: 2D C/SiC residual MODULUS vs cycles (same material and
+        # same observable as the macro model).  Everything else is secondary.
+        if (r.get("source_key") == "ZHANG2013"
+                and r.get("property") == "tensile_modulus" and r.get("ratio")):
+            anchors["modulus"].append((int(r["cycles"]), float(r["ratio"])))
         if r.get("property") == "flexural_strength" and r.get("ratio"):
             anchors["ratio"] = float(r["ratio"])
             anchors["ratio_N"] = int(r["cycles"])
@@ -779,6 +784,7 @@ def load_literature():
         if r.get("property") == "critical_cycles":
             anchors["Ncrit"] = int(r["cycles"])
             anchors["Ncrit_src"] = r["source_key"]
+    anchors["modulus"].sort()
     return anchors, rows
 
 
@@ -796,96 +802,108 @@ def _split_csv(line):
     return out
 
 
+def modulus_curve(P, tt, checkpoints):
+    """Residual in-plane modulus ratio E1(N)/E1(0) = 1 - d1 at each checkpoint."""
+    sv = new_sv()
+    done = 0
+    out = []
+    for N in checkpoints:
+        if N > done:
+            sv, _ = thermal_cycle(P, tt, N - done, EPS_HOT, EPS_COLD,
+                                  rate=1.0, dtime_cycle=1.0, sv=sv,
+                                  record=False)
+            done = N
+        out.append(1.0 - sv[8])
+    return out
+
+
 def calibrate_to_literature():
-    """Two-anchor calibration of the cycle-damage law against published data.
+    """Calibrate the cycle-damage law against the 2D C/SiC modulus data.
 
-    YIN2002 (Carbon 40 (2002) 905-910) reports for 3-D C/SiC air-quenched 1300->300 C:
-      (a) 83 % of the original flexural strength is retained after 100 cycles,
-      (b) the critical cycle number is ~50, beyond which the strength does NOT
-          decrease further because the crack density SATURATES.
+    PRIMARY TARGET CHANGED (2026-07).  The earlier two-anchor fit used YIN2002,
+    which is 3-D C/SiC air-quenched 1300->300 C and SATURATES after ~50 cycles.
+    ZHANG2013 (refs/[03]) is the better target for this thesis: 2-D C/SiC, CVI,
+    T-300 plain weave -- the same material -- and it reports the residual
+    MODULUS, which is what the macro model predicts.  Its behaviour is the
+    opposite of YIN2002:
 
-    (b) fixes the SHAPE of the law: saturation means the exponent k must be
-    NEGATIVE, so (1-d_cyc)^(-k) decays and d_cyc approaches DCYMAX
-    asymptotically.  k > 0 would give runaway, which is the wrong physics for
-    air quenching (it is the right physics for oxidation-driven degradation).
+        N      0     20     40     60
+        E/E0  1.00  0.821  0.755  0.474      <- accelerating, no plateau
+        mass   0    -0.5%  -3.3%  -9.8%      <- oxidation, accelerating
 
-    Then the two anchors fix the two free constants:
-      DCYMAX <- the 83 % plateau            (anchor a)
-      C      <- 95 % of the drop reached by N = 50   (anchor b)
-    n and RTH are held at physically motivated values and are NOT fitted here.
+    The paper attributes the mass loss to oxidation of the carbon fibres and
+    PyC interphase and notes it tracks the strength loss.  So the SIGN of the
+    cycle-damage exponent is not a free choice, it is set by which mechanism
+    dominates:
 
-    This is a SINGLE-POINT calibration and gives starting values only.  The
-    real calibration runs on the structural model, where the strain history
-    comes from the transient heat-transfer analysis rather than from an
-    assumed strain amplitude.
+        k < 0  saturating   crack-density saturation   YIN2002, 3-D, no mass loss
+        k > 0  accelerating oxidation ingress          ZHANG2013, 2-D, -9.8 % mass
+
+    Both regimes are real and the model spans them.  The 2-D case is ours, so
+    the default flips to k > 0.
+
+    Fit procedure: ONE parameter (C) to ONE point (N=60), then the N=20 and
+    N=40 points are PREDICTIONS, not fits, and are reported as such.
     """
-    print("\nCALIBRATION  cycle-damage law vs published thermal-shock data")
+    print("\nCALIBRATION  cycle-damage law vs the 2D C/SiC modulus data")
     anchors, _ = load_literature()
-    target = anchors["ratio"]
-    Ncrit = anchors["Ncrit"]
-    print("    anchors: %.2f of strength at N=%d, critical N=%d  [%s]"
-          % (target, anchors["ratio_N"], Ncrit, anchors["ratio_src"]))
+    data = anchors["modulus"]
+    if not data:
+        print("    no ZHANG2013 modulus rows found -- skipped")
+        return None
+    Nfit, Rfit = data[-1]
+    print("    target: E/E0 = %.3f at N = %d  [ZHANG2013, 2D C/SiC]"
+          % (Rfit, Nfit))
+    print("    (YIN2002 3D saturates instead -- see the docstring; both are in"
+          "\n     data/literature/csic_thermal_shock.csv)")
 
-    NEXP, KEXP, RTH = 3.0, -1.0, 0.30
-    P0, tt = macro_card(cycon=0.0)
-    s0 = residual_strength(P0, tt, new_sv())
-
-    # ---- anchor (a): DCYMAX from the saturated plateau -------------------
-    def plateau_ratio(dcymax):
-        # One cycle first, so the plateau anchor includes the first-cycle
-        # MONOTONIC damage as well as the saturated cycle damage -- otherwise
-        # the fitted plateau would sit above the model's real asymptote.
-        P, t2 = macro_card(cycon=1.0, C=0.0, n=NEXP, k=KEXP, rth=RTH,
-                           dcymax=dcymax)
-        sv, _ = thermal_cycle(P, t2, 1, EPS_HOT, EPS_COLD, rate=1.0,
-                              dtime_cycle=1.0, record=False)
-        sv[16] = dcymax
-        return residual_strength(P, t2, sv) / s0
-
-    lo, hi = 1.0e-4, 0.90
-    for _ in range(40):
-        mid = 0.5 * (lo + hi)
-        if plateau_ratio(mid) > target:
-            lo = mid
-        else:
-            hi = mid
-    DCYMAX = 0.5 * (lo + hi)
-    r_sat = plateau_ratio(DCYMAX)
-
-    # ---- anchor (b): C from "95 % of the drop reached by N = Ncrit" ------
-    drop = 1.0 - target
-    target_at_Ncrit = 1.0 - 0.95 * drop
+    NEXP, KEXP, RTH = 3.0, 1.0, 0.30      # k > 0: oxidation-driven acceleration
 
     def ratio_at(C, N):
         P, t2 = macro_card(cycon=1.0, C=C, n=NEXP, k=KEXP, rth=RTH,
-                           dcymax=DCYMAX)
+                           dcymax=0.95)
         sv, _ = thermal_cycle(P, t2, N, EPS_HOT, EPS_COLD, rate=1.0,
                               dtime_cycle=1.0, record=False)
-        return residual_strength(P, t2, sv) / s0
+        return 1.0 - sv[8]
 
-    lo, hi = 1.0e-5, 1.0
-    if ratio_at(hi, Ncrit) > target_at_Ncrit:
-        print("    WARNING: anchor (b) not reachable in the bracket.")
+    lo, hi = 1.0e-5, 5.0
+    if ratio_at(hi, Nfit) > Rfit:
+        print("    WARNING: target not reachable in the bracket; using its end.")
         C = hi
     else:
-        for _ in range(28):
+        for _ in range(30):
             mid = math.sqrt(lo * hi)
-            if ratio_at(mid, Ncrit) > target_at_Ncrit:
+            if ratio_at(mid, Nfit) > Rfit:
                 lo = mid
             else:
                 hi = mid
         C = math.sqrt(lo * hi)
 
-    print("    sigma_u(N=0)      = %8.2f MPa  (single-point virtual test)" % s0)
-    print("    fitted DCYMAX     = %8.4f   -> plateau ratio %.4f "
-          "(target %.2f)" % (DCYMAX, r_sat, target))
-    print("    fitted C          = %.4e" % C)
-    print("    held fixed        : n = %.1f, k = %.1f (SATURATING), RTH = %.2f"
-          % (NEXP, KEXP, RTH))
-    for N in (10, 25, Ncrit, 100):
-        print("      sigma_u(N=%3d)/sigma_u(0) = %.4f" % (N, ratio_at(C, N)))
-    return dict(C=C, n=NEXP, k=KEXP, rth=RTH, dcymax=DCYMAX, s0=s0,
-                anchors=anchors)
+    print("    fitted C     = %.4e   (n = %.1f, k = %+.1f, RTH = %.2f held)"
+          % (C, NEXP, KEXP, RTH))
+    print("    N     model   data    (only N=%d was fitted)" % Nfit)
+    for N, R in data:
+        m = ratio_at(C, N)
+        tag = "  <- fitted" if N == Nfit else ""
+        print("    %3d   %.3f   %.3f%s" % (N, m, R, tag))
+    print("    NOTE: this is a SINGLE-POINT calibration with an assumed strain")
+    print("    amplitude, so the level is indicative only.  The real fit runs on")
+    print("    the structural model where the strain history comes from the")
+    print("    transient thermal analysis.")
+    # The N=20 gap is informative rather than a failure: it says the assumed
+    # single-point amplitude puts too much damage in on the FIRST cycle.
+    m0 = ratio_at(C, 1)
+    d20 = [r for n, r in data if n == 20]
+    if d20:
+        print("    DIAGNOSTIC: model loses %.0f %% of stiffness on cycle 1 alone,"
+              % (100.0 * (1.0 - m0)))
+        print("    while the data has lost only %.0f %% by N=20.  EPS_HOT = %.2e"
+              % (100.0 * (1.0 - d20[0]), EPS_HOT))
+        print("    is therefore too severe for this material.  Useful target for")
+        print("    the structural model: the quenched-surface strain amplitude")
+        print("    should give roughly 10-15 %% first-cycle stiffness loss.")
+    return dict(C=C, n=NEXP, k=KEXP, rth=RTH, dcymax=0.95,
+                s0=None, anchors=anchors, data=data)
 
 
 # ===========================================================================
@@ -924,29 +942,25 @@ def figure_shakedown(h_off, h_on, cal):
                    fontsize=8, color="#B04A3A",
                    arrowprops=dict(arrowstyle="->", color="#B04A3A", lw=0.8))
 
-    chk = [0, 2, 5, 10, 20, 30, 40, 50, 65, 80, 100, 120]
+    chk = [0, 2, 5, 10, 20, 30, 40, 50, 60, 70]
     P_off, tt = macro_card(cycon=0.0)
     P_on, tt2 = macro_card(cycon=1.0, C=cal["C"], n=cal["n"], k=cal["k"],
                            rth=cal["rth"], dcymax=cal["dcymax"])
-    r_off = strength_curve(P_off, tt, chk, cal["s0"])
-    r_on = strength_curve(P_on, tt2, chk, cal["s0"])
+    r_off = modulus_curve(P_off, tt, chk)
+    r_on = modulus_curve(P_on, tt2, chk)
 
     ax[1].plot(chk, r_off, "o-", ms=3.5, color="#B04A3A",
                label="CYCON=0 (shakes down)")
     ax[1].plot(chk, r_on, "s-", ms=3.5, color="#2E6E8E",
-               label="CYCON=1, calibrated (k<0, saturating)")
-    a = cal["anchors"]
-    ax[1].plot([a["ratio_N"]], [a["ratio"]], "k*", ms=14, zorder=5,
-               label="%s: %.2f at N=%d" % (a["ratio_src"], a["ratio"],
-                                           a["ratio_N"]))
-    ax[1].axvline(a["Ncrit"], color="0.5", ls="--", lw=1.0)
-    ax[1].text(a["Ncrit"] + 2, 0.995, "critical N = %d\n(crack density\n"
-               "saturates)" % a["Ncrit"], fontsize=7.5, color="0.35",
-               va="top")
+               label="CYCON=1, calibrated (k>0, oxidation)")
+    dN = [d[0] for d in cal["data"]]
+    dR = [d[1] for d in cal["data"]]
+    ax[1].plot(dN, dR, "k*", ms=13, ls="none", zorder=5,
+               label="ZHANG2013 2D C/SiC (refs/[03])")
     ax[1].set_xlabel("thermal cycle N")
-    ax[1].set_ylabel(r"residual strength $\sigma_u(N)/\sigma_u(0)$")
-    ax[1].set_title("(b) Calibration against published data")
-    ax[1].set_ylim(0.78, 1.01)
+    ax[1].set_ylabel(r"residual modulus $\bar{E}_1(N)/\bar{E}_1(0)$")
+    ax[1].set_title("(b) Calibration against 2D C/SiC data")
+    ax[1].set_ylim(0.0, 1.05)
     ax[1].legend(fontsize=7.5, loc="lower left")
     ax[1].grid(alpha=0.3)
 
