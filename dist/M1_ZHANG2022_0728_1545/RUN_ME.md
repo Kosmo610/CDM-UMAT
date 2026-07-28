@@ -1,6 +1,6 @@
 # M1 — Zhang 2022 재현 해석 (실행 안내)
 
-**패키지 생성: 2026-07-28 15:19 KST**
+**패키지 생성: 2026-07-28 KST** · **대상 워크스테이션: 32코어 / 256 GB**
 
 이 3개 해석이 **논문 전체의 병목**입니다. 여기서 나온 보정 결과 없이 거시 해석을 쌓으면
 잘못된 물성 위에 논문을 짓게 됩니다.
@@ -33,23 +33,33 @@ RT23 / T500 / T1000은 **서로의 결과를 쓰지 않습니다.** 순차로 �
 
 **1번 창**
 ```
-abaqus job=Job-RT23 input=abaqus/ZHANG2022_RT23_V2_0.inp user=src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for double interactive
+abaqus job=Job-RT23 input=abaqus/ZHANG2022_RT23_V2_0.inp user=src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for double interactive cpus=10 memory="70gb"
 ```
 
 **2번 창**
 ```
-abaqus job=Job-T500 input=abaqus/ZHANG2022_T500_V2_0.inp user=src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for double interactive
+abaqus job=Job-T500 input=abaqus/ZHANG2022_T500_V2_0.inp user=src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for double interactive cpus=10 memory="70gb"
 ```
 
 **3번 창**
 ```
-abaqus job=Job-T1000 input=abaqus/ZHANG2022_T1000_V2_0.inp user=src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for double interactive
+abaqus job=Job-T1000 input=abaqus/ZHANG2022_T1000_V2_0.inp user=src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for double interactive cpus=10 memory="70gb"
 ```
 
+### 왜 `cpus=10`, `memory="70gb"` 인가
+
+- **32코어를 한 잡에 몰아주면 손해입니다.** Abaqus/Standard(음해법)는 코어 수에
+  선형으로 빨라지지 않고 8코어를 넘으면 효율이 뚝 떨어집니다. 반면 **독립 잡을
+  동시에 돌리면 처리량은 거의 선형**입니다. 3 x 10 = 30코어, OS 여유 2코어.
+- **`memory`를 반드시 지정하세요.** Abaqus 기본값은 물리 메모리의 90 %입니다.
+  지정하지 않고 3개를 띄우면 세 잡이 서로 256 GB를 요구하다가 **스와핑으로
+  오히려 느려집니다.** 3 x 70 = 210 GB, 나머지는 OS와 파일 캐시용입니다.
 - `double`은 **필수**입니다 (단정밀도로 돌리면 손상 적분이 깨집니다).
-- `interactive`는 진행 상황을 창에서 보기 위한 것입니다. 빼면 백그라운드로 돕니다.
-- CPU가 넉넉하면 각 명령에 `cpus=4` 를 붙이세요. 3개를 동시에 돌리므로
-  **총 코어 수를 넘지 않게** 나누세요 (예: 12코어면 각 `cpus=4`).
+- `interactive`는 진행 확인용입니다. 빼면 백그라운드로 돕니다.
+- 스크래치가 SSD면 `scratch=D:\abq_scratch` 같이 추가하면 더 빨라집니다.
+- **라이선스 토큰이 모자라다는 에러가 나면** `cpus`를 8이나 6으로 낮추세요.
+  잡 개수를 줄이지 마세요 — 동시 실행이 더 중요합니다.
+  (토큰은 `int(5 x cpus^0.422)`, 10코어 ≈ 13토큰)
 
 ---
 
