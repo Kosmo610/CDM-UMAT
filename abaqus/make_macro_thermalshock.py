@@ -52,7 +52,8 @@ TRS cases (docs/THESIS_PLAN.md issue 5)
 Usage
   python3 make_macro_thermalshock.py --card RVE_macro_card.inp \\
         --expansion RVE_macro_expansion.inp --thermal RVE_thermal.inp
-  python3 make_macro_thermalshock.py --validation-zhang2013     # 900<->300 C
+  python3 make_macro_thermalshock.py --specimen ZHANG2013        # validation run
+  python3 make_macro_thermalshock.py --sev L M H                 # Biot sweep
   python3 make_macro_thermalshock.py --list-checks              # what to run first
 """
 from __future__ import print_function
@@ -66,12 +67,54 @@ STRESS_FREE_C = 1050.0
 PROBE_STRAIN = 1.0e-6          # elastic probe: far below any damage threshold
 FAIL_STRAIN = 0.010            # residual-strength continuation target
 
-#: severity levels: (label, T_hot C, T_cold C, film coefficient W/(mm^2.K))
-#: h is the knob that sets the Biot number, i.e. how sharp the quench is.
+#: Severity levels, chosen to SWEEP THE BIOT NUMBER rather than to be
+#: round numbers.  h comes from abaqus/quench_calibration.py, which solves
+#: the 1-D transient for the film coefficient that reproduces each paper's
+#: own stated cooling time.  Run that script before changing anything here.
+#:
+#: The point of the ladder: at Bi = 0.05 -- which is where refs/[03]
+#: actually sits -- the through-thickness gradient is only 3-15 % of the
+#: temperature drop, so the uniform-field assumption of refs/[17] is very
+#: nearly right.  By Bi = 5 the gradient is essentially the whole drop and
+#: that assumption cannot survive.  Bracketing the crossover is the
+#: contribution; asserting that gradients matter is not.
+#:
+#: h in W/(mm^2.K) = the SI value / 1e6.
 SEVERITIES = {
-    "L": dict(T_hi=900.0, T_lo=300.0, h=2.0e-4, note="mild, air"),
-    "M": dict(T_hi=900.0, T_lo=300.0, h=2.0e-3, note="ZHANG2013 reference"),
-    "H": dict(T_hi=1000.0, T_lo=23.0, h=2.0e-2, note="severe, water-like"),
+    "L": dict(T_hi=900.0, T_lo=300.0, h=2.10e-4, bi=0.05,
+              note="Bi~0.05: the refs/[03] validation point, near-uniform"),
+    "M": dict(T_hi=900.0, T_lo=300.0, h=4.19e-3, bi=1.0,
+              note="Bi~1: the crossover, gradient ~45 % of the drop"),
+    "H": dict(T_hi=900.0, T_lo=300.0, h=2.10e-2, bi=5.0,
+              note="Bi~5: gradient dominated"),
+    # The two published tests, at their OWN calibrated film coefficients.
+    # These are the validation runs; the ladder above is the parameter study.
+    "Z": dict(T_hi=900.0, T_lo=300.0, h=1.99e-4, bi=0.0475,
+              note="refs/[03] Zhang 2013 as tested: 900->300 C in 15 s on "
+                   "an iron plate, 3 mm thick"),
+    "Y": dict(T_hi=1300.0, T_lo=300.0, h=8.70e-5, bi=0.028,
+              note="refs/[02] Yin 2002 as tested: 1300->300 C, 60 s in "
+                   "air, 4 mm thick -- much gentler than refs/[03]"),
+}
+
+#: Specimen geometries taken from the papers, not invented.
+#: (Lx, Ly, Lz) mm with Lz the THROUGH-THICKNESS direction that is quenched.
+SPECIMENS = {
+    "ZHANG2013": dict(
+        dims=(12.5, 6.0, 3.0), mesh=(10, 6, 12), sev="Z",
+        checkpoints=(20, 40, 60),
+        note="refs/[03] Fig. 1: 122 mm overall, 17.5 mm grip, R50 shoulders, "
+             "6 mm gauge width, 3 mm thick.  Modelled as the GAUGE SECTION "
+             "only (12.5 x 6 x 3): that is where the tensile test measures "
+             "and where failure occurs, and the thermal problem is "
+             "through-thickness so the shoulders do not change it."),
+    "YIN2002": dict(
+        dims=(20.0, 6.0, 4.0), mesh=(12, 6, 14), sev="Y",
+        checkpoints=(20, 50, 100),
+        note="refs/[02]: 4 x 6 x 140 mm bar, 3-point bend over a 20 mm "
+             "span.  Modelled as the SPAN (20 x 6 x 4).  N.B. the residual "
+             "property is FLEXURAL strength, so the post-quench probe has "
+             "to be a bend, not a tension -- not yet implemented."),
 }
 
 TRS_CASES = ("A", "B", "C")
@@ -615,8 +658,12 @@ def main():
     ap.add_argument("--dims", type=float, nargs=3, default=[40.0, 10.0, 3.0],
                     help="Lx Ly Lz in mm")
     ap.add_argument("--mesh", type=int, nargs=3, default=[20, 6, 12])
+    ap.add_argument("--specimen", choices=sorted(SPECIMENS),
+                    help="use a PUBLISHED specimen: sets the dimensions, "
+                         "mesh, calibrated film coefficient and checkpoint "
+                         "cycles all at once (see quench_calibration.py)")
     ap.add_argument("--validation-zhang2013", action="store_true",
-                    help="preset for refs/[03]: 900<->300 C, N up to 60")
+                    help="deprecated alias for --specimen ZHANG2013")
     ap.add_argument("--list-checks", action="store_true")
     ap.add_argument("--selftest", action="store_true",
                     help="check that check_macro_card() accepts good cards "
@@ -629,9 +676,21 @@ def main():
     if args.selftest:
         return selftest()
 
-    if args.validation_zhang2013:
-        args.sev = ["M"]
-        args.checkpoints = [5, 10, 20, 40, 60]
+    if args.validation_zhang2013 and not args.specimen:
+        print("  note: --validation-zhang2013 is now --specimen ZHANG2013")
+        args.specimen = "ZHANG2013"
+    if args.specimen:
+        sp = SPECIMENS[args.specimen]
+        args.dims = list(sp["dims"])
+        args.mesh = list(sp["mesh"])
+        args.sev = [sp["sev"]]
+        args.checkpoints = list(sp["checkpoints"])
+        print("specimen %s: %.4g x %.4g x %.4g mm, severity %s (Bi = %.4g)"
+              % (args.specimen, args.dims[0], args.dims[1], args.dims[2],
+                 sp["sev"], SEVERITIES[sp["sev"]]["bi"]))
+        for line in sp["note"].split(".  "):
+            if line.strip():
+                print("  %s" % line.strip().rstrip(".") + ".")
 
     Lx, Ly, Lz = args.dims
     nx, ny, nz = args.mesh
