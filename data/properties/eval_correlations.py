@@ -128,6 +128,52 @@ def fibre_strain(T_K, coeffs):
     return sum(c * T_K ** i for i, c in enumerate(coeffs)) / 100.0
 
 
+# THERMAL: Pradere, Batsale, Goyheneche, Pailler, Dilhaire, Carbon 47 (2009)
+#          737-743.  refs/[09].  PANEX 33, "as received" (HTT 1600 K).
+#
+# Table 1 gives, measured directly:  rho = 1.75 g/cm3 (helium pycnometer),
+#                                    k_longitudinal = 75 W/(m.K) AT 1500 K.
+# Fig. 5a gives Cp(T) and Fig. 5b the longitudinal thermal diffusivity, both
+# digitised below from the rendered figure.
+#
+# THREE LIMITATIONS, all of which matter for the quench analysis:
+#  (1) MEASURED RANGE IS 800-2000 K.  Our analysis starts at 296 K.  Below
+#      800 K the values here are NOT measurements.  The paper states that the
+#      fibre specific heat is "quite close" to bulk graphite, so bulk graphite
+#      is used as the low-temperature anchor and the rows are flagged.
+#  (2) TRANSVERSE CONDUCTIVITY IS NOT MEASURED.  Only the longitudinal
+#      diffusivity is.  k2 is therefore left EMPTY rather than invented -- see
+#      the note in fibre_T300_vsT.csv for the inverse-calibration route.
+#  (3) k_long ~ 60-75 W/(m.K) is far above the ~8-10 W/(m.K) usually quoted for
+#      standard-modulus PAN fibre at room temperature.  Single-filament
+#      measurement in a dedicated rig, and the paper reports conductivity
+#      RISING with temperature for raw PAN fibre.  Treat as a sensitivity
+#      parameter, not a settled value.
+#
+# Cp of PANEX 33 raw, digitised from Fig. 5a (J/(kg.K)):
+P33_CP_T = [300.0, 800.0, 1000.0, 1200.0, 1400.0, 1500.0]
+P33_CP = [710.0, 1480.0, 2100.0, 2230.0, 2290.0, 2360.0]
+#         ^ 300 K entry is BULK GRAPHITE, not a fibre measurement (see (1))
+P33_RHO = 1.75e-9            # tonne/mm^3, Table 1
+P33_K_AT_1500K = 75.0        # W/(m.K), Table 1
+
+
+def fibre_cp(T_K):
+    """Specific heat, J/(kg.K).  Below 800 K this is bulk graphite."""
+    return interp(T_K, P33_CP_T, P33_CP)
+
+
+def fibre_k_long(T_K):
+    """Longitudinal conductivity, W/(m.K).
+
+    Fig. 5b shows the diffusivity of raw P33 flat within its scatter over
+    860-1370 K (15-19e-6 m^2/s), so with k = a.rho.Cp the temperature
+    dependence is carried by Cp.  Anchored on the one directly tabulated
+    value, 75 W/(m.K) at 1500 K.
+    """
+    return P33_K_AT_1500K * fibre_cp(T_K) / fibre_cp(1500.0)
+
+
 # Mechanical: Sauder, Lamon, Pailler, Compos. Sci. Technol. 62 (2002) 499-504,
 #             Table 1, PAN-based fibre.  refs/[08].
 #             E/E0 in %, sigma_R in MPa.  Used as RATIOS.
@@ -199,9 +245,13 @@ def fibre_row(T_C, trans=PANEX33_TRANS, long_=PANEX33_LONG, anchor=True):
     if anchor:
         a1 += Z_AF1 - secant_alpha(23.0, lambda t: fibre_strain(t, long_))
         a2 += Z_AF2 - secant_alpha(23.0, lambda t: fibre_strain(t, trans))
+    T = T_C + K
     return dict(T_C=T_C, E1=Z_EF1 * fE, E2=Z_EF2, G12=Z_GF12, G23=Z_GF23,
                 nu12=Z_NUF12, alpha1=a1, alpha2=a2,
-                Xt=Z_XFT * fX, Xc=Z_XFC * fX)
+                Xt=Z_XFT * fX, Xc=Z_XFC * fX,
+                k1=fibre_k_long(T) / 1000.0,      # W/(m.K) -> W/(mm.K)
+                cp=fibre_cp(T) * 1.0e6,           # J/(kg.K) -> mJ/(tonne.K)
+                rho=P33_RHO)
 
 
 #: Zhang 2022 Table 2 matrix CTE
@@ -255,6 +305,10 @@ def checks():
     ck("PANEX33 transverse strain(300 K) = 0",
        fibre_strain(300.0, PANEX33_TRANS), 0.0, 3.0e-4)
     # Paper abstract: mean transverse CTE 5e-6 to 10e-6 /K.
+    ck("PANEX33 k_long(1500 K) = 75 W/(m.K) (Table 1)",
+       fibre_k_long(1500.0), 75.0, 0.01, "W/(m.K)")
+    ck("PANEX33 Cp(1000 K) ~ 2100 J/(kg.K) (Fig. 5a)",
+       fibre_cp(1000.0), 2100.0, 1.0, "J/(kg.K)")
     at = (fibre_strain(1200.0, PANEX33_TRANS) / (1200.0 - 300.0)) * 1e6
     ck("PANEX33 mean transverse CTE in 5-10e-6/K band (abstract)",
        max(5.0, min(10.0, at)), at, 1.0e-9, "1e-6/K")
@@ -292,10 +346,12 @@ def main():
           % STRESS_FREE_C)
     for T in args.temps:
         r = fibre_row(T, anchor=not args.no_anchor)
-        print("%g,%.1f,%.1f,%.1f,%.1f,%.2f,%.6e,%.6e,%.1f,%.1f,,,,,"
-              "secant,%g,literature,\"see eval_correlations.py\""
+        print("%g,%.1f,%.1f,%.1f,%.1f,%.2f,%.6e,%.6e,%.1f,%.1f,"
+              "%.6e,,%.6e,%.6e,secant,%g,literature,"
+              "\"see eval_correlations.py\""
               % (r["T_C"], r["E1"], r["E2"], r["G12"], r["G23"], r["nu12"],
-                 r["alpha1"], r["alpha2"], r["Xt"], r["Xc"], STRESS_FREE_C))
+                 r["alpha1"], r["alpha2"], r["Xt"], r["Xc"],
+                 r["k1"], r["cp"], r["rho"], STRESS_FREE_C))
     print()
     print("# matrix_SiC_vsT.csv rows")
     for T in args.temps:

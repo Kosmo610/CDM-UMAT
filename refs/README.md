@@ -47,7 +47,7 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 | 06 | `[06] 1st SiC 매트릭스 열물성.pdf` | **Snead, Nozawa, Katoh, Byun, Kondo, Petti**, *Handbook of SiC properties for fuel performance modeling*, **J. Nucl. Mater. 371 (2007) 329–377** | Eq.10 `Cp(T)`, Eq.12 `k(T)`, Eq.16 `α(T)`, Eq.18 `E(T)`, ρ=3.21 g/cm³ | ✅ 코드화 + 검산 |
 | 07 | `[07] 1st T300 탄소섬유 열팽창 물성.pdf` | **Pradère & Sauder**, *Transverse and longitudinal CTE of carbon fibers at high temperatures (300–2500 K)*, **Carbon 46 (2008) 1874–1884** | Table 3/4 열변형률 다항식 (PANEX 33) | ✅ 코드화 + 검산 |
 | 08 | `[08] 1st T300 탄소섬유 고온 역학 물성.pdf` | **Sauder, Lamon, Pailler**, *Thermomechanical properties of carbon fibres at high temperatures (up to 2000 °C)*, **Compos. Sci. Technol. 62 (2002) 499–504** | Table 1: `E/E₀(T)`, `σ_R(T)` (PAN계) | ✅ 코드화 |
-| 09 | `[09] 1st T300 탄소섬유 열전도비열 물성.pdf` | **Pradère, Batsale, Goyhénèche, Pailler, Dilhaire**, *Thermal properties of carbon fibers at very high temperature*, **Carbon 47 (2009) 737–743** | `Cp(T)`, `k(T)` (PANEX 33: E=230 GPa, ρ=1.75 g/cm³, k=75 W/m·K @1500 K) | ⚠️ **미추출** — 다음 할 일 |
+| 09 | `[09] 1st T300 탄소섬유 열전도비열 물성.pdf` | **Pradère, Batsale, Goyhénèche, Pailler, Dilhaire**, *Thermal properties of carbon fibers at very high temperature*, **Carbon 47 (2009) 737–743** | Table 1: ρ=1.75 g/cm³, k∥=75 W/(m·K) @1500 K · Fig. 5a `Cp(T)` · Fig. 5b 확산도 | ✅ 코드화 + 검산 2종. **단 측정범위 800–2000 K, 횡방향 k 미측정** (아래 §2-7,8) |
 
 ### 검증 데이터 (복합재 → 모델 출력과 대조, **입력 금지**)
 
@@ -74,7 +74,27 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 > 또한 CSV의 인용키 `SUN2002`는 **잘못**입니다. 저자는 Yin, Cheng, Zhang, Xu이므로
 > `YIN2002`로 정정했습니다.
 
-### 노벨티 포지셔닝 (수치 추출 아님, 논문 §2 문헌고찰용)
+### ★ 2차 입고분 `[15]`–`[35]` — 노벨티 재점검 결과는 **[`../docs/NOVELTY.md`](../docs/NOVELTY.md)**
+
+핵심 4편만 여기 적고, 전체 분석과 권고는 `docs/NOVELTY.md`에 있습니다.
+
+| # | 서지 | 왜 핵심인가 |
+|---|---|---|
+| **17** | **P. Zhang, Zhu, Tong 외**, *Revealing thermal shock behaviors and damage mechanism of 3D needled C/C–SiC composites based on multi-scale analysis*, **JMRT 29 (2024) 2016–2034** | ⚠️ **가장 위험한 선행연구.** 다중스케일+반복 열충격을 이미 함. 단 (a) **균일 온도장**으로 단순화 명시, (b) **온도무관 물성** 가정, (c) TRS 처리 1가지 → **이 셋이 우리 자리** |
+| **15** | **S. Zhang, D. Zhang, J. Zhou 외**, *Quantification of thermal residual stresses and their effects on the mechanical behavior of 3D C/SiC composites*, **Compos. A 207 (2026) 109796** | ★ **XRD 실측 TRS**: 매트릭스 +114.7/+40.3 MPa, 얀 −68.7/−23.9 MPa. "TRS는 매트릭스 균열이 생겨야 강성에 영향" + **인장/압축 비대칭** → 새 노벨티 C3의 근거 |
+| **30** | **Q. Zhang, J. Ge, Liang 외**, *…2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. B 313 (2026) 113395** | **우리 기반 논문과 같은 그룹의 2026 후속작.** 단 **진폭 증가** 기계 반복이라 shakedown이 안 생김 → 우리 문제와 다름을 명시할 근거 |
+| **20**=**21** | **Z. Yang, J. Wang, R. Yang, J. Jiao**, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **IJSS 300 (2024) 112927** | 급랭 문제에 가장 가까움. 단 **ERR 기반 균열 개시**(누적손상 아님) + 라미네이트 1D |
+
+**파손기준 세트** (`[27]`,`[32]`,`[33]`,`[34]`,`[35]`,`[28]`) — D-criterion 계열.
+`[33]` Yang, Jiao, Guo, *TAML* 4 (2014) 021007이 원전. `[35]` Yan 외, *Mater. Des.* 32 (2011)
+3504는 **고온 면내 전단 파손** 데이터로 온도의존 파손포락선 검증에 쓸 수 있습니다.
+
+**나머지** (`[16]`,`[18]`,`[19]`,`[22]`,`[23]`,`[24]`,`[25]`,`[26]`,`[29]`,`[31]`) —
+용도별 정리는 `docs/NOVELTY.md` §5. 참고로 `[24]`는 **Ge 2018**, 우리 UMAT의 원 모델입니다.
+
+---
+
+### 노벨티 포지셔닝 (1차 입고분)
 
 | # | 파일 | 서지 | 우리와의 차이 |
 |---|---|---|---|
@@ -107,9 +127,25 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 6. **Snead Eq.12 열전도율은 단결정 상한**(상온 293 W/m·K)입니다. 다공질 PIP 매트릭스는
    훨씬 낮습니다. 상한/민감도 끝점으로만 쓰고, 실제 k̄는 RVE 균질화나 [12]/[13]에서 얻으세요.
 
+7. **섬유 횡방향 열전도율은 아무도 측정하지 않았습니다.** Pradère 2009는 **종방향
+   확산도만** 측정합니다. 그런데 2D 직물의 **두께방향 k̄**(급랭 해석이 가장 민감한 값)는
+   횡방향 섬유 k와 매트릭스 k가 지배합니다. 지어내지 않고 CSV에 **비워 두었고**,
+   대안으로 **역보정**(RVE가 `[12]`/`[13]`의 실측 복합재 k̄를 재현하도록 k2를 맞춤)을
+   기록해 두었습니다. 이 경우 복합재 k̄ 하나가 **검증이 아니라 입력**이 되므로 논문에
+   반드시 명시해야 합니다.
+8. **섬유 k∥ ≈ 60–75 W/(m·K)** 는 표준탄성률 PAN 섬유의 통상값(상온 8–10)보다 훨씬 큽니다.
+   단섬유 전용 장치 측정이고, 논문은 raw PAN 섬유의 k가 온도에 따라 **증가**한다고 보고합니다.
+   민감도 파라미터로 다루세요.
+9. **저온 구간은 측정이 아닙니다.** 800 K 미만의 `cp`, `k1`은 "섬유 비열이 벌크 흑연에
+   가깝다"는 논문 자체의 서술을 근거로 벌크 흑연으로 앵커한 값입니다. 23 °C 행이
+   테이블에서 **가장 약한 열데이터**입니다.
+
 ## 3. 남은 일
 
-1. **[09] Pradère 2009 추출** — 섬유 `k1`, `k2`, `cp`, `rho`. 급랭 해석에 필요한 마지막 조각.
-2. **[03] zhang2012 디지타이즈** — 잔여 탄성계수 vs 사이클 수 곡선 → `data/literature/`
-3. **SiC 강도 vs 온도 출처 확보** — 현재 `fX`, `fY`, `fS` 매트릭스 계열이 전부 1.0 고정
-4. **[05b] skinner2021 정독** — 노벨티 진술 재점검
+1. **`[03]` zhang2012 디지타이즈** — 잔여 탄성계수 vs 사이클 수 곡선 → `data/literature/`
+   (우리 거시 모델의 주 출력과 직접 대응, **최우선**)
+2. **`[15]`의 XRD 검증 TRS 수치와 우리 RVE 냉각 결과 대조** — M1 직후 가능한 강력한 검증점
+3. **`[35]` 고온 전단 파손 데이터** → `data/literature/` (파손기준 온도의존 검증)
+4. **섬유 횡방향 k** 출처 확보 또는 역보정 결정
+5. **SiC 강도 vs 온도 출처** — 현재 `fX`, `fY`, `fS` 매트릭스 계열이 전부 1.0 고정
+6. **`[05b]` skinner2021 정독** — `docs/NOVELTY.md`에 아직 미반영
