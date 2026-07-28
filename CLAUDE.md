@@ -158,9 +158,10 @@ python3 data/properties/eval_correlations.py --check
 python3 abaqus/build_temperature_tables.py --selftest
 python3 abaqus/make_macro_thermalshock.py --selftest   # 거시 카드 정적 검증
 python3 data/properties/conductivity_bounds.py --check # 열전도 경계·민감도
+python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 ```
 
-**커밋 전에 위 9개를 전부 통과시킨다.**
+**커밋 전에 위 10개를 전부 통과시킨다.**
 
 ## 현재 병목
 

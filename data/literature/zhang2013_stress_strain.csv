@@ -1,0 +1,87 @@
+# 2D-C/SiC monotonic tensile stress-strain curves, digitized
+# from refs/[03] Zhang et al., J. Mater. Eng. Perform. 22
+# (2013) 1680-1687, Fig. 3, by data/literature/digitize.py.
+# Re-run that script to regenerate this file exactly.
+#
+# role = validation.  These are COMPOSITE measurements: the
+# macro CDM must PREDICT them.  Never put them on a card.
+#
+# THIS IS THE STRONGEST VALIDATION ASSET IN THE PROJECT.
+# Everything else is a handful of points; this is the whole
+# curve, for the as-received material AND after 60 thermal
+# shocks, on the same axes.  The macro model produces exactly
+# this object, so the comparison is direct: initial slope
+# (modulus), knee (matrix cracking), peak (strength) and the
+# shape in between all have to line up, not just one number.
+#
+# Quench: 900 -> 300 C in air.  strain in %, stress in MPa.
+curve,cycles,strain_pct,stress_MPa
+as_received,0,0.0000,3.92
+as_received,0,0.0100,15.39
+as_received,0,0.0200,28.64
+as_received,0,0.0300,40.99
+as_received,0,0.0400,52.76
+as_received,0,0.0500,63.65
+as_received,0,0.0600,74.24
+as_received,0,0.0700,84.25
+as_received,0,0.0800,93.66
+as_received,0,0.0900,102.79
+as_received,0,0.1000,112.20
+as_received,0,0.1100,120.74
+as_received,0,0.1200,129.27
+as_received,0,0.1300,137.51
+as_received,0,0.1400,146.34
+as_received,0,0.1500,154.28
+as_received,0,0.1600,162.22
+as_received,0,0.1700,169.88
+as_received,0,0.1800,177.23
+as_received,0,0.1900,184.59
+as_received,0,0.2000,191.94
+as_received,0,0.2100,199.01
+as_received,0,0.2200,205.48
+as_received,0,0.2300,211.95
+as_received,0,0.2400,218.43
+as_received,0,0.2500,224.31
+as_received,0,0.2600,230.20
+as_received,0,0.2700,235.79
+as_received,0,0.2800,241.08
+as_received,0,0.2900,245.79
+as_received,0,0.3000,250.79
+as_received,0,0.3100,255.21
+as_received,0,0.3200,259.33
+shocked_60,60,0.0000,2.45
+shocked_60,60,0.0100,8.33
+shocked_60,60,0.0200,16.57
+shocked_60,60,0.0300,23.93
+shocked_60,60,0.0400,30.99
+shocked_60,60,0.0500,38.05
+shocked_60,60,0.0600,44.53
+shocked_60,60,0.0700,50.41
+shocked_60,60,0.0800,56.30
+shocked_60,60,0.0900,62.18
+shocked_60,60,0.1000,67.48
+shocked_60,60,0.1100,72.77
+shocked_60,60,0.1200,77.78
+shocked_60,60,0.1300,82.78
+shocked_60,60,0.1400,87.78
+shocked_60,60,0.1500,92.49
+shocked_60,60,0.1600,96.61
+shocked_60,60,0.1700,100.73
+shocked_60,60,0.1800,105.43
+shocked_60,60,0.1900,109.55
+shocked_60,60,0.2000,113.38
+shocked_60,60,0.2100,117.20
+shocked_60,60,0.2200,121.32
+shocked_60,60,0.2300,125.15
+shocked_60,60,0.2400,128.97
+shocked_60,60,0.2500,132.51
+shocked_60,60,0.2600,136.04
+shocked_60,60,0.2700,139.27
+shocked_60,60,0.2800,142.22
+shocked_60,60,0.2900,145.16
+shocked_60,60,0.3000,148.10
+shocked_60,60,0.3100,150.45
+shocked_60,60,0.3200,152.22
+shocked_60,60,0.3300,153.69
+shocked_60,60,0.3400,154.87
+shocked_60,60,0.3500,141.04
