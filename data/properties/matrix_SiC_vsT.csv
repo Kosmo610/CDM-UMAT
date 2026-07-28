@@ -1,0 +1,22 @@
+# SiC matrix properties vs temperature -- CONSTITUENT INPUT DATA.
+#
+# See data/properties/README.md.  Same two rules as the fibre file: constituent
+# data only, and cte_type/cte_ref_C must describe how the source reports CTE.
+#
+# PROCESS CAVEAT: Zhang 2022 uses a PIP matrix (1050 C pyrolysis), while most
+# published SiC thermal-property data (Snead 2007 and the ORNL handbook) is for
+# CVD/CVI SiC, which is denser, stiffer and far more conductive.  Record which
+# process each row came from in `process` and treat the difference as a
+# sensitivity study, not as an equivalence.
+#
+# Units: E, X in MPa;  alpha in 1/K;  k in W/(mm.K);  cp in mJ/(tonne.K);
+#        rho in tonne/mm^3;  T in degC.
+# process: PIP | CVI | CVD | monolithic
+T_C,E,nu,alpha,Xt,Xc,k,cp,rho,cte_type,cte_ref_C,process,status,source
+23,350000,0.20,4.5e-6,310,310,,,,secant,23,PIP,verified,"Zhang 2022 Table 2"
+# ---------------------------------------------------------------------------
+# TODO rows -- fill from docs/PROPERTY_DATA_REQUEST.md A1.
+# Snead 2007 gives k(T), cp(T), rho, alpha(T) and E(T) correlations for SiC;
+# evaluate them at the temperatures you want and paste the values here.
+# 500,,,,,,,,,,,,placeholder,
+# 1000,,,,,,,,,,,,placeholder,

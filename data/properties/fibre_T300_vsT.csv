@@ -1,0 +1,24 @@
+# T300 carbon filament properties vs temperature -- CONSTITUENT INPUT DATA.
+#
+# Read data/properties/README.md before editing.  Two rules that matter:
+#   1. These are CONSTITUENT properties.  Composite-level C/SiC measurements
+#      must NOT be pasted here -- the model PREDICTS those, and feeding them in
+#      would double-count the thermal residual stress.
+#   2. cte_type / cte_ref_C describe how the SOURCE reports the CTE.
+#      build_temperature_tables.py converts to the secant CTE referenced to the
+#      stress-free temperature that Abaqus *Expansion needs.  Getting this wrong
+#      changes the TRS directly, which is the main variable of the thesis.
+#
+# Units: E, G, X in MPa;  alpha in 1/K;  k in W/(mm.K);  cp in mJ/(tonne.K);
+#        rho in tonne/mm^3;  T in degC.
+# cte_type: instantaneous | secant       cte_ref_C: reference T of a secant CTE
+# status:   verified | literature | placeholder    (placeholder rows are refused
+#           by build_temperature_tables.py unless --allow-placeholder is given)
+T_C,E1,E2,G12,G23,nu12,alpha1,alpha2,Xt,Xc,k1,k2,cp,rho,cte_type,cte_ref_C,status,source
+23,230000,40000,24000,14300,0.26,-0.3e-6,3.1e-6,3580,2470,,,,,secant,23,verified,"Zhang 2022 Table 1 (elastic/CTE) + Ge 2018 Table 2 (Xt,Xc)"
+# ---------------------------------------------------------------------------
+# TODO rows -- fill from the papers listed in docs/PROPERTY_DATA_REQUEST.md A2-A4.
+# Delete any row you cannot source; do NOT guess.  A two-point table (23 C and
+# one high temperature) is already enough to run, and is far better than none.
+# 500,,,,,,,,,,,,,,,,placeholder,
+# 1000,,,,,,,,,,,,,,,,placeholder,
