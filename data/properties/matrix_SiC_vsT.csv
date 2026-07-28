@@ -13,10 +13,13 @@
 #        rho in tonne/mm^3;  T in degC.
 # process: PIP | CVI | CVD | monolithic
 T_C,E,nu,alpha,Xt,Xc,k,cp,rho,cte_type,cte_ref_C,process,status,source
-23,350000,0.20,4.5e-6,310,310,,,,secant,23,PIP,verified,"Zhang 2022 Table 2"
-# ---------------------------------------------------------------------------
-# TODO rows -- fill from docs/PROPERTY_DATA_REQUEST.md A1.
-# Snead 2007 gives k(T), cp(T), rho, alpha(T) and E(T) correlations for SiC;
-# evaluate them at the temperatures you want and paste the values here.
-# 500,,,,,,,,,,,,placeholder,
-# 1000,,,,,,,,,,,,placeholder,
+23,350000,0.20,4.5e-6,310,310,,,,secant,1050,PIP,verified,"Zhang 2022 Table 2 (RT anchor)"
+500,343563.2,0.20,5.034474e-06,310.0,310.0,1.187920e-01,1.116461e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
+1000,332131.2,0.20,5.103451e-06,310.0,310.0,7.316319e-02,1.257702e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
+# E ratio: Snead 2007 Eq.18 (Wachtman).  alpha: Snead Eq.16 integrated exactly
+#          and offset onto the card value (they agree to 2.3 % anyway).
+# cp: Snead Eq.10.  rho: 3.21 g/cm3 theoretical.
+# !! k is Snead Eq.12, the SINGLE-CRYSTAL UPPER LIMIT (293 W/m.K at RT).  A PIP
+#    matrix is far lower.  Use as an upper bound / sensitivity endpoint ONLY;
+#    the composite-level kbar must come from the RVE or refs/[12],[13].
+# Xt, Xc held constant: no SiC strength-vs-temperature source yet (gap).

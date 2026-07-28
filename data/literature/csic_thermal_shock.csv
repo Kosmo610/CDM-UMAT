@@ -7,7 +7,9 @@
 # ratio  = property after N cycles / property of the as-received material
 # abs    = absolute value in MPa where the source gives one (blank otherwise)
 source_key,material,process,quench,T_hi_C,T_lo_C,dT_C,cycles,property,ratio,abs_MPa,confidence,note
-SUN2002,3D C/SiC,CVI,air quench,1300,300,1000,100,flexural_strength,0.83,,abstract,"retained 83% of original strength after 100 quenches"
-SUN2002,3D C/SiC,CVI,air quench,1300,300,1000,50,critical_cycles,,,abstract,"critical number of thermal shocks ~50; beyond this the strength does NOT decrease further because the crack density saturates"
-SUN2002,3D C/SiC,CVI,combustion,,,700,,critical_dT,,,abstract,"critical dT in a combustion environment = 700 C"
+YIN2002,3D C/SiC,CVI,air quench,1300,300,1000,100,flexural_strength,0.83,,fulltext,"retained 83% of original strength after 100 quenches (refs/[02])"
+YIN2002,3D C/SiC,CVI,air quench,1300,300,1000,50,critical_cycles,,,fulltext,"critical number of thermal shocks ~50; beyond this the strength does NOT decrease further because the crack density saturates"
+YIN2002,3D C/SiC,CVI,combustion,,,700,,critical_dT,,,fulltext,"critical dT in a combustion environment = 700 C"
 UNVERIFIED1,C/SiC,,,1000,,,12,strength_degradation,0.75,,secondary,"'strength degradation after 12 thermal shock cycles reaches up to 25.0% at 1000 C' -- seen only in a search summary; ORIGINAL NOT IDENTIFIED, do not cite until traced"
+ZHANG2013,2D C/SiC,CVI + self-healing coating,air 900->300,900,300,600,20,tensile_strength,1.00,,fulltext,"tensile strength retained within 20 thermal shock cycles (refs/[03]) -- curve NOT yet digitised"
+ZHANG2013,2D C/SiC,CVI + self-healing coating,air 900->300,900,300,600,,residual_modulus_trend,,,fulltext,"modulus decreases GRADUALLY with increasing cycles -- this is the primary output of our macro model, so digitising this curve is the top validation priority (refs/[03])"

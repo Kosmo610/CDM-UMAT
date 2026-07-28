@@ -120,10 +120,31 @@ postprocess/
   extract_ss_curve.py                거시 sigma-eps 추출 (기존)
   plot_compare.py                    Table 3 대조 (기존)
   homogenize.py                      ODB -> 거시 CDM 카드 조립
-data/literature/
-  csic_thermal_shock.csv             문헌 검증 데이터 (신뢰도 등급 표기)
-  README.md                          출처·인용 가능 여부·추가 확보 목록
+data/
+  literature/
+    csic_thermal_shock.csv           반복 열충격 검증 데이터 (신뢰도 등급 표기)
+    README.md                        출처·인용 가능 여부·추가 확보 목록
+  properties/
+    fibre_T300_vsT.csv               구성재 온도의존 물성 (섬유)
+    matrix_SiC_vsT.csv               구성재 온도의존 물성 (매트릭스)
+    eval_correlations.py             문헌 상관식 코드화 + 논문 자체 값과 검산
+    temperature_blocks.inp           생성된 UMAT 카드 블록 + *Expansion
+    README.md                        열 정의, 단위 규약, CTE 기준 변환
+refs/
+  README.md                          ★ 참고문헌 색인 + 추출 결과 + 발견 사항
+  [01]..[14] *.pdf                   원문 (위치 판단은 refs/README.md §0)
 ```
+
+## 온도의존 물성 파이프라인
+
+```bash
+python3 data/properties/eval_correlations.py --check   # 문헌 상관식 검산 8종
+python3 abaqus/build_temperature_tables.py             # -> temperature_blocks.inp
+python3 abaqus/build_temperature_tables.py --selftest  # CTE 기준 변환 검증 5종
+```
+
+구성재 CSV에 행을 추가하면 Chamis/Schapery를 각 온도에서 재계산해 얀 `f(T)` 테이블과
+`*Expansion` 블록을 자동 생성합니다. 현재 **23 / 500 / 1000 °C 3점**이 들어가 있습니다.
 
 ## 현재 상태와 다음 할 일
 

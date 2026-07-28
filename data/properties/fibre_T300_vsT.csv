@@ -15,10 +15,11 @@
 # status:   verified | literature | placeholder    (placeholder rows are refused
 #           by build_temperature_tables.py unless --allow-placeholder is given)
 T_C,E1,E2,G12,G23,nu12,alpha1,alpha2,Xt,Xc,k1,k2,cp,rho,cte_type,cte_ref_C,status,source
-23,230000,40000,24000,14300,0.26,-0.3e-6,3.1e-6,3580,2470,,,,,secant,23,verified,"Zhang 2022 Table 1 (elastic/CTE) + Ge 2018 Table 2 (Xt,Xc)"
-# ---------------------------------------------------------------------------
-# TODO rows -- fill from the papers listed in docs/PROPERTY_DATA_REQUEST.md A2-A4.
-# Delete any row you cannot source; do NOT guess.  A two-point table (23 C and
-# one high temperature) is already enough to run, and is far better than none.
-# 500,,,,,,,,,,,,,,,,placeholder,
-# 1000,,,,,,,,,,,,,,,,placeholder,
+23,230000,40000,24000,14300,0.26,-0.3e-6,3.1e-6,3580,2470,,,,,secant,1050,verified,"Zhang 2022 Table 1 + Ge 2018 Table 2 (RT anchor)"
+500,228317.4,40000.0,24000.0,14300.0,0.26,2.978873e-07,3.035128e-06,3733.3,2575.8,,,,,secant,1050,literature,"see eval_correlations.py"
+1000,226550.0,40000.0,24000.0,14300.0,0.26,6.022770e-07,2.967128e-06,3894.3,2686.9,,,,,secant,1050,literature,"see eval_correlations.py"
+# E1 ratio: Sauder 2002 Table 1 PAN fibre E/E0.  Xt,Xc ratio: same table sigma_R.
+# alpha: Pradere & Sauder 2008 Tables 3/4, PANEX 33 (ex-PAN, E=230 GPa), offset
+#        onto the verified 23 C card value -- see eval_correlations.py.
+# E2, G12, G23: NO temperature data exists; held at the RT value (assumption).
+# k1, k2, cp, rho: still MISSING -- Pradere 2009 (refs/[09]) not yet extracted.

@@ -799,7 +799,7 @@ def _split_csv(line):
 def calibrate_to_literature():
     """Two-anchor calibration of the cycle-damage law against published data.
 
-    SUN2002 (Carbon 40, 2002) reports for 3-D C/SiC air-quenched 1300->300 C:
+    YIN2002 (Carbon 40 (2002) 905-910) reports for 3-D C/SiC air-quenched 1300->300 C:
       (a) 83 % of the original flexural strength is retained after 100 cycles,
       (b) the critical cycle number is ~50, beyond which the strength does NOT
           decrease further because the crack density SATURATES.
