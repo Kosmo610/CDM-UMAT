@@ -213,9 +213,10 @@ python3 data/properties/conductivity_bounds.py --check # 열전도 경계·민�
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
 python3 abaqus/retune_deck.py --check                 # 덱 재튜닝 (카드 슬롯 + 스텝)
+python3 verification/check_ch2_numbers.py             # Ch.2 본문 수치 vs 문헌 CSV
 ```
 
-**커밋 전에 위 12개를 전부 통과시킨다.**
+**커밋 전에 위 13개를 전부 통과시킨다.**
 
 ## 현재 병목
 
