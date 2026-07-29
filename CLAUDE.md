@@ -224,9 +224,12 @@ python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
 python3 abaqus/retune_deck.py --check                 # 덱 재튜닝 (카드 슬롯 + 스텝)
 python3 verification/check_ch2_numbers.py             # Ch.2 본문 수치 vs 문헌 CSV
 python3 verification/check_ch3_numbers.py             # Ch.3 검증 개수 vs 실제 (느림)
+python3 verification/check_ch4_numbers.py             # Ch.4 수치 vs 1차 출처 (검증 1회차)
+python3 verification/check_chapter_consistency.py     # 장 간 모순 (검증 2회차)
+python3 verification/check_chapter_claims.py          # 장이 부른 파일·명령 (검증 3회차, 느림)
 ```
 
-**커밋 전에 위 14개를 전부 통과시킨다.**
+**커밋 전에 위 17개를 전부 통과시킨다.**
 
 ## 현재 병목
 

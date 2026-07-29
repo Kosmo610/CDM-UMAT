@@ -81,7 +81,7 @@ crack band) with parallel-bar in-plane compatibility:
 
 | stress-free T on `*Expansion, zero=` | matrix σ (biaxial) | **r = σ_vM / X_t** | p̄ |
 |---|---|---|---|
-| **1050 °C (the deck as shipped)** | **302 MPa** | **0.973** | 5.2e-4 |
+| **1050 °C (the deck as shipped)** | **302 MPa** *(estimate; measured 268.08)* | **0.973** | 5.2e-4 |
 | 800 | 270 | 0.871 | 2.0e-4 |
 | 600 | 233 | 0.751 | 0 |
 | 500 | 192 | 0.621 | 0 |
@@ -108,8 +108,15 @@ furnace microcracked. But it means the deck as configured cannot produce a
 stress–strain curve, and the TRS it predicts is far from the measurement:
 
 > refs/[15] measures the matrix residual stress by XRD as **+114.7 MPa**.
-> This deck produces **302 MPa** — **2.6× too high**.
-> Reproducing the XRD value needs `zero ≈ 307 °C`.
+> The mean-field estimate above predicts **302 MPa** — 2.6× too high.
+>
+> **MEASURED, 2026-07-29** (`damage_census.py` on the cooled ODB): the
+> volume-averaged matrix stress is **+268.08 MPa**, i.e. **2.34×** the XRD
+> value. The mean-field estimate was 13 % high, as expected for a Voigt-type
+> bound, and the conclusion is unchanged: the deck overpredicts the matrix
+> TRS by more than a factor of two. Quote **268.08 MPa and 2.34×** from here
+> on; the 302 MPa figure is the pre-run estimate and must be labelled as such
+> wherever it appears.
 
 (The XRD *yarn* reading, −68.7 MPa, is **not** a usable target: XRD sees the SiC
 lattice, not the carbon fibre, so it is not comparable to our homogenised yarn
@@ -179,7 +186,9 @@ the volume-averaged stress. Run it on the three ODBs from the failed jobs — it
 costs no solver time and settles three open questions:
 
 1. Is the measured matrix `r` after the cooldown really ≈ 0.97 (§3)?
-2. Is the volume-averaged matrix stress 302 MPa, i.e. 2.6× the XRD value (§3)?
+2. ~~Is the volume-averaged matrix stress 302 MPa, i.e. 2.6× the XRD value?~~
+   **ANSWERED:** measured **+268.08 MPa**, **2.34×** the XRD value. The
+   mean-field estimate was 13 % high; the conclusion stands.
 3. Does SDV10 (`ATEFF`) show elements clamped at `A = 50` (§4)?
 
 ---
