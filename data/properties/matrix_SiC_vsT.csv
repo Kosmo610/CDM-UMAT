@@ -14,8 +14,8 @@
 # process: PIP | CVI | CVD | monolithic
 T_C,E,nu,alpha,Xt,Xc,k,cp,rho,cte_type,cte_ref_C,process,status,source
 23,350000,0.20,4.5e-6,310,310,,,,secant,1050,PIP,verified,"Zhang 2022 Table 2 (RT anchor)"
-500,343563.2,0.20,5.034474e-06,310.0,310.0,1.187920e-01,1.116461e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
-1000,332131.2,0.20,5.103451e-06,310.0,310.0,7.316319e-02,1.257702e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
+500,343563.2,0.20,5.034474e-06,310.8,310.8,1.187920e-01,1.116461e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
+1000,332131.2,0.20,5.103451e-06,328.5,328.5,7.316319e-02,1.257702e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
 # E ratio: Snead 2007 Eq.18 (Wachtman).  alpha: Snead Eq.16 integrated exactly
 #          and offset onto the card value (they agree to 2.3 % anyway).
 # cp: Snead Eq.10.  rho: 3.21 g/cm3 theoretical.
@@ -42,4 +42,24 @@ T_C,E,nu,alpha,Xt,Xc,k,cp,rho,cte_type,cte_ref_C,process,status,source
 #    100 % fill, so RVE_COND will OVERPREDICT kbar and make the quench
 #    gradient too shallow -- the non-conservative direction.  Decide this
 #    before M4.
-# Xt, Xc held constant: no SiC strength-vs-temperature source yet (gap).
+# Xt, Xc: Snead 2007 Fig. 15 STRENGTH RETENTION, sintered/CVD trend curve,
+#    digitized in eval_correlations.py.  The figure's own y-axis is
+#    "high-temperature strength normalised by room-temperature strength",
+#    i.e. it IS the fX multiplier, so no conversion was needed.
+#    Retention 1.000 (296 K) -> 1.002 (773 K) -> 1.060 (1273 K).
+#
+# !! THE GAP IS CLOSED BUT BOUNDED, NOT ELIMINATED.  Snead draws THREE
+#    trend curves, one per process route, and above ~1300 K they diverge by
+#    more than a factor of four (reaction-bonded collapses to 0.2 at 1700 K
+#    while sintered/CVD rises to 1.27).  Our matrix is PIP and is none of
+#    them.  Reaction-bonded is excluded on chemistry -- it fails because of
+#    free silicon, which PIP does not contain -- leaving sintered/CVD as
+#    the baseline and hot-pressed/HIP as the pessimistic bound.
+#    Across OUR range, 296-1323 K, those two bracket fX at +8 / -11 %.
+#    So the old constant fX = 1.0 was DEFENSIBLE; what is new is the bound.
+# !! APPLICABILITY LIMIT: do not extend this card above ~1400 K.  There the
+#    process route dominates and no single multiplier can be justified.
+#    That is above our 1050 C stress-free temperature, so it does not bite.
+# !! Snead also states that the Weibull modulus has NO systematic
+#    temperature dependence and holds it constant; we do the same, and the
+#    scatter of the composite strength is not modelled at all (limitation).

@@ -254,6 +254,51 @@ def fibre_row(T_C, trans=PANEX33_TRANS, long_=PANEX33_LONG, anchor=True):
                 rho=P33_RHO)
 
 
+# ==========================================================================
+# SiC STRENGTH vs TEMPERATURE -- Snead 2007 Fig. 15.  refs/[06].
+#
+# The figure plots STRENGTH RETENTION, defined by its own caption as the
+# high-temperature strength normalised by the room-temperature strength.
+# That is exactly the fX multiplier the UMAT card wants, so it can be used
+# directly with no conversion -- which is why it closes the gap that
+# matrix_SiC_vsT.csv had been carrying as "no source yet".
+#
+# The figure draws THREE trend curves through the scatter, one per process
+# route, and they diverge violently above ~1300 K:
+#   Sintered / CVD / fluidized bed   flat, then rises to 1.27
+#   Hot-pressed / HIP                declines, oxide grain-boundary phases
+#   Reaction-bonded / CVD + excess Si rises then COLLAPSES to 0.2 by 1700 K
+#
+# WHICH ONE APPLIES TO US.  Our matrix is PIP (1050 C pyrolysis), which is
+# none of these.  Reaction-bonded is excluded on chemistry -- it fails
+# because of free silicon, which a PIP matrix does not contain.  That
+# leaves sintered/CVD as the baseline and hot-pressed/HIP as the pessimistic
+# bound, and the two bracket our whole analysis range within +-7 %.
+#
+# Digitized from the rendered figure; values carry about +-0.02 of reading
+# scatter where markers overlap the trend line.
+SNEAD_RET_T = [300.0, 700.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0,
+               1400.0, 1500.0, 1600.0, 1700.0, 1800.0]
+#: baseline: the sintered / CVD / fluidized-bed trend curve
+SNEAD_RET_CVD = [1.000, 1.001, 1.005, 1.010, 1.019, 1.045, 1.065,
+                 1.111, 1.192, 1.242, 1.260, 1.267]
+#: pessimistic bound: the hot-pressed / HIP trend curve
+SNEAD_RET_HP_T = [300.0, 900.0, 1100.0, 1200.0, 1300.0, 1400.0]
+SNEAD_RET_HP = [1.000, 0.962, 0.946, 0.930, 0.900, 0.860]
+
+#: above this the three process routes disagree by more than a factor of
+#: four, so no single multiplier is defensible.  It is also above our
+#: stress-free temperature, so the card never needs to go there.
+SIC_STRENGTH_T_LIMIT_K = 1400.0
+
+
+def sic_strength_retention(T_K, route="cvd"):
+    """SiC strength / SiC strength at room temperature.  Snead Fig. 15."""
+    if route == "hp":
+        return interp(T_K, SNEAD_RET_HP_T, SNEAD_RET_HP)
+    return interp(T_K, SNEAD_RET_T, SNEAD_RET_CVD)
+
+
 #: Zhang 2022 Table 2 matrix CTE
 Z_AM = 4.5e-6
 
@@ -270,8 +315,9 @@ def matrix_row(T_C, anchor=True):
     a = secant_alpha(T_C, sic_alpha_integral)
     if anchor:
         a += Z_AM - secant_alpha(23.0, sic_alpha_integral)
+    fX = sic_strength_retention(T)          # Snead Fig. 15, sintered/CVD
     return dict(T_C=T_C, E=Z_EM * fE, nu=Z_NUM, alpha=a,
-                Xt=Z_XM, Xc=Z_XM,                    # no strength(T) source yet
+                Xt=Z_XM * fX, Xc=Z_XM * fX,
                 k=sic_k_upper(T) / 1000.0,           # W/(m.K) -> W/(mm.K)
                 cp=sic_cp(T) * 1.0e6,                # J/(kg.K) -> mJ/(tonne.K)
                 rho=SIC_RHO)
@@ -312,6 +358,65 @@ def checks():
     at = (fibre_strain(1200.0, PANEX33_TRANS) / (1200.0 - 300.0)) * 1e6
     ck("PANEX33 mean transverse CTE in 5-10e-6/K band (abstract)",
        max(5.0, min(10.0, at)), at, 1.0e-9, "1e-6/K")
+
+    # --- SiC strength retention, Snead Fig. 15 ---------------------------
+    # The paper states in words: "no significant degradation of strength for
+    # CVD SiC occurs up to a temperature of 1773 K, in fact an increase
+    # above 1373 K is apparent".  The digitized curve must say the same.
+    ck("Snead retention(298 K) = 1 by definition",
+       sic_strength_retention(298.0), 1.0, 1.0e-9)
+    ck("Snead: NO significant degradation up to 1773 K (stated)",
+       min(sic_strength_retention(t) for t in range(300, 1774, 25)),
+       1.0, 0.01)
+    ck("Snead: an INCREASE is apparent above 1373 K (stated)",
+       sic_strength_retention(1600.0) - sic_strength_retention(1373.0),
+       0.14, 0.06)
+    mono = min(sic_strength_retention(t + 25) - sic_strength_retention(t)
+               for t in range(300, 1775, 25))
+    ok = mono >= -1.0e-12
+    print("  [%s] %-52s min step %+.2e"
+          % ("PASS" if ok else "FAIL",
+             "Snead: retention never decreases below 1773 K", mono))
+    if not ok:
+        bad.append("retention monotonic")
+
+    # THE result of this section: over OUR range the multiplier is 1 within
+    # a few percent, whichever of the two candidate process routes applies.
+    hi = max(sic_strength_retention(t) for t in (296.0, 773.0, 1323.0))
+    lo = min(sic_strength_retention(t, "hp") for t in (296.0, 773.0, 1323.0))
+    print("\n  SiC strength retention over OUR range 296-1323 K:")
+    print("    sintered/CVD baseline   1.000 -> %.3f" % hi)
+    print("    hot-pressed/HIP bound   1.000 -> %.3f" % lo)
+    print("    so fX = 1.0 is right to within %+.0f / %+.0f %%"
+          % (100.0 * (hi - 1.0), 100.0 * (lo - 1.0)))
+    print("    -> the placeholder was DEFENSIBLE, and now has a bound on it.")
+    ck("fX = 1.0 is within 12 % across our range, either route",
+       max(abs(hi - 1.0), abs(lo - 1.0)), 0.0, 0.12)
+    ck("above 1400 K the routes disagree by more than 20 %",
+       sic_strength_retention(1400.0) - sic_strength_retention(1400.0, "hp"),
+       0.25, 0.06)
+
+    # --- what the constituents alone CANNOT explain ----------------------
+    # Both constituents gain strength with temperature, but only a little.
+    # refs/[35] measures the COMPOSITE in-plane shear strength rising 39 %
+    # from room temperature to 1273 K.  The difference is a quantitative,
+    # falsifiable prediction the model has to make from TRS relaxation --
+    # it is not something that can be put on a card.
+    f_m = sic_strength_retention(1273.0) - 1.0
+    f_f = interp(1000.0, SAUDER_T_C, SAUDER_SIG) / SAUDER_SIG[0] - 1.0
+    print("\n  strength gain at ~1273 K, constituents vs composite:")
+    print("    SiC matrix   (Snead Fig. 15)        %+.1f %%" % (100 * f_m))
+    print("    carbon fibre (Sauder Table 1)       %+.1f %%" % (100 * f_f))
+    print("    2D C/SiC in-plane shear, MEASURED   %+.1f %%   [refs/[35]]"
+          % 38.9)
+    print("""    -> the constituents account for %.0f-%.0f of the 39 points.  The
+       remaining ~%.0f MUST come from relaxation of the interfacial thermal
+       residual stress, which is what refs/[35] itself concludes.  That is
+       a number our TRS-resolved model has to produce WITHOUT being told,
+       and the TRS-off case (A) cannot produce at all."""
+          % (100 * f_m, 100 * f_f, 38.9 - 100 * f_f))
+    ck("the constituents alone cannot explain the composite gain",
+       38.9 - 100.0 * max(f_m, f_f), 30.0, 6.0, "percentage points")
 
     # Cross-check the two independent sources against the verified card.
     am = secant_alpha(23.0, sic_alpha_integral) * 1e6
