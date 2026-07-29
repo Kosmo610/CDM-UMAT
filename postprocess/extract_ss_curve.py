@@ -61,9 +61,21 @@ def extract(odbpath, Vuser=None):
         if "TENSION" in s.upper():
             step_name = s
     if step_name is None:
-        step_name = list(odb.steps.keys())[-1]
+        # A job that aborted during the cooldown or the reheat has no tension
+        # step at all.  Falling back to the last step silently would turn a
+        # thermal ramp into a fake stress-strain curve -- this happened with
+        # ZHANG2022_c26k_T500/T1000 on 2026-07-28.  Refuse instead.
+        sys.exit("  NO STEP NAMED 'Tension' IN THIS ODB.\n"
+                 "  steps present: %s\n"
+                 "  The job stopped before it reached the tension step, so\n"
+                 "  there is no stress-strain curve to extract.  Use\n"
+                 "  'abaqus python damage_census.py %s' to see how far it got."
+                 % (list(odb.steps.keys()), odbpath))
     print("  tension step: %s" % step_name)
     step = odb.steps[step_name]
+    if len(step.frames) < 2:
+        print("  WARNING: only %d frame(s) in the tension step -- the job "
+              "died at the very start." % len(step.frames))
 
     reg = region_by_nodeset(odb, DRIVER)
     hr = None

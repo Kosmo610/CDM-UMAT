@@ -183,12 +183,26 @@ python3 abaqus/make_macro_thermalshock.py --selftest   # 거시 카드 정적 �
 python3 data/properties/conductivity_bounds.py --check # 열전도 경계·민감도
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
+python3 abaqus/retune_deck.py --check                 # 덱 재튜닝 (카드 슬롯 + 스텝)
 ```
 
-**커밋 전에 위 11개를 전부 통과시킨다.**
+**커밋 전에 위 12개를 전부 통과시킨다.**
 
 ## 현재 병목
 
-**M1** — 사용자 PC의 Abaqus로 기존 `abaqus/ZHANG2022_*_V2_0.inp` 3케이스를 실행하고
-Zhang Table 3(128.45 / 179.42 / 199.15 MPa)에 맞춰 보정. 이 결과 없이 그 위를 쌓으면
-잘못된 물성 위에 논문을 짓게 된다.
+**M1** — Zhang Table 3(128.45 / 179.42 / 199.15 MPa)에 맞춘 보정.
+1차 시도(`ZHANG2022_c26k_*`, 0728)는 3잡 전부 비수렴으로 죽었다.
+원인과 수정은 `docs/M1_FAILURE_ANALYSIS.md`. 재시도는 `M1FIX_c26k_*` (0729).
+
+M1에서 나온 교훈 — 다음 덱에도 계속 적용한다:
+
+- **죽은 잡의 `.odb`도 냉각 스텝은 온전하다.** 새로 돌리기 전에
+  `postprocess/damage_census.py`로 먼저 읽는다. 공짜다.
+- **비수렴이 시간증분 문제인지 먼저 확인한다.** 변위 증분이 1e-9까지
+  줄었는데도 안 붙으면 증분 크기 문제가 아니다. 컷백을 더 허용해도 소용없다.
+  최소 증분은 1e-8 이하로 내리지 않는다(죽는 데만 20분 넘게 쓴다).
+- **`*Static, stabilize=`를 쓰면 `ALLSD/ALLIE`를 반드시 같이 출력하고
+  5 % 미만인지 확인한다.** 안 하면 피크 응력이 인공 감쇠로 부풀려진 채
+  논문에 들어간다.
+- **응력자유온도(`*Expansion, zero=`)는 물성 가정이지 솔버 설정이 아니다.**
+  수치 수정과 절대 같은 덱에 섞지 않는다.
