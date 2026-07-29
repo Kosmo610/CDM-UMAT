@@ -79,12 +79,21 @@ C            fY  -> Yt,Yc      fS -> S12,S13,S23
 C
 C  MATRIX NPROPS = 22                      -> V1_0 card, NT=0
 C         NPROPS = 23 + 4*NT               -> V3_0 card
+C         NPROPS = 25 + 4*NT               -> V3_0 card + I1 smoothing
 C     1..22  exactly the V1_0 matrix card (PROPS(22)=30.0 key)
 C     23     NT
 C     24..   NT rows of 4:  T, fE, fX, fSY
 C            fE -> E (and HISO), fX -> Xt,Xc, fSY -> SY0
 C     (no HCLO: the matrix already switches tensile/compressive damage
 C      on sign(I1) per Ge Eq.7, which is its unilateral effect.)
+C     -- optional I1-smoothing block, 2 slots, let J = 24+4*NT --
+C     J      HSMO   half-width of the tanh blend that replaces the hard
+C                   sign(I1) switch of Ge Eq.7, in units of Xt.
+C                   0 = published step (default, bit-identical to V1_0);
+C                   0.1 blends over roughly |I1| < 0.3*Xt.
+C     J+1    CARD KEY = 32.0 (guard for this block)
+C     The three lengths never collide: 22, 23+4*NT and 25+4*NT are
+C     2, 3 and 1 modulo 4, so NPROPS alone identifies the layout.
 C
 C  MACRO  NPROPS = 47 + 8*NT            -> damage law only
 C         NPROPS = 47 + 8*NT + 9        -> plus the failure-criterion block
@@ -262,16 +271,32 @@ C        Cycle rate from a *FIELD variable when PREDEFN>0.
             NT=0
          ELSE IF (NPROPS.GE.23) THEN
             NT=NINT(PROPS(23))
-            IF (NT.LT.0 .OR. NPROPS.NE.23+4*NT) THEN
-               WRITE(7,*) 'V3_0 MATRIX: NPROPS must be 22 or 23+4*NT.'
+            IF (NT.LT.0 .OR. (NPROPS.NE.23+4*NT .AND.
+     1          NPROPS.NE.25+4*NT)) THEN
+               WRITE(7,*) 'V3_0 MATRIX: NPROPS must be 22, 23+4*NT,'
+               WRITE(7,*) 'or 25+4*NT (with the I1-smoothing block).'
                WRITE(7,*) 'NT,NPROPS=',NT,NPROPS
                CALL XIT
+            END IF
+            IF (NPROPS.EQ.25+4*NT) THEN
+               IF (ABS(PROPS(25+4*NT)-32.0D0).GT.1.0D-6) THEN
+                  WRITE(7,*) 'V3_0 MATRIX smoothing block needs its'
+                  WRITE(7,*) 'guard PROPS(25+4*NT)=32.0. Got',
+     1                       PROPS(25+4*NT)
+                  CALL XIT
+               END IF
+               IF (PROPS(24+4*NT).LT.0.0D0 .OR.
+     1             PROPS(24+4*NT).GT.1.0D0) THEN
+                  WRITE(7,*) 'V3_0 MATRIX: HSMO must be in [0,1]. Got',
+     1                       PROPS(24+4*NT)
+                  CALL XIT
+               END IF
             END IF
          ELSE
             WRITE(7,*) 'V3_0 MATRIX: bad NPROPS=',NPROPS
             CALL XIT
          END IF
-         CALL KMTRX31(EPS,STRESS,DDSDDE,STATEV,PROPS,NT,
+         CALL KMTRX31(EPS,STRESS,DDSDDE,STATEV,PROPS,NPROPS,NT,
      1        DTIME,TEMP,DTEMP,PNEWDT,KSTEP,CELENT)
       ELSE
          WRITE(7,*) 'Unknown CMNAME in V3_0 UMAT: ',CMNAME
@@ -514,14 +539,39 @@ C
       RETURN
       END
 C=======================================================================
-      SUBROUTINE KMTRX31(EPS,STRESS,CTAN,SV,P,NT,DTIME,TEMP,DTEMP,
-     1 PNEWDT,KSTEP,CELENT)
-C     V1_0 KMTRX30 + temperature-dependent multipliers.  NT=0 reproduces
-C     KMTRX30 exactly.  Unilateral behaviour is the sign(I1) switch of
-C     Ge Eq.7, already present.
+      SUBROUTINE KMTRX31(EPS,STRESS,CTAN,SV,P,NPROPS,NT,DTIME,TEMP,
+     1 DTEMP,PNEWDT,KSTEP,CELENT)
+C     V1_0 KMTRX30 + temperature-dependent multipliers + optional
+C     smoothing of the sign(I1) unilateral switch.  NT=0 and HSMO=0
+C     reproduce KMTRX30 exactly.
+C
+C     WHY THE SMOOTHING EXISTS.  Ge Eq.7 selects the active damage by the
+C     sign of the first effective-stress invariant:
+C         d_act = d_t  if I1 >= 0,   d_c  otherwise.
+C     A point that damaged in tension carries d_t > 0 while d_c is still
+C     0, so the instant I1 crosses zero the secant stiffness jumps from
+C     E(1-d_t) back to E by a factor 1/(1-d_t) -- ten-fold at d_t = 0.9.
+C     That is a genuine discontinuity in the stress at fixed strain, and
+C     Newton cannot pass it: the M1FIX_c26k_RT23 run of 2026-07-29 died
+C     with the displacement correction alternating between +1.709e-9 and
+C     -1.709e-9 on successive iterations -- a perfect two-cycle chatter --
+C     while the residual jumped 5.104e-3 -> -3.833e-2 at a displacement
+C     increment of 1e-9.  Cutting the increment cannot help, because the
+C     jump is not a function of the increment size.
+C
+C     HSMO replaces the step by a tanh blend of half-width HSMO*Xt in I1:
+C         w      = 0.5*(1 + tanh(I1/(HSMO*Xt)))
+C         d_act  = w*d_t + (1-w)*d_c
+C     HSMO -> 0 recovers the published step exactly and is the default,
+C     so this is a REGULARISATION with a reportable width, not a change
+C     of model.  Only d_act is blended; the criteria and the history
+C     variables keep their published routing, and both d_t and d_c stay
+C     monotonic, so no damage is created or healed by the blend.
       IMPLICIT NONE
       DOUBLE PRECISION EPS(6),STRESS(6),CTAN(6,6),SV(*),P(*)
       DOUBLE PRECISION DTIME,TEMP,DTEMP,PNEWDT,CELENT
+      DOUBLE PRECISION HSMO,WBLND,ARG
+      INTEGER NPROPS
       DOUBLE PRECISION C0(6,6),CD(6,6),EEL(6),EPL(6),STR(6),SD(6),F(3)
       DOUBLE PRECISION E,NU,XT,XC,AT,AC,DMAXT,DMAXC,ETA,DJMAX
       DOUBLE PRECISION FREEZE,PMIN,ENABLE,GMT,GMC,SY0,HISO
@@ -629,7 +679,21 @@ C
          DCN=MAX(DC0,DC0+GAM*(TAR-DC0))
       END IF
 C
-      IF (AI1.GE.0.0D0) THEN
+C     Ge Eq.7 selection, optionally smoothed.  See the header of this
+C     routine for why.  HSMO=0 is the published step, bit for bit.
+      HSMO=0.0D0
+      IF (NPROPS.EQ.25+4*NT) HSMO=P(24+4*NT)
+      IF (HSMO.GT.0.0D0 .AND. XT.GT.0.0D0) THEN
+         ARG=AI1/(HSMO*XT)
+         IF (ARG.GT.30.0D0) THEN
+            WBLND=1.0D0
+         ELSE IF (ARG.LT.-30.0D0) THEN
+            WBLND=0.0D0
+         ELSE
+            WBLND=0.5D0*(1.0D0+TANH(ARG))
+         END IF
+         DACT=WBLND*DTN+(1.0D0-WBLND)*DCN
+      ELSE IF (AI1.GE.0.0D0) THEN
          DACT=DTN
       ELSE
          DACT=DCN

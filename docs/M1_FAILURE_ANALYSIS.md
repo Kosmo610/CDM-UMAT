@@ -181,3 +181,105 @@ costs no solver time and settles three open questions:
 1. Is the measured matrix `r` after the cooldown really ≈ 0.97 (§3)?
 2. Is the volume-averaged matrix stress 302 MPa, i.e. 2.6× the XRD value (§3)?
 3. Does SDV10 (`ATEFF`) show elements clamped at `A = 50` (§4)?
+
+---
+
+# Round 2 — why `M1FIX_c26k_RT23` (2026-07-29) also stopped
+
+The retuned deck got **49 % further**: the tension step reached step time
+0.133 against 0.0892, i.e. 0.063 % tensile strain against 0.042 %. The
+cooldown converged in 402 increments with the iteration count climbing
+smoothly from 1 to 8. Then it stalled again, and the `.msg` names the cause
+outright.
+
+## The failure is a two-cycle chatter, not softening
+
+```
+iteration 12   residual  5.104E-03   correction +1.709E-09   line search 2.674E-02
+iteration 13   residual -3.833E-02   correction -1.709E-09   line search 0.196
+```
+
+The correction has **the same magnitude and the opposite sign** on successive
+iterations — a textbook 2-cycle limit cycle. The displacement increment is
+1e-9 mm, so the strain is not changing, yet the residual moves by a factor of
+7.5 and the line search collapses to 2.7 % of the Newton step. A continuous
+constitutive law cannot do that. Something is switching.
+
+## There is exactly one switch, and it is Ge Eq.7
+
+```fortran
+IF (AI1.GE.0.0D0) THEN
+   DACT=DTN          ! tensile damage
+ELSE
+   DACT=DCN          ! compressive damage
+END IF
+```
+
+A point that damaged in tension carries `DTN` up to `dmax` while `DCN` is
+still 0, because compressive damage never initiated. The moment `I1` crosses
+zero the secant stiffness jumps from `E(1-DTN)` back to `E` — a factor of 10
+at `DTN = 0.9`. The yarn routine has no such switch: it combines its four
+modes multiplicatively, which is smooth.
+
+Measured directly in the **compiled** Fortran (`cross_check_fortran.py`, case
+"MATRIX (I1=0 continuity)"), sweeping a fixed deviatoric state through
+`I1 = 0` with `d_t = 0.8` carried in:
+
+| HSMO | largest stress step across `I1 = 0` |
+|---|---|
+| **0 (published)** | **78.0×** the typical step |
+| 0.1 | 2.3× — continuous |
+
+## Why this RVE in particular: 1185 sliver tetrahedra
+
+The `.dat` element-quality check reports
+
+```
+***WARNING: 1185 elements are distorted.
+```
+
+* **1185 of 26452 (4.5 %) — and every single one is in the MATRIX.** Zero
+  yarn elements are flagged. TexGen meshes the tow surfaces cleanly and fills
+  the gaps between them with slivers.
+* Worst quality **0.00089** against Abaqus's recommended > 0.02; **549 fall
+  below it**. Worst minimum dihedral angle **0.313°** against the recommended
+  > 10°; **428 are below 1°**.
+* Both runs died on the **same nodes**: 1080 and 1081, **DOF 3** (through
+  thickness). Node 1081 has **21 % distorted neighbours against a 4.1 %
+  mesh-wide baseline** — five times the average. The driver with the most
+  residual hits over the whole run is ConstraintsDriver2, which carries the
+  through-thickness normal strain.
+
+A sliver has a wildly anisotropic stress state, which makes `I1 ≈ 0` easy to
+sit on. Slivers and the unsmoothed switch are the same failure.
+
+## The fix: smooth the switch in V3_0, leave V1_0 frozen
+
+`KMTRX31` gains an optional `HSMO`:
+
+```
+w      = 0.5*(1 + tanh(I1/(HSMO*Xt)))
+d_act  = w*d_t + (1-w)*d_c
+```
+
+* `HSMO = 0` is the published step **bit for bit** — 28/28 cross-check states
+  match V1_0 to 1.58e-15 on both the 22-slot and the new 25-slot card, so the
+  Zhang replication is untouched and the T2 regression still holds.
+* Only `d_act` is blended. The criteria keep their published routing and both
+  `d_t` and `d_c` stay monotonic, so the blend creates and heals nothing.
+* Card layout `25 + 4*NT`: slot `24+4*NT` = HSMO, slot `25+4*NT` = guard 32.0.
+  The three matrix lengths 22, `23+4*NT` and `25+4*NT` are 2, 3 and 1 modulo
+  4, so NPROPS alone identifies the layout and V1_0 **rejects** the new card
+  rather than misreading it.
+
+This is a regularisation with a reportable width, not a change of model. The
+thesis must state HSMO and show that the answer is insensitive to it — run
+0.05 and 0.2 once the calibration converges.
+
+## If round 3 also stalls
+
+Then the mesh is the binding constraint, not the constitutive law. Smoothing
+removes the switch but cannot fix the conditioning of a 0.3° tetrahedron.
+Re-mesh from TexGen with the matrix element quality raised, and **re-export
+the `.ori` with it** — an old `.ori` on a new mesh converges silently with the
+fibre directions wrong.

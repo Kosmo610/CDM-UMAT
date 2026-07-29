@@ -234,6 +234,129 @@ def case_yarn_v10_regression(exe, rng):
     return npass, 16, worst
 
 
+MATRIX_V10 = [2.0, 350000.0, 0.20, 310.0, 310.0, 0.0, 0.0, 0.90, 0.90, 0.05,
+              0.03, 3.0, 0.25, 1.0, 0.031, 0.031, 250.0, 100000.0, 1.15, 0.75,
+              0.50, 30.0]
+
+
+def matrix_point_hsmo(eps, sv, P, hsmo, celent=0.03):
+    """Python mirror of KMTRX31 with the I1 blend.  Reuses the verified V1_0
+    point routine for everything except the d_act selection, so any drift in
+    the base model shows up as a mismatch rather than being hidden here."""
+    import math
+    import numpy as _np
+    import verify_constitutive as vc
+    stress, CD, sv_new, diag = vc.matrix_point(eps, sv, P, celent=celent,
+                                               kstep=1)
+    if hsmo <= 0.0:
+        return stress, CD, sv_new, diag
+    E, nu, XT = P[1], P[2], P[3]
+    G = E / (2.0 * (1.0 + nu))
+    arg = diag["I1"] / (hsmo * XT)
+    if arg > 30.0:
+        w = 1.0
+    elif arg < -30.0:
+        w = 0.0
+    else:
+        w = 0.5 * (1.0 + math.tanh(arg))
+    dact = w * sv_new[0] + (1.0 - w) * sv_new[1]
+    dact = min(0.999, max(0.0, dact))
+    CD = vc.kortho(E * (1 - dact), E * (1 - dact), E * (1 - dact),
+                   nu * (1 - dact), nu * (1 - dact), nu * (1 - dact),
+                   G * (1 - dact), G * (1 - dact), G * (1 - dact))
+    eel = _np.asarray(eps) - sv_new[14:20]
+    sv_new = sv_new.copy()
+    sv_new[4] = dact
+    return CD.dot(eel), CD, sv_new, diag
+
+
+def case_matrix_v10_regression(exe, rng):
+    """The 22-slot V1_0 matrix card must still give the V1_0 answer, and the
+    25-slot card with HSMO=0 must give the SAME answer -- otherwise the new
+    block is not a superset."""
+    import verify_constitutive as vc
+    worst, npass, ntot = 0.0, 0, 0
+    p22 = list(MATRIX_V10)
+    p25 = list(MATRIX_V10) + [0.0, 0.0, 32.0]      # NT=0, HSMO=0, key
+    for _ in range(14):
+        eps = np.array([rng.uniform(-2.0e-3, 2.5e-3) for _ in range(6)])
+        sv = [0.0] * 20
+        sP = vc.matrix_point(eps, np.zeros(20), p22, celent=0.03, kstep=1)[0]
+        for props in (p22, p25):
+            sF, _, _ = run_fortran(exe, 3, props, sv, eps, 23.0, 0.0, 1.0,
+                                   0.0, 0.03, 1)
+            ok, e = cmp_arrays("STRESS", sF, sP)
+            worst = max(worst, e)
+            npass += int(ok)
+            ntot += 1
+    return npass, ntot, worst
+
+
+def case_matrix_hsmo(exe, rng):
+    """HSMO > 0: the Fortran blend must match the Python blend, and the blend
+    must actually remove the jump."""
+    worst, npass, ntot = 0.0, 0, 0
+    for _ in range(20):
+        hsmo = rng.choice([0.05, 0.1, 0.2, 0.5])
+        props = list(MATRIX_V10) + [0.0, hsmo, 32.0]
+        eps = np.array([rng.uniform(-2.5e-3, 2.5e-3) for _ in range(6)])
+        sv = [0.0] * 20
+        # pre-damage in tension so d_t > 0 while d_c = 0 -- the state that
+        # makes the published switch discontinuous
+        sv[0] = rng.uniform(0.2, 0.85)
+        sv[2] = rng.uniform(1.2, 2.5)
+        sF, svF, cF = run_fortran(exe, 3, props, sv, eps, 23.0, 0.0, 1.0,
+                                  0.0, 0.03, 1)
+        sP, CP, svP, _ = matrix_point_hsmo(eps, np.array(sv), MATRIX_V10,
+                                           hsmo, celent=0.03)
+        o1, e1 = cmp_arrays("STRESS", sF, sP)
+        o2, e2 = cmp_arrays("Cdiag", cF, [CP[i, i] for i in range(6)])
+        worst = max(worst, e1, e2)
+        npass += int(o1 and o2)
+        ntot += 1
+    return npass, ntot, worst
+
+
+def case_matrix_continuity(exe, rng):
+    """The point of the whole exercise: sweep I1 through zero and check that
+    the stress is continuous with HSMO > 0 and discontinuous without it."""
+    worst, npass, ntot = 0.0, 0, 0
+    dt = 0.80                       # tensile damage carried into the sweep
+    for hsmo, want_smooth in ((0.0, False), (0.1, True)):
+        props = list(MATRIX_V10) + ([] if hsmo == 0.0 else [0.0, hsmo, 32.0])
+        if hsmo == 0.0:
+            props = list(MATRIX_V10)
+        jumps = []
+        prev = None
+        # Fixed deviatoric part, hydrostatic part swept through zero, so I1
+        # changes sign while the stress stays well away from zero.  A purely
+        # hydrostatic sweep would be useless: it has Q = 0, so the stress
+        # vanishes at the crossing and the jump hides itself.
+        adev = 2.0e-4
+        for k in range(-60, 61):
+            ev = k * 1.0e-6
+            eps = np.array([ev + adev, ev - adev, ev, 0.0, 0.0, 0.0])
+            sv = [0.0] * 20
+            sv[0] = dt
+            sv[2] = 3.0
+            sF, _, _ = run_fortran(exe, 3, props, sv, eps, 23.0, 0.0, 1.0,
+                                   0.0, 0.03, 1)
+            if prev is not None:
+                jumps.append(abs(sF[0] - prev))
+            prev = sF[0]
+        big = max(jumps)
+        typ = sorted(jumps)[len(jumps) // 2]
+        ratio = big / max(typ, 1e-30)
+        ok = (ratio < 5.0) if want_smooth else (ratio > 50.0)
+        ntot += 1
+        npass += int(ok)
+        worst = max(worst, 0.0)
+        print("        HSMO=%-4g  largest stress step across I1=0 is %6.1fx "
+              "the typical one -> %s" % (hsmo, ratio,
+                                         "smooth" if ratio < 5 else "JUMP"))
+    return npass, ntot, worst
+
+
 def main():
     print("=" * 72)
     print("cross_check_fortran.py -- compiled UMAT vs the Python mirror")
@@ -252,7 +375,13 @@ def main():
                            case_macro),
                           ("YARN   (KYARN31: T-table + closure)", case_yarn),
                           ("YARN   (38-slot V1_0 card -> V1_0 answer)",
-                           case_yarn_v10_regression)):
+                           case_yarn_v10_regression),
+                          ("MATRIX (22- and 25-slot cards -> V1_0 answer)",
+                           case_matrix_v10_regression),
+                          ("MATRIX (KMTRX31: I1 smoothing, HSMO>0)",
+                           case_matrix_hsmo),
+                          ("MATRIX (I1=0 continuity: the reason for HSMO)",
+                           case_matrix_continuity)):
             npass, ntot, worst = fn(exe, rng)
             tag = "PASS" if npass == ntot else "FAIL"
             print("  [%s] %-46s %d/%d  worst rel. dev. %.2e"

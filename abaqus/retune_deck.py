@@ -89,6 +89,7 @@ D_ALLSDTOL = 0.05
 D_DISPCTRL = 1.0
 D_MININC = 1.0e-8
 D_ZERO = 1050.0
+D_HSMO = 0.0                           # V3_0 only; 0 = published sign(I1) step
 D_IR = 16                              # log-rate divergence check
 D_IA = 8                               # cutbacks per increment
 
@@ -106,6 +107,10 @@ def card_numbers(card):
 
 
 def emit_card(kw, nums, per_line=8):
+    # The keyword line carries the constant count.  Appending a block without
+    # rewriting it would hand Abaqus a card that claims 22 constants while
+    # supplying 25 -- silently misread, not rejected.
+    kw = re.sub(r"constants\s*=\s*\d+", "constants=%d" % len(nums), kw)
     out = [kw]
     for i in range(0, len(nums), per_line):
         chunk = nums[i:i + per_line]
@@ -119,7 +124,10 @@ def _fmt(x):
     return repr(x)
 
 
-def retune_matrix(dmax, eta, djump):
+HSMO_KEY = 32.0                        # PROPS(25+4*NT) guard, V3_0 only
+
+
+def retune_matrix(dmax, eta, djump, hsmo=0.0):
     kw, n = card_numbers(MATRIX_USERMAT["v2"])
     if len(n) != MATRIX_NPROPS:
         raise ValueError("matrix card has %d constants, expected %d"
@@ -131,6 +139,11 @@ def retune_matrix(dmax, eta, djump):
     if n[MATRIX_SLOTS["key"] - 1] != MATRIX_KEY:
         raise ValueError("matrix card key PROPS(22) is %r, the UMAT rejects "
                          "anything but %r" % (n[21], MATRIX_KEY))
+    if hsmo < 0.0 or hsmo > 1.0:
+        raise ValueError("HSMO must be in [0,1], got %r" % hsmo)
+    if hsmo > 0.0:
+        # V3_0 25+4*NT layout: NT=0, then HSMO, then the block guard.
+        n = n + [0.0, hsmo, HSMO_KEY]
     return emit_card(kw, n)
 
 
@@ -149,7 +162,7 @@ def retune_yarn(dmax, eta, djump):
 def materials(a):
     L = ["*Material, Name=SIC_MATRIX_DAMAGE",
          MATRIX_DEPVAR,
-         retune_matrix(a.dmax, a.eta, a.djump),
+         retune_matrix(a.dmax, a.eta, a.djump, a.hsmo),
          "*Expansion, zero=%g." % a.zero,
          "4.5e-06,",
          "*Material, Name=CSIC_YARN_DAMAGE",
@@ -321,6 +334,7 @@ class _A(object):
     stabilize, allsdtol = D_STABILIZE, D_ALLSDTOL
     dispctrl, mininc, zero = D_DISPCTRL, D_MININC, D_ZERO
     i_r, i_a = D_IR, D_IA
+    hsmo = D_HSMO
 
 
 def check():
@@ -437,6 +451,33 @@ def check():
     t("RT23-style deck (no reheat) gives two steps",
       out4.count("*Step, Name=") == 2 and case4["heat"] is None)
 
+    # --hsmo must lengthen the matrix card to exactly 25 and keep the rest
+    kwh, nh = card_numbers(retune_matrix(D_DMAX, D_ETA, D_DJUMP, 0.1))
+    t("hsmo card has 25 constants (25+4*NT with NT=0)", len(nh) == 25,
+      "(%d)" % len(nh))
+    t("hsmo card keeps the V1_0 guard at slot 22", nh[21] == MATRIX_KEY)
+    t("hsmo card sets NT=0 at slot 23", nh[22] == 0.0)
+    t("hsmo lands in slot 24", nh[23] == 0.1)
+    t("hsmo block guard 32.0 in slot 25", nh[24] == HSMO_KEY)
+    t("hsmo leaves slots 1-22 identical to the no-hsmo card",
+      nh[:22] == nm[:22])
+    t("22 vs 25 slot lengths are distinguishable mod 4",
+      (22 % 4, 23 % 4, 25 % 4) == (2, 3, 1))
+    for hbad in (-0.1, 1.5):
+        try:
+            retune_matrix(D_DMAX, D_ETA, D_DJUMP, hbad)
+            t("hsmo=%g rejected" % hbad, False)
+        except ValueError:
+            t("hsmo=%g rejected" % hbad, True)
+    ah = _A()
+    ah.hsmo = 0.1
+    outh, _, _ = retune(_fake_deck(), ah)
+    t("hsmo deck writes constants=25", "*User Material, constants=25" in outh)
+    t("hsmo deck leaves the yarn card at 38",
+      "*User Material, constants=38" in outh)
+    t("no-hsmo deck writes constants=22",
+      "*User Material, constants=22" in out)
+
     # a deck without the anchor must raise, not produce garbage
     try:
         retune(_fake_deck().replace(MAT_ANCHOR, "*Material, Name=SOMETHING"),
@@ -475,6 +516,12 @@ def main():
     ap.add_argument("--zero", type=float, default=D_ZERO,
                     help="stress-free temperature on *Expansion, zero= "
                          "(default %g). THIS IS PHYSICS, not numerics." % D_ZERO)
+    ap.add_argument("--hsmo", type=float, default=D_HSMO,
+                    help="half-width (in units of Xt) of the tanh blend that "
+                         "replaces the hard sign(I1) switch in the matrix. "
+                         "0 = published step (default). REQUIRES the V3_0 "
+                         "UMAT: it lengthens the matrix card to 25 slots, "
+                         "which V1_0 rejects.")
     ap.add_argument("--i-r", dest="i_r", type=int, default=D_IR,
                     help="I_R, iteration at which the log-rate divergence "
                          "check starts (default %d)" % D_IR)
@@ -504,6 +551,9 @@ def main():
     print("  steps     stabilize=%s  min inc=%g  disp tol=%g  I_R=%d  I_A=%d"
           % (a.stabilize or "off", a.mininc, a.dispctrl, a.i_r, a.i_a))
     print("  zero      %g degC" % a.zero)
+    if a.hsmo > 0.0:
+        print("  hsmo      %g  -> matrix card is 25 slots; RUN THIS WITH "
+              "user=UMAT_CSIC_THERMSHOCK_V3_0.for" % a.hsmo)
 
 
 if __name__ == "__main__":
