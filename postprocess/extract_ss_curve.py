@@ -98,25 +98,47 @@ def extract(odbpath, Vuser=None):
     Udata = hr.historyOutputs[u_key].data
     Rdata = hr.historyOutputs[rf_key].data
 
+    # *Boundary values are TOTAL, not incremental, so the tension step ramps
+    # the driver from wherever the thermal steps left it up to the prescribed
+    # value.  Measured on ZHANG2022_c26k_RT23: the driver sits at U1 =
+    # -3.216428e-3 at the end of the cooldown (the RVE has shrunk) with
+    # RF1 = 0, and the tension step ramps from there.  Reporting the raw U as
+    # the strain would put the whole curve at negative strain and make the
+    # reported failure strain meaningless.  Zero it on the first frame of the
+    # tension step, which is the unloaded as-cooled state -- exactly the
+    # reference an experiment uses.
+    eps0 = Udata[0][1]
+    if abs(eps0) > 1.0e-9:
+        print("  strain zeroed on the as-cooled state: eps_offset = %+.6e "
+              "(%.4f %%)" % (eps0, eps0 * 100.0))
+
     rows = []
     for (t, u), (t2, rf) in zip(Udata, Rdata):
-        eps = u
+        eps = u - eps0
         sig = -rf / V
-        rows.append((eps, sig, t))
+        rows.append((eps, sig, t, u))
     # align sign so that a tensile test reads positive
     peak = max(rows, key=lambda r: abs(r[1]))
     if peak[1] < 0:
-        rows = [(e, -s, t) for (e, s, t) in rows]
+        rows = [(e, -s, t, u) for (e, s, t, u) in rows]
 
     out = os.path.splitext(odbpath)[0] + "_ss.csv"
     with open(out, "w") as f:
-        f.write("eps_xx,sigma_xx_MPa,time\n")
-        for e, s, t in rows:
-            f.write("%.8e,%.8e,%.6f\n" % (e, s, t))
+        f.write("eps_xx,sigma_xx_MPa,time,U1_raw\n")
+        for e, s, t, u in rows:
+            f.write("%.8e,%.8e,%.6f,%.8e\n" % (e, s, t, u))
     ult = max(rows, key=lambda r: r[1])
     print("  wrote %s  (%d points)" % (out, len(rows)))
+    print("  applied strain range: %.4f %% to %.4f %%"
+          % (rows[0][0] * 100.0, rows[-1][0] * 100.0))
+    if len(rows) > 1 and abs(rows[1][0]) > 1e-12:
+        print("  initial modulus  E = %.1f GPa"
+              % (rows[1][1] / rows[1][0] / 1000.0))
     print("  ULTIMATE STRESS = %.2f MPa  at eps_xx = %.4f %%"
           % (ult[1], ult[0] * 100.0))
+    if ult is rows[-1]:
+        print("  !! the peak is the LAST point -- the curve is still rising, "
+              "so this is NOT the ultimate strength, only how far the job got.")
     odb.close()
     return out, ult[1]
 

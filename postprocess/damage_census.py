@@ -71,11 +71,14 @@ def find_sets(odb):
 
 
 def collect(frame, region, var):
-    """[(value, volume)] for one scalar field over one region."""
-    try:
-        fo = frame.fieldOutputs[var]
-    except KeyError:
+    """[(value, volume)] for one scalar field over one region.
+
+    Returns None if the field is not in the odb at all, [] if it is there but
+    has no values in this region.  The two are different problems and the
+    caller must be able to tell them apart."""
+    if var not in frame.fieldOutputs.keys():
         return None
+    fo = frame.fieldOutputs[var]
     try:
         ivol = frame.fieldOutputs["IVOL"]
     except KeyError:
@@ -154,8 +157,12 @@ def report_region(frame, label, region, sdvlist):
               "compression damage in the matrix)" % i1)
     for var, name, kind in sdvlist:
         pairs = collect(frame, region, var)
+        if pairs is None:
+            print("      %-6s %s : NOT WRITTEN TO THIS ODB" % (var, name))
+            continue
         if not pairs:
-            print("      %-6s %s : not in this odb" % (var, name))
+            print("      %-6s %s : field exists but is empty for this region"
+                  % (var, name))
             continue
         st = stats(pairs)
         print("      %-6s %s" % (var, name))
@@ -195,6 +202,14 @@ def main():
               % (sname, nf, fr.frameValue, step.timePeriod, done))
         if done < 99.5:
             print("  *** THIS STEP DID NOT FINISH ***")
+        keys = sorted(fr.fieldOutputs.keys())
+        sdv = [k for k in keys if k.upper().startswith("SDV")]
+        print("  field output in this frame: %s" % ", ".join(keys))
+        if not sdv:
+            print("  !! NO SDV FIELDS AT ALL.  The *Element Output request in "
+                  "the deck asked for SDV but the odb has none, so every "
+                  "damage number below is unavailable.  Check the .dat file "
+                  "for a warning on the *Element Output line.")
         if "Matrix" in sets:
             report_region(fr, "Matrix", sets["Matrix"], MATRIX_SDV)
         for k, es in enumerate(sets.get("Yarn", [])):
