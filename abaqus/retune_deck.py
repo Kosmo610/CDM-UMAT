@@ -107,6 +107,45 @@ D_HSMO = 0.0                           # V3_0 only; 0 = published sign(I1) step
 D_IR = 16                              # log-rate divergence check
 D_IA = 8                               # cutbacks per increment
 
+# --------------------------------------------------------------------------
+# 2026-07-30, M3 post-mortem: the traction-free macro drivers
+# --------------------------------------------------------------------------
+# M3 fixed the reheat step outright (T500/T1000 step 2: 403 increments at full
+# dt, zero failed attempts, where M1FIX never finished it at all).  What was
+# left was the tension step, and reading the .msg iteration by iteration showed
+# the residual was almost never on the loaded driver.  It sat on e_z, e_xy and
+# e_xz -- the drivers with NO prescribed boundary condition, whose equilibrium
+# equation is "this macro stress component is zero".
+#
+# Those residuals are meaningless at the level Abaqus was demanding.  The driver
+# reaction is R = sigma * V_RVE, so with V_RVE = 5.390 mm^3 the largest residual
+# RT23 ever failed on, 3.959e-03 N.mm, is a macro stress error of 7.3e-04 MPa.
+# Abaqus was comparing it against 0.5 % of the global average nodal force
+# (~0.15 N.mm), i.e. demanding the traction-free stresses vanish to 1.4e-04 MPa
+# while the axial stress being measured is ~100-200 MPa.  A tolerance five
+# orders of magnitude tighter than the quantity of interest.
+#
+# Two changes, in order of how much they are justified:
+#
+# SHEARLOCK -- prescribe eps_xy = eps_xz = eps_yz = 0 in every step.  For a
+#   balanced orthogonal 2-D weave loaded along a principal material axis these
+#   are zero by symmetry, so this removes three near-singular DOFs at no
+#   physical cost.  It is aimed straight at the observed failures: at the moment
+#   of death 11 of T1000's last 12 iterations and 13 of RT23's last 14 were on a
+#   shear driver, and the only numerical singularities in the whole M3 set (36
+#   of them, RT23) were on e_xy and e_y with pivot RATIO 2.6e+10.
+#   This is an ASSUMPTION ABOUT THE MESH, so postprocess/driver_audit.py
+#   measures the macro shear stress on the existing odbs and reports whether it
+#   is under 1 % of sigma_xx.  Do not ship a thesis number without that check.
+#
+# FTOL -- relax the force residual ratio from Abaqus' default 0.005.  At 0.02
+#   the tolerance becomes ~3e-03 N.mm = 5.6e-04 MPa of macro stress, still four
+#   orders below the axial stress.  This one is a judgement call and applies to
+#   the mesh equations too, so it is reported in the thesis rather than buried.
+D_SHEARLOCK = True
+D_FTOL = 0.02
+ABAQUS_DEFAULT_FTOL = 0.005            # what Abaqus uses if we say nothing
+
 
 def card_numbers(card):
     """Return (keyword_line, [float, ...]) for a *User Material block."""
@@ -188,12 +227,31 @@ def materials(a):
 
 
 def controls(a):
-    return ("*Controls, parameters=time incrementation\n"
-            " 12, %d, , 40, , , , %d, , ,\n"
-            "*Controls, parameters=field, field=displacement\n"
-            " , %g\n"
-            "*Controls, parameters=line search\n"
-            "5\n" % (a.i_r, a.i_a, a.dispctrl))
+    c = ("*Controls, parameters=time incrementation\n"
+         " 12, %d, , 40, , , , %d, , ,\n"
+         "*Controls, parameters=field, field=displacement\n"
+         " , %g\n" % (a.i_r, a.i_a, a.dispctrl))
+    # Only emit the force block when we actually depart from the Abaqus
+    # default, so a deck generated with --ftol 0.005 stays byte-identical to
+    # the pre-M4 decks and the regression comparison stays meaningful.
+    if abs(a.ftol - ABAQUS_DEFAULT_FTOL) > 1.0e-12:
+        c += ("*Controls, parameters=field, field=force\n"
+              " %g,\n" % a.ftol)
+    return c + "*Controls, parameters=line search\n5\n"
+
+
+def shear_lock(a):
+    """Prescribe the three macro shear strains to zero.
+
+    Returned as boundary CARD LINES only -- the caller owns the '*Boundary'
+    keyword, because a step may already be opening one for the loaded driver
+    and two *Boundary blocks in a row would be legal but harder to read.
+    """
+    if not a.shearlock:
+        return []
+    return ["ConstraintsDriver3, 1, 1, 0.0",     # eps_xy
+            "ConstraintsDriver4, 1, 1, 0.0",     # eps_xz
+            "ConstraintsDriver5, 1, 1, 0.0"]     # eps_yz
 
 
 OUTPUT = """*Output, field, number interval=101, time marks=NO
@@ -218,13 +276,31 @@ def static_line(a, dt0, minc):
     return "%s\n%g, 1.0, %g, 0.0025" % (head, dt0, minc)
 
 
+def thermal_bc(a, T):
+    """Boundary + temperature cards for a thermal step.
+
+    The shear lock has to be restated in every step: a *Boundary block in a
+    later step does not inherit a prescribed value from an earlier one unless
+    it is repeated, and the whole point is that these three DOFs are never left
+    free once damage starts localising.
+    """
+    lines = []
+    lock = shear_lock(a)
+    if lock:
+        lines.append("*Boundary")
+        lines.extend(lock)
+    lines.append("*Temperature")
+    lines.append("AllNodes, %g." % T)
+    return "\n".join(lines)
+
+
 def steps(a, case):
     S = []
     S.append("*Step, Name=Manufacturing_Cooling, nlgeom=NO, inc=%d" % a.inc)
     S.append("Uniform cooling from %g degC to 23 degC with progressive damage"
              % a.zero)
     S.append(static_line(a, 0.001, a.mininc))
-    S.append(controls(a) + "*Temperature\nAllNodes, 23.")
+    S.append(controls(a) + thermal_bc(a, 23))
     S.append(OUTPUT)
     S.append("*End Step")
     if case["heat"] is not None:
@@ -232,15 +308,16 @@ def steps(a, case):
         S.append("*Step, Name=Heating_to_%dC, nlgeom=NO, inc=%d" % (T, a.inc))
         S.append("Uniform reheating from 23 degC to %d degC before tension" % T)
         S.append(static_line(a, 0.001, a.mininc))
-        S.append(controls(a) + "*Temperature\nAllNodes, %d." % T)
+        S.append(controls(a) + thermal_bc(a, T))
         S.append(OUTPUT)
         S.append("*End Step")
     T = case["test"]
     S.append("*Step, Name=Tension_at_%dC, nlgeom=NO, inc=%d" % (T, a.inc))
     S.append("Uniaxial x tension at %d degC via ConstraintsDriver0" % T)
     S.append(static_line(a, 0.0005, a.mininc))
-    S.append(controls(a) + "*Boundary\nConstraintsDriver0, 1, 1, %.6f"
-             % case["eps"])
+    S.append(controls(a) + "\n".join(
+        ["*Boundary", "ConstraintsDriver0, 1, 1, %.6f" % case["eps"]]
+        + shear_lock(a)))
     S.append(OUTPUT)
     S.append("*End Step")
     return "\n".join(S)
@@ -350,6 +427,8 @@ class _A(object):
     i_r, i_a = D_IR, D_IA
     hsmo = D_HSMO
     inc = D_INC
+    shearlock = D_SHEARLOCK
+    ftol = D_FTOL
 
 
 def check():
@@ -505,6 +584,56 @@ def check():
       outi.count("inc=2000") == 3 and "inc=10000" not in outi,
       "%d steps" % outi.count("inc=2000"))
 
+    # ---- the 2026-07-30 M3 post-mortem guards: free macro drivers ----
+    t("shear lock is on by default", D_SHEARLOCK is True)
+    t("default ftol is looser than the Abaqus default",
+      D_FTOL > ABAQUS_DEFAULT_FTOL, "%g > %g" % (D_FTOL, ABAQUS_DEFAULT_FTOL))
+    t("default ftol is still tight enough to be defensible", D_FTOL <= 0.05,
+      "%g" % D_FTOL)
+
+    alk = _A()
+    outl, _, _ = retune(_fake_deck(), alk)
+    # 3 steps in the fake deck (cool / heat / pull) x 3 shear DOFs
+    for drv in (3, 4, 5):
+        t("eps_%d driver locked in all 3 steps" % drv,
+          outl.count("ConstraintsDriver%d, 1, 1, 0.0" % drv) == 3,
+          "%d" % outl.count("ConstraintsDriver%d, 1, 1, 0.0" % drv))
+    t("the loaded driver is NOT locked to zero",
+      "ConstraintsDriver0, 1, 1, 0.0\n" not in outl)
+    t("eps_yy and eps_zz stay free (Poisson must not be suppressed)",
+      "ConstraintsDriver1, 1, 1," not in outl
+      and "ConstraintsDriver2, 1, 1," not in outl)
+    # every locked block must be introduced by a *Boundary keyword
+    t("each thermal step opens a *Boundary before *Temperature",
+      outl.count("*Boundary\nConstraintsDriver3") == 2,
+      "%d thermal steps" % outl.count("*Boundary\nConstraintsDriver3"))
+    t("the tension step locks shear in the same block as the load",
+      "ConstraintsDriver0, 1, 1, 0.003200\nConstraintsDriver3, 1, 1, 0.0"
+      in outl)
+    t("force control emitted once per step",
+      outl.count("*Controls, parameters=field, field=force") == 3,
+      "%d" % outl.count("*Controls, parameters=field, field=force"))
+    t("force control carries the chosen ratio",
+      (" %g,\n" % D_FTOL) in outl)
+
+    afs = _A()
+    afs.shearlock = False
+    afs.ftol = ABAQUS_DEFAULT_FTOL
+    outf, _, _ = retune(_fake_deck(), afs)
+    # NB: match the *Boundary line, not the bare driver name -- every deck
+    # also carries '*Node Output, nset=ConstraintsDriver3' for history output,
+    # and those requests must survive --free-shear untouched.
+    t("--free-shear removes every shear lock",
+      not any(("ConstraintsDriver%d, 1, 1," % d) in outf for d in (3, 4, 5)))
+    t("--free-shear keeps the shear history output requests",
+      all(("nset=ConstraintsDriver%d" % d) in outf for d in (3, 4, 5)))
+    t("ftol at the Abaqus default emits no force block",
+      "field=force" not in outf)
+    t("--free-shear still writes the tension load",
+      "ConstraintsDriver0, 1, 1, 0.003200" in outf)
+    t("--free-shear still writes both *Temperature cards",
+      outf.count("*Temperature") == 2, "%d" % outf.count("*Temperature"))
+
     # a deck without the anchor must raise, not produce garbage
     try:
         retune(_fake_deck().replace(MAT_ANCHOR, "*Material, Name=SOMETHING"),
@@ -559,6 +688,21 @@ def main():
     ap.add_argument("--i-a", dest="i_a", type=int, default=D_IA,
                     help="I_A, cutbacks allowed per increment (default %d)"
                          % D_IA)
+    ap.add_argument("--free-shear", dest="shearlock", action="store_false",
+                    default=D_SHEARLOCK,
+                    help="leave eps_xy/eps_xz/eps_yz free instead of "
+                         "prescribing them to zero. The M3 runs showed the "
+                         "free shear drivers go singular once damage "
+                         "localises (pivot RATIO 2.6e+10), so the default is "
+                         "to lock them. Use this to reproduce the M3 decks or "
+                         "to measure the shear response deliberately.")
+    ap.add_argument("--ftol", type=float, default=D_FTOL,
+                    help="force residual ratio Rn^alpha (default %g; Abaqus "
+                         "default is %g). The traction-free macro drivers "
+                         "cannot meet %g, and their residual is a macro "
+                         "stress error of <0.01 MPa, so the stock value is "
+                         "the wrong scale for this model."
+                         % (D_FTOL, ABAQUS_DEFAULT_FTOL, ABAQUS_DEFAULT_FTOL))
     ap.add_argument("--check", action="store_true",
                     help="run the static self-test and exit")
     a = ap.parse_args()
@@ -581,6 +725,15 @@ def main():
     print("  cards     dmax=%g  eta=%g  djump=%g" % (a.dmax, a.eta, a.djump))
     print("  steps     stabilize=%s  min inc=%g  disp tol=%g  I_R=%d  I_A=%d"
           % (a.stabilize or "off", a.mininc, a.dispctrl, a.i_r, a.i_a))
+    print("  drivers   shear lock=%s  force tol=%g%s"
+          % ("eps_xy=eps_xz=eps_yz=0" if a.shearlock else "ALL FREE",
+             a.ftol,
+             "" if abs(a.ftol - ABAQUS_DEFAULT_FTOL) > 1e-12
+             else " (Abaqus default -- no force control emitted)"))
+    if a.shearlock:
+        print("            CHECK THIS: run driver_audit.py on the odb and "
+              "confirm the\n            macro shear stress is <1 %% of "
+              "sigma_xx, or the lock is not free.")
     print("  zero      %g degC" % a.zero)
     if a.hsmo > 0.0:
         print("  hsmo      %g  -> matrix card is 25 slots; RUN THIS WITH "

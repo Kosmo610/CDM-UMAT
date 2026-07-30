@@ -402,3 +402,174 @@ increments before hitting its wall.
 * `zero=600` becomes a main case, not insurance.
 * The element-quality finding is demoted to mesh hygiene; it must still be
   fixed before any mesh-convergence claim, but it is not why these jobs stopped.
+
+---
+
+# Round 4 — the M3 results (2026-07-30)
+
+M3 = HSMO 0.1 + `djump` 0.10 + `inc` 2000. Four jobs run in parallel.
+**`RT23_z600` completed.** The other three stopped, but every one of them went
+dramatically further than M1FIX, and the failure moved to a different place.
+
+| 잡 | 결과 | 마지막 스텝 | 도달 | 벽시계 | M1FIX 대비 |
+|---|---|---|---|---|---|
+| `RT23_z600` | **성공** | 인장 | **100 %** | 0.71 h | 완주 |
+| `RT23` | 정지 | 인장 | 98.2 % | 3.54 h | — |
+| `T500` | 정지 | **인장** | 67.3 % | 1.05 h | 15.6 h → **1.05 h** |
+| `T1000` | 정지 | **인장** | 57.2 % | 0.64 h | 15.3 h → **0.64 h** |
+
+## 1. The reheat step is fixed. Completely.
+
+This is the headline and it is unambiguous. `T500` and `T1000` died **in the
+reheat step** in M1FIX. In M3 they walk through it and die in the *tension*
+step, two steps later.
+
+| 스텝 | 잡 | 증분 | 실패 시도 | 증분 크기 중앙값 | 반복/시도 |
+|---|---|---|---|---|---|
+| 냉각 (1) | 전부 | 402 | **0** | 2.5e-03 (최대) | 2.5–5.0 |
+| **재가열 (2)** | T500 | 404 | **0** | **2.5e-03 (최대)** | **2.3** |
+| **재가열 (2)** | T1000 | 403 | **0** | **2.5e-03 (최대)** | **2.6** |
+
+Zero failed attempts, full increment size, 2.3 equilibrium iterations per
+increment. In M1FIX the same step ran 12 888 attempts with 2 888 failures at a
+median increment of 9.5e-08 and never finished.
+
+The `sign(I1)` discontinuity was the cause of the reheat failure and the tanh
+blend removed it. Round 3 predicted exactly this ("the smoothing should help
+the reheat jobs most"); the prediction is confirmed. **This is a Ch.3 result,
+not just a numerical convenience** — it is direct evidence for the V3_0
+feature T3.
+
+## 2. What is still failing is not the material. It is the free macro drivers.
+
+Reading the `.msg` iteration by iteration: the residual is almost never on the
+loaded driver. It sits on the drivers that carry **no** boundary condition.
+
+Nodes 5681–5686 are the periodic-BC `ConstraintsDriver` dummy nodes, not
+material points:
+
+| 절점 | 드라이버 | 의미 |
+|---|---|---|
+| 5681 | ConstraintsDriver0 | `eps_xx` ← **유일하게 하중이 걸린 것** |
+| 5682–5683 | 1, 2 | `eps_yy`, `eps_zz` (자유, 포아송) |
+| 5684–5686 | 3, 4, 5 | `eps_xy`, `eps_xz`, `eps_yz` (자유, 전단) |
+
+Where the residual actually sat, over each whole run:
+
+| 잡 | 매크로 드라이버 위 | 그중 하중 드라이버 | 메시 절점 위 |
+|---|---|---|---|
+| RT23 | **63.4 %** | 3 회 (0.03 %) | 36.6 % |
+| T500 | **69.8 %** | 153 회 (4.3 %) | 30.2 % |
+| T1000 | **84.5 %** | 289 회 (7.6 %) | 15.5 % |
+| z600 | **75.1 %** | 2 회 (0.08 %) | 24.9 % |
+
+At the moment of death it is even more lopsided — 11 of `T1000`'s last 12
+iterations and 13 of `RT23`'s last 14 are on a **shear** driver.
+
+### The residual there is physically meaningless at the level demanded
+
+The driver reaction is `R = sigma * V_RVE`, with `V_RVE` = 5.390 mm³. So a
+residual on a free driver *is* the macro stress error:
+
+| 잡 | 마지막 잔차 | 매크로 응력 오차 | 축 응력 대비 |
+|---|---|---|---|
+| RT23 | 3.959e-03 N·mm | **7.3e-04 MPa** | ~4e-06 |
+| T1000 | 4.310e-02 N·mm | **8.0e-03 MPa** | ~4e-05 |
+| T500 | 8.249e-02 N·mm | **1.5e-02 MPa** | ~8e-05 |
+
+Abaqus judges these against 0.5 % of the global average nodal force (~0.15 N·mm
+here), i.e. it demands the traction-free stresses vanish to **1.4e-04 MPa**
+while the axial stress being measured is 100–200 MPa. The tolerance is five
+orders of magnitude tighter than the quantity of interest. The jobs were not
+failing on physics; they were failing on a criterion applied at the wrong scale.
+
+### It is not a step-size problem
+
+`T1000` increment 259 was retried 8 times, `dt` from 2.44e-06 down to 3.05e-07
+— an 8× reduction that left the residual essentially unchanged (−3.4e-02 →
+−4.3e-02). `RT23` ran at `dt` = 1e-08 with Newton corrections of **1e-19 to
+1e-22** — the correction is zero to machine precision while the residual is
+not. Per the standing rule: if cutting `dt` does not move the residual, the
+increment size is not the problem.
+
+### The free drivers genuinely go singular
+
+`RT23` is the only job that reported numerical singularities — 36 of them, all
+on the driver nodes:
+
+```
+***WARNING: SOLVER PROBLEM. NUMERICAL SINGULARITY WHEN PROCESSING NODE 5684
+            D.O.F. 1 RATIO = 25.7164E+09 .
+```
+
+Node 5684 = `eps_xy`, node 5682 = `eps_yy`, 18 times each. A pivot ratio of
+2.6e+10 means the macro tangent for those components has effectively vanished.
+Physically that is a damage band percolating across the RVE: once it does, the
+two halves can shear past each other at almost no cost, and the macro shear
+stiffness — which is what that driver's diagonal *is* — goes to zero.
+
+`RT23` is also the most TRS-pre-damaged case (`zero` = 1050 °C), and it is the
+only one to reach that state. Consistent.
+
+## 3. Corrections to Round 3
+
+Round 3 read the residual DOF histogram as "DOF 3, the through-thickness
+direction, is the common thread." **That reading was wrong**, for two reasons,
+and both are worth recording because they were avoidable.
+
+1. **The node numbers were not checked against the deck.** Nodes 5681–5686 are
+   dummy drivers with a single active DOF each. Their "DOF 1" is not the global
+   x-direction of any material point — it is that driver's only degree of
+   freedom. Counting them alongside mesh DOFs mixed two different things.
+2. Once drivers are separated out, the mesh-node DOF histogram in M3 is
+   1: 2794 / 2: 2106 / 3: 1493 for `RT23` — no through-thickness dominance at
+   all.
+
+The Round 3 *physical* argument (through-thickness is matrix-dominated and most
+compliant) is still sound as far as it goes, and the reheat diagnosis built on
+it was correct — the fix worked. But the DOF evidence offered for it was
+misread, and the conclusion happened to be right for a reason other than the
+one given. Recording that distinction matters more than the outcome.
+
+**Standing rule added:** before attributing a convergence failure to a node,
+look the node number up in the deck.
+
+## 4. What is already usable, before any re-run
+
+`AVERAGE FORCE` through the tension step, as a load proxy:
+
+| 잡 | 인장 스텝 거동 | 피크 위치 | 판정 |
+|---|---|---|---|
+| z600 | 0.168 → **0.174** → 0.172 | 스텝의 76 % | **피크 통과, 완주** |
+| T500 | 0.129 → **0.163** → 0.159 | 스텝의 60 % | **피크 통과** |
+| RT23 | 0.242 → 0.143, 계속 평탄/하강 | 시작 직후 | **상승 구간 자체가 없음** |
+| T1000 | 0.060 → **0.149**, 마지막까지 상승 | 마지막 증분 | **피크 미도달** |
+
+Three of the four already contain the peak. Only `T1000` genuinely needs more.
+The dead `.odb`s hold every converged increment, so **extract before re-running**.
+
+`RT23` having no rising branch at all is itself a physical result: at
+`zero` = 1050 °C the matrix is already so TRS-cracked that the tensile response
+starts at its peak. `z600`, identical in every numerical respect, has a proper
+rising branch. That is the same conclusion as the Round 3 `z600` comparison,
+now visible in the load history rather than only in how far the job got.
+
+## 5. Consequences — the M4 deck
+
+* **Lock the three shear drivers**: `eps_xy = eps_xz = eps_yz = 0`, restated in
+  every step. For a balanced orthogonal 2-D weave loaded along a principal
+  material axis these are zero by symmetry, so this removes three
+  near-singular DOFs at no physical cost — and it targets exactly the DOFs the
+  jobs died on.
+  **This is an assumption about the mesh, not a fact.**
+  `postprocess/driver_audit.py` measures the macro shear stress on the existing
+  `.odb`s; if it is not under 1 % of `sigma_xx`, the lock is a real modelling
+  change and has to be declared in the thesis instead of assumed away.
+* **Relax the force residual ratio** from Abaqus' 0.005 to 0.02. At 0.02 the
+  tolerance is ~5.6e-04 MPa of macro stress, still four orders below the axial
+  stress. This one is a judgement call, it applies to the mesh equations too,
+  and it goes in the thesis as a stated numerical setting.
+* Everything else is unchanged from M3: HSMO 0.1, `djump` 0.10, `inc` 2000,
+  `dmax` 0.90, `eta` 0.05, `stabilize` 2e-04. The M3→M4 deck diff is exactly
+  these two changes and nothing else (verified by diff; mesh and material
+  blocks are byte-identical).
