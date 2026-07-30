@@ -25,8 +25,18 @@ What it changes, and why (all measured, see the failure analysis)
   eta   0.02 -> 0.05   viscous damage regularisation.  At the maximum allowed
                        increment 0.0025 this takes the realised fraction of the
                        damage target from 0.111 to 0.048 per increment.
-  djump 0.10 -> 0.03   the UMAT's own pre-emptive PNEWDT cutback now fires four
-                       times earlier, BEFORE a large damage jump is committed.
+  djump 0.10 -> 0.03   REVERTED on 2026-07-30, see below.
+  djump kept at 0.10   The 0.03 experiment made things WORSE.  M1FIX_c26k_T500
+                       and _T1000 did not diverge -- they CRAWLED, running the
+                       whole 10000-increment budget at a median time increment
+                       of 9.5e-08 (the maximum allowed is 2.5e-03, so a factor
+                       of 26000 down) and burning 15.6 h and 15.3 h of wall
+                       clock to reach LESS of the step than the un-retuned run
+                       had: 68 C and 147 C against 186 C.  2888 of 12888
+                       attempts failed, and with that failure rate Abaqus can
+                       never grow the increment back.  Tightening the UMAT's
+                       own pre-emptive cutback simply multiplied the number of
+                       cutbacks; it did not make any of them succeed.
   stabilize            *Static, stabilize=... is the standard Abaqus/Standard
                        cure for localisation.  ALLSD/ALLIE is written to the
                        history output so the artificial energy can be checked.
@@ -46,6 +56,9 @@ What it changes, and why (all measured, see the failure analysis)
                        ~23 min of wall clock before the job gave up.
   min increment 1e-12 -> 1e-8
                        same reason.  At 1e-8 the strain increment is 1.5e-11.
+  inc 10000 -> 2000    a job that is crawling must die in about two hours, not
+                       fifteen.  Nothing useful happened in the last 8000
+                       increments of either 15-hour run.
 
   --zero               *Expansion, zero= (the stress-free temperature).  This
                        one is PHYSICS, not numerics.  Leave it at 1050 unless
@@ -83,7 +96,8 @@ MATRIX_KEY = 30.0                      # PROPS(22) guard checked by the UMAT
 # --------------------------------------------------------------------------
 D_DMAX = 0.90
 D_ETA = 0.05
-D_DJUMP = 0.03
+D_DJUMP = 0.10        # NOT 0.03 -- see the 2026-07-30 note below
+D_INC = 2000          # increment budget per step; 10000 let two jobs crawl 15 h
 D_STABILIZE = 2.0e-4
 D_ALLSDTOL = 0.05
 D_DISPCTRL = 1.0
@@ -206,7 +220,7 @@ def static_line(a, dt0, minc):
 
 def steps(a, case):
     S = []
-    S.append("*Step, Name=Manufacturing_Cooling, nlgeom=NO, inc=10000")
+    S.append("*Step, Name=Manufacturing_Cooling, nlgeom=NO, inc=%d" % a.inc)
     S.append("Uniform cooling from %g degC to 23 degC with progressive damage"
              % a.zero)
     S.append(static_line(a, 0.001, a.mininc))
@@ -215,14 +229,14 @@ def steps(a, case):
     S.append("*End Step")
     if case["heat"] is not None:
         T = case["heat"]
-        S.append("*Step, Name=Heating_to_%dC, nlgeom=NO, inc=10000" % T)
+        S.append("*Step, Name=Heating_to_%dC, nlgeom=NO, inc=%d" % (T, a.inc))
         S.append("Uniform reheating from 23 degC to %d degC before tension" % T)
         S.append(static_line(a, 0.001, a.mininc))
         S.append(controls(a) + "*Temperature\nAllNodes, %d." % T)
         S.append(OUTPUT)
         S.append("*End Step")
     T = case["test"]
-    S.append("*Step, Name=Tension_at_%dC, nlgeom=NO, inc=10000" % T)
+    S.append("*Step, Name=Tension_at_%dC, nlgeom=NO, inc=%d" % (T, a.inc))
     S.append("Uniaxial x tension at %d degC via ConstraintsDriver0" % T)
     S.append(static_line(a, 0.0005, a.mininc))
     S.append(controls(a) + "*Boundary\nConstraintsDriver0, 1, 1, %.6f"
@@ -335,6 +349,7 @@ class _A(object):
     dispctrl, mininc, zero = D_DISPCTRL, D_MININC, D_ZERO
     i_r, i_a = D_IR, D_IA
     hsmo = D_HSMO
+    inc = D_INC
 
 
 def check():
@@ -366,7 +381,7 @@ def check():
       "(%d)" % len(nm))
     t("retuned matrix dmax_t/dmax_c = 0.90", nm[7] == D_DMAX and nm[8] == D_DMAX)
     t("retuned matrix eta = 0.05", nm[9] == D_ETA)
-    t("retuned matrix djump = 0.03", nm[10] == D_DJUMP)
+    t("retuned matrix djump = %g" % D_DJUMP, nm[10] == D_DJUMP)
     t("retuned matrix guard survived", nm[21] == MATRIX_KEY)
     untouched = [i for i in range(22) if i not in (7, 8, 9, 10)]
     t("retuned matrix touches ONLY the four intended slots",
@@ -380,7 +395,7 @@ def check():
       "(%d)" % len(ny))
     t("retuned yarn dmax_1/dmax_t = 0.90", ny[21] == D_DMAX and ny[22] == D_DMAX)
     t("retuned yarn eta = 0.05", ny[23] == D_ETA)
-    t("retuned yarn djump = 0.03", ny[24] == D_DJUMP)
+    t("retuned yarn djump = %g" % D_DJUMP, ny[24] == D_DJUMP)
     yun = [i for i in range(38) if i not in (21, 22, 23, 24)]
     t("retuned yarn touches ONLY the four intended slots",
       all(ny[i] == ny0[i] for i in yun))
@@ -478,6 +493,18 @@ def check():
     t("no-hsmo deck writes constants=22",
       "*User Material, constants=22" in out)
 
+    # the 2026-07-30 regression guards
+    t("default djump is NOT the 0.03 that caused the crawl", D_DJUMP >= 0.08,
+      "%g" % D_DJUMP)
+    t("default increment budget is capped well below 10000", D_INC <= 3000,
+      "%d" % D_INC)
+    ai = _A()
+    ai.inc = 2000
+    outi, _, _ = retune(_fake_deck(), ai)
+    t("every step carries the increment cap",
+      outi.count("inc=2000") == 3 and "inc=10000" not in outi,
+      "%d steps" % outi.count("inc=2000"))
+
     # a deck without the anchor must raise, not produce garbage
     try:
         retune(_fake_deck().replace(MAT_ANCHOR, "*Material, Name=SOMETHING"),
@@ -501,7 +528,11 @@ def main():
                     help="viscous regularisation (default %g)" % D_ETA)
     ap.add_argument("--djump", type=float, default=D_DJUMP,
                     help="max damage jump before the UMAT cuts back "
-                         "(default %g)" % D_DJUMP)
+                         "(default %g). Do NOT tighten this below ~0.08: "
+                         "0.03 was tried and produced a 15-hour crawl." % D_DJUMP)
+    ap.add_argument("--inc", type=int, default=D_INC,
+                    help="increment budget per step (default %d). 10000 let a "
+                         "crawling job burn 15 h before giving up." % D_INC)
     ap.add_argument("--stabilize", type=float, default=D_STABILIZE,
                     help="*Static stabilize factor, 0 disables (default %g)"
                          % D_STABILIZE)

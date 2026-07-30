@@ -292,3 +292,113 @@ removes the switch but cannot fix the conditioning of a 0.3° tetrahedron.
 Re-mesh from TexGen with the matrix element quality raised, and **re-export
 the `.ori` with it** — an old `.ori` on a new mesh converges silently with the
 fibre directions wrong.
+
+---
+
+# Round 3 — the full `M1FIX_c26k_*` set (2026-07-30), and a correction
+
+All four retuned jobs are in. Two of them changed the diagnosis, and one of
+them refutes something this document previously asserted.
+
+| job | step 2 is | reached | vs. the un-retuned run | wall | how it ended |
+|---|---|---|---|---|---|
+| `RT23` | tension | **0.0627 %** strain | +49 % | 23 min | minimum increment |
+| `RT23_z600` | tension | **0.1339 %** strain | **2.14× RT23** | 3.8 h | minimum increment |
+| `T500` | **reheat** | 68.0 °C | **−72 %** (was 186 °C) | **15.6 h** | increment budget exhausted |
+| `T1000` | **reheat** | 147.1 °C | **−23 %** (was 185 °C) | **15.3 h** | increment budget exhausted |
+
+## 1. The `max_djump` change was a mistake, and it cost 31 hours
+
+`T500` and `T1000` did not diverge. They **crawled**: 12888 attempts of which
+**2888 failed**, at a **median time increment of 9.5e-08** against the 2.5e-03
+maximum — a factor of 26 000 down — until the 10 000-increment budget ran out.
+Both burned more than fifteen hours to reach *less* of the reheat step than the
+un-retuned deck had reached in 25 minutes.
+
+Tightening the UMAT's own pre-emptive cutback from `max_djump` 0.10 to 0.03
+multiplied the number of cutbacks without making any of them succeed. With a
+22 % failure rate Abaqus can never grow the increment back, so the step never
+recovers. **`max_djump` is reverted to 0.10 and the increment budget is capped
+at 2000**, so a crawling job now dies in about two hours instead of fifteen.
+Nothing useful happened in the last 8000 increments of either run.
+
+## 2. Lowering the stress-free temperature is the only change that clearly helped
+
+`RT23_z600` is `RT23` with `*Expansion, zero=` moved from 1050 °C to 600 °C —
+the same numerics, less thermal residual stress. It reached **2.14× the tensile
+strain**, with only 8 unconverged attempts against RT23's 10, and a median
+increment 50× larger than the reheat jobs managed.
+
+This is the cleanest evidence yet for §3 of this document: **the binding
+constraint is the TRS-induced pre-damage, not the solver settings.** Reduce the
+residual stress and the analysis goes further, immediately. It also promotes
+`zero=` from an insurance case to a main variable — see Ch.4 §4.9-2.
+
+## 3. CORRECTION: the sliver-element explanation does not survive
+
+Round 2 of this document attributed the failure partly to the 1185 distorted
+matrix elements, on the evidence that node 1081 — where `RT23` failed — has
+21 % distorted neighbours against a 4.6 % mesh-wide baseline.
+
+**That correlation was one node, and it does not generalise.** The four jobs
+fail at different places, and the distortion density at those places is:
+
+| node | job(s) | distorted neighbours | in a periodic-BC set? |
+|---|---|---|---|
+| 1081 | RT23 (M1, M1FIX) | 21 % (7 of 34) | no |
+| 1080 | RT23 (M1, M1FIX) | 3 % (1 of 30) | no |
+| **2867** | T500, T1000, z600 | **0 %** (0 of 28) | no |
+| **2868** | T500, T1000, z600 | **0 %** (0 of 13) | FaceE |
+| 5673, 550, 569 | z600, T500 | **0 %** | no |
+
+Only 2 of the 8 failing nodes lie in a periodic-BC set, against a 40.7 %
+baseline — periodic nodes are **under**-represented, not over. So neither mesh
+quality nor the periodic boundary conditions explains the pattern, and the
+element-quality warning should be reported as a **mesh-hygiene item, not as a
+cause of the non-convergence.**
+
+## 4. What does hold across all four jobs
+
+**The through-thickness direction.** Counting which degree of freedom carries
+the largest residual over the whole of step 2:
+
+| job | DOF 1 | DOF 2 | **DOF 3** |
+|---|---|---|---|
+| RT23 | 2238 | 1 | 200 |
+| T500 | 17 266 | 34 | **36 541** |
+| T1000 | 14 069 | 132 | **40 871** |
+| z600 | 2715 | 1 | **14 946** |
+
+DOF 3 dominates in three of four, overwhelmingly in the two reheat jobs. It is
+the thinnest direction (0.44 mm), it is matrix-dominated because no tow runs
+through the thickness in a 2-D weave, and it is therefore the most compliant —
+which is exactly where a stiffness discontinuity produces the largest
+displacement response.
+
+**And the signature is unchanged.** `z600`'s last iteration:
+
+```
+LINE SEARCH SCALE FACTOR = 4.408E-02
+AVERAGE FORCE 0.159    residual -0.150 AT NODE 2867 DOF 3
+LARGEST CORRECTION TO DISP. -1.499E-14
+```
+
+A residual at **94 % of the average force** with a displacement correction of
+1.5e-14 and the line search collapsed to 4 %. The displacement is frozen and
+the stress is not. That is a discontinuous constitutive law and nothing else.
+
+**Why the reheat is the worst step.** During tension only the subset of points
+whose local `I1` happens to sit near zero can chatter. During the reheat the
+whole matrix unloads *through* zero, progressively, as the temperature rises —
+so the chatter is sustained across the entire step. That is why `T500` and
+`T1000` never got going while `RT23` ran at full increment size for 74
+increments before hitting its wall.
+
+## 5. Consequences
+
+* The `sign(I1)` smoothing (§ Ch.3 3.4.3) is the right fix and the reheat jobs
+  should benefit from it most.
+* `max_djump` back to 0.10, increment budget capped at 2000.
+* `zero=600` becomes a main case, not insurance.
+* The element-quality finding is demoted to mesh hygiene; it must still be
+  fixed before any mesh-convergence claim, but it is not why these jobs stopped.
