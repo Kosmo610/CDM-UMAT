@@ -36,6 +36,7 @@ ROOT = os.path.dirname(HERE)
 DOCS = os.path.join(ROOT, "docs")
 
 FILES = {
+    "Ch.1": "CH1_INTRODUCTION.md",
     "Ch.2": "CH2_LITERATURE_REVIEW.md",
     "Ch.3": "CH3_VERIFICATION.md",
     "Ch.4": "CH4_RVE_HOMOGENISATION.md",
@@ -85,14 +86,25 @@ EXACT = [
     ("Zhang Table 3 RT", "128.45", ["Ch.4", "PLAN"]),
     ("Zhang Table 3 500", "179.42", ["Ch.4", "PLAN"]),
     ("Zhang Table 3 1000", "199.15", ["Ch.4", "PLAN"]),
-    ("XRD matrix TRS", "114.7", ["Ch.2", "Ch.4", "M1", "NOVELTY"]),
-    ("mesh 26452 elements", "26452", ["Ch.4", "M1"]),
+    ("XRD matrix TRS", "114.7", ["Ch.1", "Ch.2", "Ch.4", "M1", "NOVELTY"]),
+    ("mesh 26452 elements", "26452", ["Ch.1", "Ch.4", "M1"]),
     ("1185 distorted elements", "1185", ["Ch.3", "Ch.4", "M1"]),
     ("crack-band limit 0.2214 mm", "0.2214", ["Ch.4", "M1"]),
     ("I1=0 jump 78.0x", "78.0", ["Ch.3", "M1"]),
-    ("stress-free temperature 1050", "1050", ["Ch.2", "Ch.4", "M1"]),
-    ("Biot for refs/[3]", "0.0475", ["Ch.4"]),
+    ("stress-free temperature 1050", "1050", ["Ch.1", "Ch.2", "Ch.4", "M1"]),
+    ("Biot for refs/[3]", "0.0475", ["Ch.1", "Ch.4"]),
     ("yarn micromechanics worst error", "0.142", ["Ch.3"]),
+    # Ch.1 restates results owned by Ch.3 and Ch.4.  An introduction drifting
+    # away from the chapters it summarises is the single easiest way to put two
+    # different numbers in one thesis, so every value it repeats is pinned here.
+    ("measured matrix TRS", "268.08", ["Ch.1", "Ch.4", "M1"]),
+    # Ch.2 deliberately says only "2배 이상" -- it was written before the
+    # cooldown was run and must not carry a precision it did not have.
+    ("TRS over-prediction ratio", "2.34", ["Ch.1", "Ch.4", "M1"]),
+    ("yarn volume fraction", "0.4982", ["Ch.1", "Ch.4"]),
+    ("RVE volume [mm^3]", "5.390", ["Ch.1", "Ch.4"]),
+    ("Biot for refs/[2]", "0.0277", ["Ch.1", "Ch.4"]),
+    ("automated verification item count", "416", ["Ch.1", "Ch.3"]),
 ]
 
 
@@ -107,7 +119,7 @@ def main():
     flat = {k: (re.sub(r"(?<=\d)[  ](?=\d)", "", v) if v else v)
             for k, v in doc.items()}
     missing = [t for t, v in doc.items() if v is None]
-    check("all six documents present", not missing, ", ".join(missing))
+    check("all seven documents present", not missing, ", ".join(missing))
     if missing:
         return 1
 

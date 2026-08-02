@@ -30,8 +30,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DOCS = os.path.join(ROOT, "docs")
-CHAPTERS = ["CH2_LITERATURE_REVIEW.md", "CH3_VERIFICATION.md",
-            "CH4_RVE_HOMOGENISATION.md"]
+CHAPTERS = ["CH1_INTRODUCTION.md", "CH2_LITERATURE_REVIEW.md",
+            "CH3_VERIFICATION.md", "CH4_RVE_HOMOGENISATION.md"]
 
 _OK, _BAD = [], []
 
