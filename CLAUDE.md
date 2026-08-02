@@ -219,6 +219,7 @@ python3 data/properties/eval_correlations.py --check
 python3 abaqus/build_temperature_tables.py --selftest
 python3 abaqus/make_macro_thermalshock.py --selftest   # 거시 카드 정적 검증
 python3 data/properties/conductivity_bounds.py --check # 열전도 경계·민감도
+python3 data/properties/yarn_fracture_energy.py --check # 얀 횡방향 Gtt/Gtc 출처 + 균열대 적합성
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
 python3 abaqus/retune_deck.py --check                 # 덱 재튜닝 (카드 슬롯 + 스텝)
@@ -233,7 +234,7 @@ python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결�
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 21개를 전부 통과시킨다.**
+**커밋 전에 위 22개를 전부 통과시킨다.**
 
 ## 현재 병목
 
