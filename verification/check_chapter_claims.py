@@ -31,7 +31,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DOCS = os.path.join(ROOT, "docs")
 CHAPTERS = ["CH1_INTRODUCTION.md", "CH2_LITERATURE_REVIEW.md",
-            "CH3_VERIFICATION.md", "CH4_RVE_HOMOGENISATION.md"]
+            "CH3_VERIFICATION.md", "CH4_RVE_HOMOGENISATION.md",
+            "CH5_MACRO_THERMALSHOCK.md"]
 
 _OK, _BAD = [], []
 

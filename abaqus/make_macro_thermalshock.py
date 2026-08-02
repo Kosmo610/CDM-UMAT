@@ -92,7 +92,10 @@ SEVERITIES = {
     "Z": dict(T_hi=900.0, T_lo=300.0, h=1.99e-4, bi=0.0475,
               note="refs/[03] Zhang 2013 as tested: 900->300 C in 15 s on "
                    "an iron plate, 3 mm thick"),
-    "Y": dict(T_hi=1300.0, T_lo=300.0, h=8.70e-5, bi=0.028,
+    # bi is quoted to 4 dp to match quench_calibration.py's solved value
+    # exactly; the chapters pin 0.0277 and a rounded 0.028 here would read as
+    # two different Biot numbers for the same test.
+    "Y": dict(T_hi=1300.0, T_lo=300.0, h=8.70e-5, bi=0.0277,
               note="refs/[02] Yin 2002 as tested: 1300->300 C, 60 s in "
                    "air, 4 mm thick -- much gentler than refs/[03]"),
 }
