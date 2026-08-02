@@ -231,10 +231,11 @@ python3 verification/check_ch5_numbers.py             # Ch.5 vs 덱 생성기 �
 python3 verification/check_chapter_consistency.py     # 장 간 모순 (검증 2회차)
 python3 verification/check_chapter_claims.py          # 장이 부른 파일·명령 (검증 3회차, 느림)
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
+python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 22개를 전부 통과시킨다.**
+**커밋 전에 위 23개를 전부 통과시킨다.**
 
 ## 현재 병목
 
