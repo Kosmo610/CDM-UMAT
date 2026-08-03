@@ -415,23 +415,93 @@ A30은 **2D 직조** CFRP의 압축 층내 파괴인성 + post-peak crushing str
 | **B32** | Li, L. (2020). "Temperature-dependent proportional limit stress of SiC/SiC fiber-reinforced ceramic-matrix composites." *High Temp. Mater. Process.* **39**, 209–. | `10.1515/htmp-2020-0052` | ✔ (끝쪽 △) | *"the **proportional limit stress increases with temperature**, due to … **decreasing of the thermal residual stress**"* ⚠️ **모델 논문이라 1차 실측 아님 — `secondary` 취급 검토** |
 | **B33** | (저자 미검증) (2022). "Stress-Induced Microcracking and Fracture Characterization for Ultra-High-Temperature Ceramic Matrix Composites at High Temperatures." *Materials* **15**(20), 7074. | `10.3390/ma15207074` | △ | 고온 응력이완·미세균열로 stress-free 접근. **OA** |
 
-### 4.7 ★★ 노벨티 C3의 선행 실험 근거 — 그리고 **이미 갖고 계실 가능성**
+### 4.7 ★★★ 노벨티 C3 — **`refs/[28]`이 바로 그 논문이었다 (2026-08-03 원문 확인)**
 
-| # | 서지 | DOI | 검증 | 무엇을 주는가 |
+> **확인 완료.** `refs/[28] Part 1.pdf`의 PDF 텍스트를 직접 추출하여 서지를 확정하였다.
+>
+> **Li Jun, Jiao Guiqiong, Wang Bo, Yang Chengpeng, Wang Gang**,
+> *Damage characteristics and constitutive modeling of the 2D C/SiC composite:
+> **Part I — Experiment and analysis***,
+> **Chinese Journal of Aeronautics 27(6) (2014) 1586–1597**,
+> DOI **`10.1016/j.cja.2014.10.026`** — Dept. of Engineering Mechanics, **NWPU**,
+> 접수 2013-12-25 / 수정 2014-02-08 / 게재확정 2014-03-07 / 온라인 2014-10-22. **오픈액세스.**
+>
+> **재료: 2D C/SiC, CVI, T300 평직 프리폼 — 본 연구와 완전히 동일하다.**
+>
+> 즉 **C3의 실험 근거를 처음부터 갖고 있으면서 쓰지 않고 있었다.**
+
+| # | 서지 | DOI | 검증 | 상태 |
 |---|---|---|---|---|
-| **B34** | Li, J., Jiao, G., Wang, B., Yang, C., Wang, G. (2014). "Damage characteristics and constitutive modeling of the 2D C/SiC composite: Part I – Experiment and analysis." *Chinese J. Aeronautics* **27**, 1586–1597. | ✗ (PII `S1000936114001800`) | △ | **2D C/SiC — 아키텍처 동일.** **OA** |
-| **B35** | 동, "Part II – Material model and numerical implementation." *Chinese J. Aeronautics* **27**. | ✗ (PII `S1000936114001812`) | ✗ | unilateral/damage deactivation의 CDM 구현 — **V3_0과 직접 비교 가능** |
+| **B34** | 위 Part I | `10.1016/j.cja.2014.10.026` | **✔ 원문 확인** | **보유 = `refs/[28]`** |
+| **B35** | 동 저자, "**Part II** — Material model and numerical implementation." *Chin. J. Aeronaut.* **27** (2014). | `10.1016/j.cja.2014.10.027` | **✔** (Part I 참고문헌 [32]에서 확인) | **미보유 — 확보 대상** |
 
-원문 인용 3건:
-- *"hysteresis loops approximately intersect at a point **O′(σ_r, ε_r)**, where σ_r and ε_r are considered to be the **thermal residual stress and strain in the as-received material**"* → **GAP 1 (TRS 실측)**
-- *"compression specimens show **higher mechanical properties and lower damage evolution rates** than tension specimens due to the **damage impediment effect of compression stress**"* → **C3 그 자체**
-- *"in compression, after an initial stage involving **closure of thermal microcracks present from processing**, the composite displays linear-elastic behavior until failure"* → **`HCLO` 가정 그 자체**
+Part II는 unilateral / damage deactivation을 **CDM으로 구현**한 편이며, **V3_0의 `HCLO`와 직접 비교 대상**이다.
+저자 목록이 Part I과 다르다: **Li J., Jiao G.Q., Wang B., Li L., Yang C.P.**
 
-> ⚠️ **B34는 보유 중인 `refs/[28] Part 1.pdf` (*Chinese J. Aeronautics* 27 (2014) 1586)와 동일 논문일 가능성이 매우 높다.**
-> 사실이라면 **이미 갖고 있으면서 C3의 근거로 쓰지 않고 있었던 것**이다. **먼저 확인할 것.**
-> Part II는 별도 논문이므로 없다면 추가 확보 대상이다.
+#### 원문에서 확인한 것 — C3를 뒷받침하는 3건
 
-**이것이 C3의 성격을 바꾼다.** C3는 "아무도 안 한 것"이 아니라 **"실험 근거가 있고 우리가 사이클로 확장하는 것"**이 된다. 심사에서 더 안전한 위치다.
+1. **압축이 손상을 저해한다 (초록):**
+   *"Due to the **damage impediment effect of compression stress**, compression specimens show
+   **higher mechanical properties and lower damage evolution rates** than tension specimens
+   with the same off-axis angle."*
+2. **TRS를 이력루프 교점에서 읽는다 (§3.3):**
+   *"the hysteresis loops approximately intersect at **O′(σ_r, ε_r)**, and σ_r and ε_r are generally
+   considered to be the **thermal residual stress and strain in the as-received material**."*
+3. **초기 미세균열은 강성을 바꾸지 않고 TRS만 이완시킨다 (§3.2):**
+   *"an array of **non-interacting microcracks** which are able to **relieve the thermal residual
+   stress without affecting the elastic modulus** of the material."*
+   → ★ **§4.9-9의 2.34배 문제에 직접 걸린다.** 유효 무응력 온도가 제조온도보다 낮은 **기구**가
+   여기 있다. 강성으로는 안 보이면서 TRS만 푸는 미세균열이 실재한다는 실험 진술이다.
+
+#### ⚠️ 원문이 **본 연구의 가정 두 개를 수정하라고 요구한다**
+
+**(가) 손상 비활성화는 스위치가 아니라 점진적이며, 속도가 응력상태에 의존한다.**
+
+> *"both on-axis and off-axis specimens exhibit **progressive damage deactivation** behaviors
+> in the compression range, but with **different deactivation rates**"*
+> *"the damage deactivation rate is **dependent on the compression stress state**"*
+
+현재 `KMACRO31`/`KYARN31`의 `HCLO`는 **부호 전환 시 일정 비율을 회복**시키는 이진 처리이고,
+`H_smo` tanh 혼합은 **수치 수렴을 위해** 도입한 것이다(§2.5.3, `M1_FAILURE_ANALYSIS.md`).
+**이 논문은 그 매끄러운 전이가 실제로 물리적임을 실험으로 보인다.**
+→ `H_smo`의 정당화가 **"수치 편법"에서 "실험이 지지하는 구성식"으로 승격**된다. 서술을 바꿔야 한다.
+
+**(나) ★ 전단 손상도 압축에서 비활성화된다 — 현재 가정과 충돌한다.**
+
+> *"During the compression loading (τ12 > 0), the **shear damage is also gradually deactivated**,
+> meanwhile, the hysteresis effect … becomes more evident"*
+
+`README.md`와 §2.5.3은 **"전단 손상은 회복시키지 않는다(닫힌 균열면도 미끄러진다)"**를
+CMC 문헌의 통상 가정으로 적고 있다. **본 연구와 동일한 재료(2D CVI C/SiC, T300 평직)에서
+그 가정이 실험으로 부정되었다.** 결정이 필요하다 — 전단에도 회복 계수를 두거나,
+현재 가정을 **이 논문을 근거로 명시적 보수 가정**으로 재서술하거나.
+
+**(다) 이축 압축이 비활성화를 가속한다 — 열충격에 직결된다.**
+
+> *"the **extra closure process of the debonded interface** plays an important role in stiffness
+> recovery by restoring the load-transfer capacity of the interface under **biaxial compression**
+> loadings, and therefore it leads to **faster damage deactivation rates**"*
+
+기구는 이렇다 — 이축 압축에서는 종방향 σ₁이 기지 균열을 닫는 것에 더해 **횡방향 σ₂가
+박리된 계면까지 닫는다.** 급가열 반사이클은 표면에 **정확히 이축 압축**을 만든다.
+→ **C3의 "급랭/급가열 비대칭" 주장에 물리적 기구가 생겼다.** 단축 실험에서 외삽한 것이 아니라
+**이축 상태에서 직접 관측된 것**이다.
+
+#### 부수 수확 — Part I의 참고문헌이 미검증 항목 5개를 확정했다
+
+| 대상 | 확정된 서지 | 효과 |
+|---|---|---|
+| **S20** Chaboche, Lesne, Maire | *Int. J. Damage Mech.* **4**(1) (1995) **5–22** | 페이지 미검증 → **확정** |
+| **B25** Mei, H. | *Compos. Sci. Technol.* **68**(15–16) (2008) **3285–3292** | 권·쪽 △ → **확정** |
+| **C9** Marcin, Maire, Carrère, Martin | *Int. J. Damage Mech.* **20** (2011) **939–957** | △ → **확정** |
+| **신규** Camus, G., Guillaumat, L., Baste, S. | *Development of damage in a 2D woven C/SiC composite under mechanical loading: I. Mechanical characterization*, *Compos. Sci. Technol.* **56**(12) (1996) **1363–1372** | ★ §8의 **출처 미상 진술** *"fictitious thermal stress-free origin … in the compression domain"*의 **원저자로 유력**. 2D 직조 C/SiC 손상 특성화의 정전 |
+| **신규** Dassios, K.G., Aggelis, D.G., Kordatos, E.Z., Matikas, T.E. | *Cyclic loading of a SiC-fiber reinforced ceramic matrix composite reveals damage mechanisms and thermal residual stress state*, *Compos. Part A* **44** (2013) **105–113** | ★ §8의 **`−130.84 ± 34.53 MPa`** 출처 후보. **B30(Exp. Mech.)과는 다른 논문**이다 |
+| 신규 | Morscher, G.N., Yun, H.M., DiCarlo, J.A., *JACerS* **90**(10) (2007) 3185–3193 | 2D 직조 면내 균열·극한강도 |
+| 신규 | Li, L.B., *Compos. Part B* **53** (2013) 36–45 — cross-ply C/SiC 이력 모델링 | 이력 기반 계면 파라미터 |
+
+**이것이 C3의 성격을 바꾼다.** C3는 "아무도 안 한 것"이 아니라
+**"동일 재료에서 실험으로 관측되었고(단조), 본 연구가 반복 열충격으로 확장하는 것"**이 된다.
+심사에서 훨씬 안전한 위치이며, **주장의 근거가 우리 모델의 스위치 두 개가 아니라 실험이 된다.**
 
 ### 4.8 급랭 대류계수 h — §5.4.3 역산의 정당화
 
@@ -566,13 +636,30 @@ C19는 **표준 FE 피로손상 정식이 공간 이산화에 극도로 민감**
 | **9** | **A24** Li 2024, IMechE Part L | PyC 두께 vs τ |
 | **10** | **A29** Pinho 2006, *CST* **66**(13) 2069–2079 | G_tc 가정 방어 논거 |
 
-### 6.3 먼저 **확인**만 하면 되는 것 (이미 갖고 계실 가능성)
+### 6.3 먼저 **확인**만 하면 되는 것
 
-| 확인 대상 | 후보 | 확인 방법 |
+| 확인 대상 | 후보 | 상태 |
 |---|---|---|
-| **B34** Li 2014 CJA 27:1586–1597 Part I | `refs/[28] Part 1.pdf` | PDF 첫 페이지 저자·페이지 확인. **동일하면 C3의 근거로 즉시 활용** |
-| **C22** Yang 2021 JACerS `10.1111/jace.17487` | `refs/[27]`, `refs/[33]` | 같은 그룹인지 |
-| **B25** Mei 2008 CST 68 | `refs/[43]` Mei 2005 | 같은 그룹이면 독립 출처로 세울 수 없음 |
+| **B34** Li 2014 CJA 27(6):1586–1597 Part I | `refs/[28] Part 1.pdf` | ✅ **확인 완료 (2026-08-03) — 동일 논문.** §4.7 참조. **Part II(`10.1016/j.cja.2014.10.027`)는 미보유 → 확보 대상** |
+| **C22** Yang 2021 JACerS `10.1111/jace.17487` | `refs/[27]`, `refs/[33]` | ⬜ 미확인 — 같은 그룹인지 |
+| **B25** Mei 2008 CST **68**(15–16):3285–3292 | `refs/[43]` Mei 2005 | 서지는 확정(§4.7). 같은 그룹이면 독립 출처로 세울 수 없음 → ⬜ 미확인 |
+
+### 6.4 검증 완료 기록
+
+| 일시 | 항목 | 방법 | 결과 |
+|---|---|---|---|
+| 2026-08-03 | **S1** Bažant & Oh 1983 | Crossref REST API | ✅ `10.1007/BF02486267`, vol **16**, p **155–177** — 표와 일치 |
+| 2026-08-03 | **B34 / `refs/[28]`** | PDF 텍스트 직접 추출 | ✅ CJA **27**(6) 1586–1597, `10.1016/j.cja.2014.10.026` |
+| 2026-08-03 | **S20 / B25 / C9** | `refs/[28]` 참고문헌 목록 | ✅ 권·페이지 확정 (§4.7) |
+
+> Crossref 조회는 인증도 API 키도 필요 없다. **PowerShell에서는 `curl`이 `Invoke-WebRequest`의
+> 별칭**이므로 `-s`나 리눅스식 `\` 줄바꿈이 통하지 않는다. 다음을 쓴다:
+> ```powershell
+> $r = Invoke-RestMethod "https://api.crossref.org/works?query.bibliographic=<제목>&rows=1"
+> $d = $r.message.items[0]; "$($d.DOI) vol=$($d.volume) p=$($d.page) $($d.title[0])"
+> ```
+> ※ Crossref는 DOI를 소문자로 반환한다. DOI는 대소문자를 구분하지 않으므로
+> 논문에는 출판사 표기(`10.1007/BF02486267`)를 쓴다.
 
 ---
 
@@ -595,6 +682,10 @@ C19는 **표준 FE 피로손상 정식이 공간 이산화에 극도로 민감**
 | 13 | **제1·2장** | C3를 "미탐구"에서 **"실험 근거 있음(Li 2014), 본 연구가 사이클로 확장"**으로 재서술 | B34 |
 | 14 | **제4장 §4.6** | 스케일 간 메시 객관성 인용 추가 (**현재 0건**) | C1–C4 |
 | 15 | **제5장 §5.2** | shakedown을 **문헌이 아는 문제**로 승격, T5는 재현 실험으로 | C5–C7 |
+| **16** | **`README.md` · 제2장 §2.5.3** | ★ **"전단 손상은 회복시키지 않는다"는 가정을 재검토한다.** 동일 재료에서 *"the **shear damage is also gradually deactivated**"*가 관측되었다. 전단 회복 계수를 두거나, 현재 가정을 **[28]을 근거로 한 명시적 보수 가정**으로 재서술 | §4.7-(나) |
+| **17** | **제2장 §2.5.3 · `M1_FAILURE_ANALYSIS.md`** | ★ **`H_smo` tanh 혼합의 정당화를 "수치 편법"에서 "실험이 지지하는 구성식"으로 승격.** 비활성화가 *"**progressive** … with **different deactivation rates**"*임이 실험으로 확인됨 | §4.7-(가) |
+| **18** | **제1·2장 C3 서술** | 급가열 반사이클의 **이축 압축**이 기지 균열에 더해 **박리 계면까지 닫아** 비활성화를 가속한다는 **기구**를 명시. 단축에서의 외삽이 아니라 이축 상태의 직접 관측 | §4.7-(다) |
+| **19** | **제4장 §4.9-9** | *"non-interacting microcracks … **relieve the TRS without affecting the elastic modulus**"* 를 유효 무응력 온도 저하의 **기구**로 인용 | §4.7-3 |
 
 ---
 
@@ -611,6 +702,10 @@ C19는 **표준 FE 피로손상 정식이 공간 이산화에 극도로 민감**
   1. `G_tc/G_tt ≈ 14.2`를 준 4개 조 값 — 출처 논문 특정 실패 (§3.6)
   2. `−130.84 ± 34.53 MPa (2D C/SiC)` — 출처 특정 실패 + **복합재 평균 압축응력**이라
      본 연구의 **기지 인장 268 MPa와 물리량도 부호도 다르다**
+     → **유력 후보를 찾았다**(§4.7): Dassios, Aggelis, Kordatos, Matikas, *Compos. Part A*
+     **44** (2013) 105–113. **확인 전까지는 여전히 인용 금지.**
+- **§4.7의 `refs/[28]` 관련 서술만은 예외적으로 `fulltext` 등급이다** — PDF 원문에서
+  직접 추출·확인하였다. 나머지는 여전히 `abstract` 이하다.
 - **인용 금지 등급 1건:** PIP 공정 모사 Research Square 프리프린트 (`rs-9997234/v1`) — 미심사.
   공정이 정확히 일치해 아이디어는 값지지만 `data/literature/README.md` 규칙상 인용 불가.
 - `data/literature/README.md`의 신뢰도 규칙에 따라, **위 문헌은 원문 확보 전까지 전부
