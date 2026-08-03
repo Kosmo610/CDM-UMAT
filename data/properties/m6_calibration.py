@@ -63,9 +63,25 @@ M5_STOP_STRAIN = 3.3184e-3
 M5_E0 = 235.2e3             # MPa, initial (undamaged) tangent
 TARGET = 199.15             # MPa, Zhang Table 3 at 1000 C
 
-#: measured composite modulus of 2D C/SiC, refs/[43] Mei Table I
-E_MEASURED = 70.0e3         # MPa
+#: Measured composite modulus of 2D C/SiC.
+#:
+#: CORRECTED 2026-08-03.  This was refs/[43] Mei Table I's 70 GPa, compared
+#: against our INITIAL TANGENT to claim the model was 3.4x too stiff.  That
+#: was not like-for-like.  refs/[10] Yang Table 1 measures the same material
+#: class at the same density and reports the INITIAL modulus -- 128.7 GPa at
+#: room temperature, 172.7 GPa at 1273 K -- and states the curve is
+#: non-linear almost from the onset of loading, which is why a whole-curve
+#: chord lands near half of it.  Against the right number at the temperature
+#: M5 actually ran, the model is 1.36x too stiff.  See porosity_stiffness.py,
+#: which then shows that 1.36x is the porosity the mesh does not have.
+E_MEASURED = 172.7e3        # MPa, refs/[10] Yang Table 1 at 1273 K, initial
+E_MEASURED_RT = 128.7e3     # MPa, refs/[10] Yang Table 1 at 300 K, initial
+E_MEI_CHORD = 70.0e3        # MPa, refs/[43] -- a chord, kept only to name it
 E_M5_SECANT = 98.5e3        # MPa, M5 secant at the stopping point
+#: refs/[10] Yang Table 1, failure strain at 1273 K [%].  M5 stopped at
+#: 0.3318 %, so the model reached the measured failure strain -- what it got
+#: wrong is the load it was carrying there, not where it stopped.
+FAILURE_STRAIN_1000 = 0.32
 
 #: (label, threshold macro strain, the knob that sets it, grade in the audit)
 def mechanisms():
@@ -143,6 +159,12 @@ def report():
     print("    Zhang Table 3 target  %.2f MPa" % TARGET)
     print("    ratio                 %.2fx, and the curve was still rising"
           % (M5_STOP_STRESS / TARGET))
+    print("    refs/[10] Yang failure strain at 1273 K   %.2f %%"
+          % FAILURE_STRAIN_1000)
+    print("    -> M5 stopped at %.4f %%, i.e. essentially AT the measured"
+          % (M5_STOP_STRAIN * 100.0))
+    print("       failure strain.  It did not stop early in any physical")
+    print("       sense; it reached the right strain carrying too much load.")
     if curve:
         e = strain_for_target(curve)
         if e:
@@ -181,15 +203,27 @@ def report():
     print("    -> the card cannot reproduce ANY measured strength while the")
     print("       aligned yarns retain the filament value.")
 
-    print("\n 4. STIFFNESS -- the other half of the disagreement")
-    print("    M5 initial tangent (undamaged)   %.0f GPa" % (M5_E0 / 1000.0))
-    print("    M5 secant at the stopping point  %.1f GPa" % (E_M5_SECANT / 1000.0))
-    print("    measured 2D C/SiC, refs/[43]     %.0f GPa" % (E_MEASURED / 1000.0))
-    print("    The secant lands near the measurement, the initial tangent does")
-    print("    not.  The real material is measured ALREADY microcracked from")
-    print("    processing; the model does that cracking during the pull.  Our")
-    print("    own cooldown leaves the matrix at r = 0.973 of its strength,")
-    print("    which is where a real matrix would crack.")
+    print("\n 4. STIFFNESS -- REWRITTEN 2026-08-03, THE OLD READING WAS WRONG")
+    print("    M5 initial tangent (undamaged)      %.0f GPa" % (M5_E0 / 1000.0))
+    print("    M5 secant at the stopping point     %.1f GPa"
+          % (E_M5_SECANT / 1000.0))
+    print("    refs/[10] Yang, INITIAL, at 1273 K  %.1f GPa"
+          % (E_MEASURED / 1000.0))
+    print("    refs/[43] Mei, an unstated chord    %.0f GPa"
+          % (E_MEI_CHORD / 1000.0))
+    print("    This file used to compare the initial tangent against Mei's")
+    print("    70 GPa, call the model 3.4x too stiff, and conclude that the")
+    print("    real material is measured ALREADY microcracked while the model")
+    print("    cracks during the pull.  Against the like-for-like number that")
+    print("    reading inverts: the TANGENT is %.2fx and the SECANT is %.2fx."
+          % (M5_E0 / E_MEASURED, E_M5_SECANT / E_MEASURED))
+    print("    The model is mildly too stiff at the start and too SOFT by the")
+    print("    time it stops -- it damages too fast, not too slowly.")
+    print("    And the %.2fx at the start is not a knob either: it is the"
+          % (M5_E0 / E_MEASURED))
+    print("    porosity the mesh does not have.  porosity_stiffness.py shows")
+    print("    subtracting the missing 19.6 %% of void takes 235.2 -> 170.0 GPa")
+    print("    against Yang's measured 172.7.  See Ch.4 4.9-13.")
 
     print("\n 5. WHAT M6 SHOULD MOVE, IN ORDER")
     print("    (1) yarn Xt        the only knob that sets the upper bound.")
@@ -201,11 +235,14 @@ def report():
     print("                       23 C, 581 at 500 C, 694 at 1000 C, an 8 %")
     print("                       wide band with both ends sourced.  The card")
     print("                       is 4.1-6.0x above it.  Xt is no longer a knob.")
-    print("    (2) the stiffness  before strength, because the model reaches")
-    print("                       the target stress at a strain far below any")
-    print("                       measured failure strain.  Two admissible")
-    print("                       routes: porosity (4.9-3) or CONFIG_P, which")
-    print("                       cuts the matrix TRS from 268 to 115 MPa.")
+    print("    (2) the porosity   SOLVED 2026-08-03, and it is not a knob.")
+    print("                       The mesh is a filled cell; the material is")
+    print("                       19.6 %% pore by its own measured density.")
+    print("                       Matrix E knockdown 0.6089. This is a missing")
+    print("                       physical feature with a measured value, so")
+    print("                       it goes in BEFORE anything is fitted.")
+    print("                       Do (1) and (2) in the SAME deck: both are")
+    print("                       determined, neither is being searched over.")
     print("    (3) yarn Yt, S12   they set where the knee sits, not the peak.")
     print("                       Fit them AFTER (1) and (2), one at a time.")
     print("    Do NOT start with dmax or eta.  They are numerical, and moving")
@@ -263,13 +300,18 @@ def selftest():
        "bound %.1fx vs M5 %.2fx" % (rb / TARGET, M5_STOP_STRESS / TARGET))
 
     print("\n D. the stiffness statement is arithmetic, not opinion")
-    ck("the M5 secant is within 50 % of the measured modulus",
-       abs(E_M5_SECANT - E_MEASURED) / E_MEASURED < 0.5,
-       "%.1f vs %.0f GPa" % (E_M5_SECANT / 1e3, E_MEASURED / 1e3))
-    ck("the M5 initial tangent is more than 3x the measured modulus",
-       M5_E0 / E_MEASURED > 3.0, "%.1fx" % (M5_E0 / E_MEASURED))
-    ck("so the disagreement is WHEN the damage happens, not whether",
-       M5_E0 > E_MEASURED > 0.0)
+    ck("the comparison modulus is Yang's INITIAL, not Mei's chord",
+       abs(E_MEASURED - 172.7e3) < 1.0 and abs(E_MEI_CHORD - 70.0e3) < 1.0,
+       "172.7 vs 70 GPa, a 2.47x choice")
+    ck("the M5 initial tangent is only mildly above it",
+       1.2 < M5_E0 / E_MEASURED < 1.6, "%.2fx" % (M5_E0 / E_MEASURED))
+    ck("the M5 SECANT falls BELOW it -- the model damages too fast",
+       E_M5_SECANT < E_MEASURED, "%.2fx" % (E_M5_SECANT / E_MEASURED))
+    ck("the old 3.4x claim came from Mei's chord and is retracted",
+       abs(M5_E0 / E_MEI_CHORD - 3.36) < 0.05,
+       "%.2fx against the wrong number" % (M5_E0 / E_MEI_CHORD))
+    ck("the residual 1.36x is handed to porosity_stiffness.py, not to a knob",
+       os.path.exists(os.path.join(HERE, "porosity_stiffness.py")))
 
     print("\n E. the M5 numbers quoted here are the ones Ch.4 records")
     ck("stop stress 326.70 MPa", abs(M5_STOP_STRESS - 326.70) < 0.01)
@@ -282,6 +324,10 @@ def selftest():
         ck("the curve is monotonic (no peak)",
            all(curve[i][1] >= curve[i - 1][1] - 1e-9
                for i in range(1, len(curve))))
+        ck("M5 stopped AT the measured failure strain, not before it",
+           abs(M5_STOP_STRAIN * 100.0 - FAILURE_STRAIN_1000) < 0.05,
+           "%.4f %% vs Yang %.2f %%"
+           % (M5_STOP_STRAIN * 100.0, FAILURE_STRAIN_1000))
         e = strain_for_target(curve)
         ck("the curve passes the target well below the stopping strain",
            e is not None and e < M5_STOP_STRAIN / 2.0,

@@ -44,8 +44,9 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
 | `trs_configuration.py --check` | CONFIG_V / CONFIG_P 결정과 두 관문 | 33 |
-| `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 | 24 |
+| `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 | 27 |
 | `insitu_yarn_strength.py --check` | 얀 $X_t$의 in-situ 출처·Weibull 구간·온도형상 | 51 |
+| `porosity_stiffness.py --check` | 공극률 결정(밀도 역산)·강성 정합·측정 규약 | 42 |
 | `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 94 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
@@ -54,7 +55,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 178 |
-| **합계** | | **1005** |
+| **합계** | | **1050** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -486,7 +487,7 @@ $E$ = 100 000 MPa, $\nu$ = 0.30, $\alpha$ = 5×10⁻⁶/K, 단위 거시변형 1
   (≤ 3.0×10⁻¹⁵) 이내로 일치**한다. 이는 "모델이 맞다"와 "코드가 맞다"를 분리하여
   둘 다 확인한 것이다.
 - 입력덱은 솔버 없이 정적 검증되며, 카드 가드 상수로 계보 혼용이 차단된다.
-- 총 **1005개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
+- 총 **1050개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
 
 > **따라서 이후 장에서 관측되는 불일치는 코드의 오류가 아니라 모델 가정 또는 물성의
 > 문제로 귀속할 수 있다.** 이것이 이 장의 실질적 산출물이다.
