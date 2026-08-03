@@ -96,25 +96,68 @@ foreach ($r in $rows) {
     Write-Progress -Activity 'Crossref 조회' -Status "$i / $($rows.Count)  $($r.key)" `
                    -PercentComplete ([int](100 * $i / $rows.Count))
 
-    $q = "https://api.crossref.org/works?rows=5&query.bibliographic=" +
-         [uri]::EscapeDataString($r.title)
-    if ($r.journal) {
-        $q += "&query.container-title=" + [uri]::EscapeDataString($r.journal)
+    $best = $null; $bestScore = 0.0; $status = ''; $note = ''; $method = ''
+
+    # --- 1) DOI를 알고 있으면 직접 조회한다 (가장 확실) ----------------------
+    #     검색은 학술지명이 원어로 등재된 경우(예: Materials and Structures 가
+    #     Crossref에는 "Materiaux et Constructions")나 제목이 길 때 0건을 낸다.
+    #     실제로 첫 판에서 S1(Bazant & Oh)이 그래서 NOTFOUND 로 잘못 나왔다.
+    if ($r.expected_doi) {
+        try {
+            $u = 'https://api.crossref.org/works/' + [uri]::EscapeUriString($r.expected_doi)
+            $resp = Invoke-RestMethod -Uri $u -Headers $headers -TimeoutSec 40
+            if ($resp.message) {
+                $best = $resp.message
+                $t = ''
+                if ($best.title -and $best.title.Count -gt 0) { $t = $best.title[0] }
+                $bestScore = Get-TitleScore $r.title $t
+                $method = 'doi'
+            }
+        } catch {
+            $method = 'doi-fail'      # DOI가 틀렸거나 Crossref 미등재
+        }
     }
 
-    $best = $null; $bestScore = 0.0; $status = ''; $note = ''
-
-    try {
-        $resp = Invoke-RestMethod -Uri $q -Headers $headers -TimeoutSec 40
-        foreach ($it in $resp.message.items) {
-            $t = ''
-            if ($it.title -and $it.title.Count -gt 0) { $t = $it.title[0] }
-            $sc = Get-TitleScore $r.title $t
-            if ($sc -gt $bestScore) { $bestScore = $sc; $best = $it }
+    # --- 2) 제목 + 학술지 검색 ----------------------------------------------
+    if ($null -eq $best) {
+        $q = "https://api.crossref.org/works?rows=5&query.bibliographic=" +
+             [uri]::EscapeDataString($r.title)
+        if ($r.journal) {
+            $q += "&query.container-title=" + [uri]::EscapeDataString($r.journal)
         }
-    } catch {
-        $status = 'ERROR'
-        $note   = $_.Exception.Message
+        try {
+            $resp = Invoke-RestMethod -Uri $q -Headers $headers -TimeoutSec 40
+            foreach ($it in $resp.message.items) {
+                $t = ''
+                if ($it.title -and $it.title.Count -gt 0) { $t = $it.title[0] }
+                $sc = Get-TitleScore $r.title $t
+                if ($sc -gt $bestScore) { $bestScore = $sc; $best = $it }
+            }
+            if ($best) { $method = 'title+journal' }
+        } catch {
+            $status = 'ERROR'
+            $note   = $_.Exception.Message
+        }
+    }
+
+    # --- 3) 학술지명을 빼고 제목만으로 다시 --------------------------------
+    if (($null -eq $best) -and (-not $status) -and $r.journal) {
+        Start-Sleep -Milliseconds 250
+        $q2 = "https://api.crossref.org/works?rows=5&query.bibliographic=" +
+              [uri]::EscapeDataString($r.title)
+        try {
+            $resp = Invoke-RestMethod -Uri $q2 -Headers $headers -TimeoutSec 40
+            foreach ($it in $resp.message.items) {
+                $t = ''
+                if ($it.title -and $it.title.Count -gt 0) { $t = $it.title[0] }
+                $sc = Get-TitleScore $r.title $t
+                if ($sc -gt $bestScore) { $bestScore = $sc; $best = $it }
+            }
+            if ($best) { $method = 'title-only' }
+        } catch {
+            $status = 'ERROR'
+            $note   = $_.Exception.Message
+        }
     }
 
     # ★ Windows PowerShell 5.1 은 `$x = if (...) {...}` 형태의 대입을 파싱하지 못한다.
@@ -169,6 +212,7 @@ foreach ($r in $rows) {
     $results += [pscustomobject]@{
         key         = $r.key
         status      = $status
+        method      = $method
         titleScore  = [math]::Round($bestScore, 2)
         got_doi     = $gotDoi
         got_volume  = $gotVol
@@ -208,4 +252,8 @@ Write-Host "결과 저장: $OutputCsv" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "다음: MISMATCH 를 먼저 보세요 — 문서의 값이 틀렸다는 뜻입니다." -ForegroundColor Yellow
 Write-Host "      FILLED 는 빈칸이 채워진 것이니 docs/REFS_CANDIDATES.md 에 반영하면 됩니다."
-Write-Host "      NOTFOUND 는 학회 프로시딩·NASA TM·구소련지처럼 Crossref에 없는 경우가 정상입니다."
+Write-Host ""
+Write-Host "★ NOTFOUND 는 '그 논문이 없다'는 뜻이 아닙니다 — '이 질의로는 못 찾았다'는 뜻입니다." -ForegroundColor Yellow
+Write-Host "  학회 프로시딩·NASA TM·구소련지는 애초에 Crossref에 없으므로 정상이고,"
+Write-Host "  DOI를 아는 항목은 method 열이 'doi' 로 뜨면 직접 조회로 확인된 것입니다."
+Write-Host "  method='doi-fail' 은 그 DOI 자체가 틀렸을 수 있다는 신호이니 눈으로 확인하세요."
