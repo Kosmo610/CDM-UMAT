@@ -47,14 +47,14 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 92 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
-| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝 키워드) | 77 |
+| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝 키워드·얀 $G_f$) | 86 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 190 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해와 두 규약의 일치 | 68 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
-| **합계** | | **1033** |
+| **합계** | | **1042** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
