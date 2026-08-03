@@ -51,9 +51,10 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
-| `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 188 |
+| `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 189 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해와 두 규약의 일치 | 68 |
-| **합계** | | **1007** |
+| `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
+| **합계** | | **1023** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

@@ -237,10 +237,11 @@ python3 verification/check_chapter_claims.py          # 장이 부른 파일·�
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
+python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 28개를 전부 통과시킨다.**
+**커밋 전에 위 29개를 전부 통과시킨다.**
 
 ## 현재 병목
 

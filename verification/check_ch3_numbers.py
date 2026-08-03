@@ -111,13 +111,16 @@ CASES = [
      count_plain, 88),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
-     count_plain, 188),
+     count_plain, 189),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
      count_bracketed, 5),
     ("check_gf_scale_transfer.py",
      "python3 verification/check_gf_scale_transfer.py",
      count_plain, 68),
+    ("m6_calibration_plan.py",
+     "python3 verification/m6_calibration_plan.py",
+     count_plain, 15),
 ]
 
 
