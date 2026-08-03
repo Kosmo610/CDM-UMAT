@@ -39,7 +39,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 | 17 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
 | `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 거부 포함) | 17 |
-| `conductivity_bounds.py --check` | 열전도 경계식·민감도 | 16 |
+| `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델 선택 | 25 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
@@ -51,10 +51,10 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
-| `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 189 |
+| `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 190 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해와 두 규약의 일치 | 68 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
-| **합계** | | **1023** |
+| **합계** | | **1033** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

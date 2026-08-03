@@ -43,6 +43,7 @@ Run:  python3 data/properties/conductivity_bounds.py
 """
 from __future__ import print_function
 
+import math
 import sys
 
 # ==========================================================================
@@ -179,6 +180,102 @@ def porous_matrix(k_dense, p, k_void=K_VOID):
     the conductivity down hard because air conducts ~1000x worse than SiC.
     """
     return rayleigh_transverse(p, k_void, k_dense)
+
+
+# --------------------------------------------------------------------------
+# Which porosity model?  It is not a free choice -- it is set by whether the
+# pores are closed or open, and C/SiC's are open.
+# --------------------------------------------------------------------------
+# Smith, D.S., Alzina, A., Bourret, J., Nait-Ali, B., Pennec, F.,
+# Tessier-Doyen, N., "Thermal conductivity of porous materials",
+# J. Mater. Res. 28(17) (2013) 2260-2272, doi:10.1557/jmr.2013.179,
+# surveys pore fractions from 4 % to 95 % and reports that below about
+# p = 0.65 the Maxwell-Eucken relation fits CLOSED porosity and the
+# Landauer (effective-medium) relation fits OPEN porosity, checked against
+# alumina, zirconia and tin oxide.  The unifying treatment of the five
+# structural models is Wang, J., Carson, J.K., North, M.F., Cleland, D.J.,
+# Int. J. Heat Mass Transfer 49 (2006) 3075-3083.
+#
+# THE CHOICE IS ALREADY MADE BY THE REST OF THE THESIS.  A CVI or PIP matrix
+# is porous because the infiltrant cannot reach everywhere, and the pores it
+# leaves are interconnected -- which is exactly why oxygen reaches the PyC
+# interphase and the carbon fibres, the mechanism Ch.2 2.5.4 uses to explain
+# the sign of k in the cycle damage law.  Open porosity is not an assumption
+# here; it is a premise the damage model already depends on.
+#
+# So Landauer is the branch, and Maxwell-Eucken is carried only to show what
+# assuming closed pores would have cost.
+
+
+def maxwell_eucken(k_dense, p, k_void=K_VOID):
+    """Closed, non-touching pores dispersed in a continuous solid.
+
+        k = k_s * [2k_s + k_p - 2p(k_s - k_p)] / [2k_s + k_p + p(k_s - k_p)]
+
+    Biased towards the matrix phase by construction: the pores never touch,
+    so they cannot form a barrier however many there are.
+    """
+    num = 2.0 * k_dense + k_void - 2.0 * p * (k_dense - k_void)
+    den = 2.0 * k_dense + k_void + p * (k_dense - k_void)
+    return k_dense * num / den
+
+
+def landauer(k_dense, p, k_void=K_VOID):
+    """Landauer / Bruggeman effective medium: neither phase is continuous.
+
+    Solves  (1-p)(k_s - k)/(k_s + 2k) + p(k_p - k)/(k_p + 2k) = 0,
+    the positive root of the quadratic
+
+        2k^2 + k[(3p-1)k_s + (2-3p)k_p] - k_s*k_p = 0
+
+    With insulating pores this reduces to k = k_s(2 - 3p)/2, so the
+    conductivity reaches zero at p = 2/3 -- the percolation threshold, which
+    is the physical content the Maxwell-Eucken form does not have.
+    """
+    b = -((2.0 - 3.0 * p) * k_dense + (3.0 * p - 1.0) * k_void)
+    c = -k_dense * k_void
+    return (-b + math.sqrt(b * b - 8.0 * c)) / 4.0
+
+
+def landauer_insulating(k_dense, p):
+    """The k_p -> 0 limit of landauer(), for checking the general form."""
+    return max(0.0, k_dense * (2.0 - 3.0 * p) / 2.0)
+
+
+def kbar3_with_model(model, k_dense, p, k2_f=1.0, k1_f=8.0,
+                     estimator="series"):
+    """kbar3 with the matrix porosity handled by `model`.
+
+    Same pipeline as kbar3_from_k2, but the porosity model is a parameter
+    rather than hard-wired to Rayleigh.  The porosity lives in the MATRIX,
+    which is where infiltration leaves it; the two-level homogenisation then
+    carries it up to the composite.
+    """
+    km = model(k_dense, p) if p > 0.0 else k_dense
+    _, kt = yarn_conductivity(k1_f, k2_f, km)
+    return rve_kbar3(kt, km)[estimator]
+
+
+def porosity_for(model, target, k_dense, k2_f=1.0, k1_f=8.0,
+                 estimator="series"):
+    """Which matrix porosity brings kbar3 down to `target` under `model`?
+
+    Returns None when the model cannot reach the target at any admissible
+    porosity -- which is itself a result, not a failure.
+    """
+    lo, hi = 0.0, 0.65
+    if kbar3_with_model(model, k_dense, lo, k2_f, k1_f, estimator) < target:
+        return None
+    if kbar3_with_model(model, k_dense, hi, k2_f, k1_f, estimator) > target:
+        return None
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if kbar3_with_model(model, k_dense, mid, k2_f, k1_f,
+                            estimator) > target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
 
 def kbar3_from_k2(k2_f, k_m, k1_f=8.0, estimator="series", porosity=0.0):
@@ -478,6 +575,72 @@ def check():
        kbar3_from_k2(1.0, 25.0) > KBAR3_TARGET,
        "series %.2f > measured %.2f"
        % (kbar3_from_k2(1.0, 25.0), KBAR3_TARGET))
+
+    # 8. WHICH porosity model.  Ch.4 4.9-3.
+    KD = 25.0
+    ck("Maxwell-Eucken and Landauer are both no-ops at p = 0",
+       abs(maxwell_eucken(KD, 0.0) - KD) < 1e-9
+       and abs(landauer(KD, 0.0) - KD) < 1e-9)
+    ck("the general Landauer root matches its insulating-pore limit",
+       abs(landauer(KD, 0.20, 1e-9) - landauer_insulating(KD, 0.20)) < 1e-6,
+       "%.6f vs %.6f" % (landauer(KD, 0.20, 1e-9),
+                         landauer_insulating(KD, 0.20)))
+    ck("Landauer reaches zero at the p = 2/3 percolation threshold",
+       abs(landauer_insulating(KD, 2.0 / 3.0)) < 1e-12)
+    ck("Maxwell-Eucken has no percolation threshold (still conducts at 2/3)",
+       maxwell_eucken(KD, 2.0 / 3.0) > 0.2 * KD,
+       "%.2f W/(m.K) at p = 0.667" % maxwell_eucken(KD, 2.0 / 3.0))
+    ck("open-pore Landauer always predicts less than closed-pore M-E",
+       all(landauer(KD, p) < maxwell_eucken(KD, p)
+           for p in (0.05, 0.1, 0.2, 0.3, 0.4)))
+    ck("the two diverge only as porosity grows",
+       (maxwell_eucken(KD, 0.40) / landauer(KD, 0.40))
+       > 5.0 * (maxwell_eucken(KD, 0.05) / landauer(KD, 0.05) - 1.0) + 1.0,
+       "ratio %.3f at p=0.05, %.3f at p=0.40"
+       % (maxwell_eucken(KD, 0.05) / landauer(KD, 0.05),
+          maxwell_eucken(KD, 0.40) / landauer(KD, 0.40)))
+
+    p_me = porosity_for(maxwell_eucken, KBAR3_TARGET, KD)
+    p_la = porosity_for(landauer, KBAR3_TARGET, KD)
+    p_ra = solve_porosity(KBAR3_TARGET, KD)
+    ck("all three porosity models reach the measured kbar3",
+       None not in (p_me, p_la, p_ra),
+       "M-E %.2f %%, Landauer %.2f %%, Rayleigh %.2f %%"
+       % (100 * p_me, 100 * p_la, 100 * p_ra))
+    spread = max(p_me, p_la, p_ra) / min(p_me, p_la, p_ra)
+    ck("and at THIS porosity the choice barely matters (spread under 1.5x)",
+       spread < 1.5, "%.2f x" % spread)
+    ck("every one of them stays well under the 24 %% refs/[22] measured",
+       max(p_me, p_la, p_ra) < 0.5 * POROSITY_REF22,
+       "max %.2f %% vs %.0f %%" % (100 * max(p_me, p_la, p_ra),
+                                   100 * POROSITY_REF22))
+    print("""
+  WHICH BRANCH, AND WHETHER IT MATTERS.  Smith et al., J. Mater. Res. 28(17)
+  (2013) 2260-2272, find Maxwell-Eucken fits CLOSED porosity and Landauer
+  fits OPEN porosity below p = 0.65; Wang et al., Int. J. Heat Mass Transfer
+  49 (2006) 3075-3083, unify the five structural models these come from.
+
+  The branch is already chosen by the rest of the thesis.  A CVI or PIP
+  matrix leaves INTERCONNECTED pores -- which is precisely why oxygen
+  reaches the PyC interphase and the carbon fibres, the mechanism Ch.2 2.5.4
+  uses to set the sign of k in the cycle damage law.  Open porosity is a
+  premise the damage model already rests on, so Landauer is the branch.
+
+  But the honest result is that it does not matter here.  Reaching the
+  measured kbar3 = %.2f needs %.2f %% (Landauer), %.2f %% (Maxwell-Eucken) or
+  %.2f %% (Rayleigh) matrix porosity -- a spread of %.2f x, and all three far
+  under the %.0f %% refs/[22] measured by X-ray CT.  At single-digit porosity
+  the models have not yet separated: they differ by %.1f %% at p = 0.05 and
+  only reach %.0f %% at p = 0.40.
+
+  So 4.9-3 closes without a model argument.  What would have made the choice
+  matter is a material needing tens of percent porosity, and this one does
+  not.  The citation is still worth carrying, because "we checked and it did
+  not matter" is a different statement from "we did not check".
+""" % (KBAR3_TARGET, 100 * p_la, 100 * p_me, 100 * p_ra, spread,
+       100 * POROSITY_REF22,
+       100 * (maxwell_eucken(KD, 0.05) / landauer(KD, 0.05) - 1.0),
+       100 * (maxwell_eucken(KD, 0.40) / landauer(KD, 0.40) - 1.0)))
 
     print("\n%s" % ("ALL CONDUCTIVITY CHECKS PASS" if not fails
                     else "FAILED: " + ", ".join(fails)))
