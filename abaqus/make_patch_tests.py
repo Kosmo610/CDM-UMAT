@@ -457,6 +457,46 @@ def check():
           "ConstraintsDriver%d, 1, 1" % 0) == 0)
     t("the thermal step heats by +100 K", "AllNodes, 100." in pd)
 
+    # ---------------------------------------------------------------- #
+    # The reader.  These three exist because all three bugs shipped: the
+    # 2026-08-03 run printed a 6x6 of nan, PASSED the tolerance check on it,
+    # and then crashed outright on the crack-band bars.  A deck that is
+    # perfect and a reader that cannot read it is still a wasted morning.
+    # ---------------------------------------------------------------- #
+    rp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      "postprocess", "patch_report.py")
+    src = open(rp).read() if os.path.exists(rp) else ""
+    t("postprocess/patch_report.py exists", bool(src))
+
+    # 1. Repository is not a dict.
+    t("the reader never calls .get() on an odb Repository",
+      "historyOutputs.get(" not in src,
+      "historyOutputs is a Repository: `in`, `[]`, `.keys()` -- no .get()")
+
+    # 2. nan must not be able to buy a PASS.  nan compares False against
+    #    everything, so `if err > worst` silently skips it and a `worst`
+    #    initialised to 0.0 reports a perfect match on no data at all.
+    nan = float("nan")
+    t("nan really does compare False -- the trap is real",
+      not (nan > 0.0) and not (nan < 0.0) and not (nan == 0.0))
+    t("the reader gates on PRESENCE before it applies any tolerance",
+      "every entry of the 6x6 was recovered from the odb" in src
+      and src.find("every entry of the 6x6 was recovered")
+      < src.find("the whole 6x6 matches the analytic isotropic C"),
+      "presence check must run first")
+    t("the reader starts `worst` below zero, not at zero",
+      "worst, worst_at = -1.0" in src,
+      "0.0 would be indistinguishable from a perfect match")
+    t("the match verdict also requires nothing to be missing",
+      "(not missing) and 0.0 <= worst < RTOL_C" in src)
+    t("the symmetry verdict cannot pass on an empty comparison",
+      "bool(pairs) and (not missing)" in src)
+
+    # 3. The node-set name is not the region key.
+    t("the reader falls back to the node label to find a driver region",
+      "def region_for(" in src and "set_label(odb, setname)" in src,
+      "`*Node Output, nset=Foo` yields 'Node ASSEMBLY.<label>'")
+
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
 
