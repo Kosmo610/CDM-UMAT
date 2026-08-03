@@ -119,9 +119,15 @@ def patch_deck(mesh_head, sections):
     L.append("*Initial Conditions, type=TEMPERATURE")
     L.append("AllNodes, 0.")
 
+    # Nodal U and RF go into the FIELD output as well as the history output.
+    # It costs almost nothing on a deck this size and it means a reader that
+    # cannot match a historyRegion can still recover the driver reactions from
+    # the last frame -- i.e. a post-processing bug never costs a re-run.
     out = """*Output, field
 *Element Output, directions=YES
 S, E
+*Node Output
+U, RF
 *Output, history, frequency=1
 """ + "\n".join("*Node Output, nset=ConstraintsDriver%d\nU, RF" % i
                 for i in range(6))
@@ -161,7 +167,10 @@ S, E
 BAR_LENGTH = 1.0
 BAR_SECTION = 0.2
 BAR_CASES = [(5, 1), (10, 2), (20, 4)]        # (elements along x, across)
-BAR_DISP = 4.0e-3                             # total end displacement, mm
+BAR_DISP = 2.0e-2                             # total end displacement, mm
+#  4.0e-3 was too short: at that pull N=20 had not reached its softening
+#  minimum at all while N=5 had already saturated and re-hardened, so the
+#  three bars were compared at completely different stages (see 0803 run).
 BAR_WEAK = 0.95                               # strength of the trigger slice
 
 MATRIX_CARD = [2.0, 350000.0, 0.20, 310.0, 310.0, 0.0, 0.0, 0.90,
@@ -496,6 +505,28 @@ def check():
     t("the reader falls back to the node label to find a driver region",
       "def region_for(" in src and "set_label(odb, setname)" in src,
       "`*Node Output, nset=Foo` yields 'Node ASSEMBLY.<label>'")
+
+    # 4. The deck is FLAT, so its node sets are instance-level, not assembly
+    #    level.  Searching only the assembly found nothing and the whole 6x6
+    #    came back missing -- on a deck whose field output was perfect.
+    t("the patch deck really is flat (no *Assembly)",
+      "*Assembly" not in pd and "*Instance" not in pd,
+      "so *NSet lands on the auto-generated instance")
+    t("the reader searches instance node sets, not just the assembly",
+      "ra.instances.values()" in src and "ra.nodeSets" in src)
+    t("the reader uppercases the set name before lookup",
+      "setname.upper()" in src, "odb stores set names upper case")
+
+    # 5. A lookup failure must never cost a re-run: the same quantities are in
+    #    the field output, and the reader must say what it did find.
+    t("the reader falls back to FIELD output when history is unmatched",
+      "def field_at_node(" in src and "fieldOutputs" in src)
+    t("the patch deck writes nodal U and RF as field output too",
+      "*Node Output\nU, RF" in pd or "*Node Output\n U, RF" in pd,
+      "so the fallback has something to read")
+    t("a failed lookup dumps what the odb actually contains",
+      "def available(" in src and "printed because a driver lookup failed"
+      in src, "no third round of guessing")
 
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
