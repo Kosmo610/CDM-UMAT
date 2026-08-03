@@ -528,6 +528,29 @@ def check():
       "def available(" in src and "printed because a driver lookup failed"
       in src, "no third round of guessing")
 
+    # 6. THE SIGN.  PATCH_PBC is the only exact case in the project, so it is
+    #    the authority on the driver-reaction convention.  The 2026-08-03 run
+    #    returned the analytic 6x6 to 1e-8 with EVERY entry negated, which
+    #    settles it: R = dW/d(eps) = sigma*V, so sigma = +RF/V.  All three
+    #    readers had the minus; extract_ss_curve.py then flipped the curve
+    #    back, which produced correct magnitudes and hid the error.
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for fn, pat in (("patch_report.py", "Cnum[i][k] = rf / V / UNIT_STRAIN"),
+                    ("extract_ss_curve.py", "sig = rf / V"),
+                    ("driver_audit.py", "sig = RF[-1][1] / V")):
+        q = os.path.join(root, "postprocess", fn)
+        txt = open(q).read() if os.path.exists(q) else ""
+        t("%s uses sigma = +RF/V" % fn, pat in txt)
+        t("%s has no leftover minus on the reaction" % fn,
+          "-rf / V" not in txt and "-RF[-1][1] / V" not in txt
+          and "-rf/V" not in txt)
+    ess = open(os.path.join(root, "postprocess",
+                            "extract_ss_curve.py")).read()
+    t("extract_ss_curve no longer silently flips a negative curve",
+      "The curve is written AS COMPUTED, not flipped." in ess,
+      "a flip would hide exactly this bug")
+    t("and warns loudly instead", "WARNING: peak stress is NEGATIVE" in ess)
+
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
 
