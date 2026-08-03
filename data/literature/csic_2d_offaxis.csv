@@ -1,0 +1,70 @@
+# On- and off-axis mechanical properties of 2D plain-woven C/SiC.
+#
+# SOURCE  refs/[28] Part 1.pdf, Table 1 --
+#   Li J., Jiao G.Q., Wang B., Yang C.P., Wang G.,
+#   "Damage characteristics and constitutive modeling of the 2D C/SiC
+#    composite: Part I - Experiment and analysis",
+#   Chinese Journal of Aeronautics 27(6) (2014) 1586-1597,
+#   doi:10.1016/j.cja.2014.10.026     (open access)
+#
+# MATERIAL  2D C/SiC, CVI, T-300 plain-woven fabric, PyC interphase.
+#           Same architecture, same fibre and same process as this thesis.
+#
+# ROLE      validation  --  COMPOSITE-LEVEL.  Never a card input.
+#           See data/properties/README.md: composite values entered as card
+#           input double-count the thermal residual stress, because the RVE
+#           cool-down already computes it.
+#           These are the targets the homogenised macro card must REPRODUCE
+#           (Cbar, Xbar_t, Xbar_c, Sbar), and in particular the only
+#           independent handle on X_c, which is a GUESS in the card today
+#           (docs/CH4_RVE_HOMOGENISATION.md 4.9-8).
+#
+# COLUMNS
+#   mode        tension | compression | shear
+#   theta_deg   off-axis angle of the loading direction
+#   E0_GPa      initial modulus (shear row: initial shear modulus G0)
+#   nu          Poisson ratio (blank for the shear row)
+#   sig0_MPa    proportional limit stress (shear row: proportional limit tau)
+#   sigu_MPa    ultimate strength         (shear row: ultimate tau)
+#   epsf_pct    failure strain
+#   *_sd        standard deviation as printed
+#   confidence  fulltext -- read from the printed table, not from a figure
+#
+mode,theta_deg,E0_GPa,E0_sd,nu,nu_sd,sig0_MPa,sig0_sd,sigu_MPa,sigu_sd,epsf_pct,epsf_sd,confidence
+tension,0,142.06,13.69,0.07,0.02,19.53,1.07,265.28,15.95,0.50,0.07,fulltext
+tension,15,121.74,3.10,0.17,0.03,12.71,7.48,199.22,52.43,0.55,0.33,fulltext
+tension,30,106.04,10.18,0.30,0.03,7.70,1.46,173.96,8.88,0.80,0.11,fulltext
+tension,45,102.05,18.35,0.34,0.02,7.36,2.94,125.08,11.81,0.70,0.18,fulltext
+compression,0,144.87,1.35,0.06,0.01,158.28,14.37,338.94,11.51,0.23,0.01,fulltext
+compression,15,127.58,2.03,0.14,0.01,127.32,13.99,299.86,16.84,0.23,0.01,fulltext
+compression,30,104.12,12.80,0.35,0.03,27.43,6.91,279.32,3.06,0.38,0.04,fulltext
+compression,45,99.89,14.26,0.36,0.03,21.80,2.09,257.84,16.40,0.44,0.07,fulltext
+shear,0,37.34,5.53,,,12.96,3.73,139.76,16.71,1.40,0.20,fulltext
+#
+# WHAT THESE NUMBERS SETTLE
+#
+# 1. Xbar_c / Xbar_t = 338.94 / 265.28 = 1.278 on-axis.
+#    The card's X_c is a GUESS; this is the composite-level number the
+#    calibrated card has to land on.
+#
+# 2. Proportional limit, compression / tension = 158.28 / 19.53 = 8.1.
+#    The asymmetry is far larger in onset than in ultimate strength.  That is
+#    contribution C3 in one ratio: compression suppresses crack initiation,
+#    tension promotes it.
+#
+# 3. Sbar = 139.76 MPa at room temperature.
+#    refs/[35] (Yan, Mater. Des. 32 (2011) 3504) measures 144.1 MPa at 293 K
+#    on 2D C/SiC by a different method.  Agreement to 3.1 % across two
+#    independent groups -- see data/literature/failure_criteria.csv.
+#
+# 4. Ebar_0 = 142.06 GPa (tension) / 144.87 GPa (compression).
+#    refs/[43] (Mei, J. Mater. Sci. 40 (2005) 4261) Table I gives 70 GPa for
+#    2D C/SiC.  The two differ by a factor of two, so "the measured modulus of
+#    2D C/SiC" is not a single number and cannot be used as a one-sided check
+#    on the model.  docs/CH4_RVE_HOMOGENISATION.md 4.9-0 compares the M5
+#    tangent modulus against Mei alone; that comparison needs this second
+#    value beside it.
+#
+# 5. nu rises 0.07 -> 0.17 -> 0.30 -> 0.34 with off-axis angle (tension).
+#    A balanced weave loaded on-axis has very low nu; this is the check that
+#    the column really is Poisson ratio.
