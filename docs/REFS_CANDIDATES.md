@@ -433,7 +433,11 @@ A30은 **2D 직조** CFRP의 압축 층내 파괴인성 + post-peak crushing str
 | # | 서지 | DOI | 검증 | 상태 |
 |---|---|---|---|---|
 | **B34** | 위 Part I | `10.1016/j.cja.2014.10.026` | **✔ 원문 확인** | **보유 = `refs/[28]`** |
-| **B35** | 동 저자, "**Part II** — Material model and numerical implementation." *Chin. J. Aeronaut.* **27** (2014). | `10.1016/j.cja.2014.10.027` | **✔** (Part I 참고문헌 [32]에서 확인) | **미보유 — 확보 대상** |
+| **B35** | 동 저자, "**Part II** — Material model and numerical implementation." *Chin. J. Aeronaut.* **28** (2015). | `10.1016/j.cja.2014.10.027` | **✔ Crossref 확인** | **미보유 — 확보 대상** |
+
+> ★ **주의: Part II는 27권이 아니라 28권이다.** Part I의 참고문헌 [32]가 이를 "ChinJAeronaut **2014**"로만
+> 적고 있어(온라인 선공개 시점) 27권으로 오인하기 쉬우나, **Crossref 대조 결과 인쇄본은 28권**이다.
+> 두 편을 같은 권으로 적으면 심사에서 바로 걸린다.
 
 Part II는 unilateral / damage deactivation을 **CDM으로 구현**한 편이며, **V3_0의 `HCLO`와 직접 비교 대상**이다.
 저자 목록이 Part I과 다르다: **Li J., Jiao G.Q., Wang B., Li L., Yang C.P.**
@@ -651,6 +655,81 @@ C19는 **표준 FE 피로손상 정식이 공간 이산화에 극도로 민감**
 | 2026-08-03 | **S1** Bažant & Oh 1983 | Crossref REST API | ✅ `10.1007/BF02486267`, vol **16**, p **155–177** — 표와 일치 |
 | 2026-08-03 | **B34 / `refs/[28]`** | PDF 텍스트 직접 추출 | ✅ CJA **27**(6) 1586–1597, `10.1016/j.cja.2014.10.026` |
 | 2026-08-03 | **S20 / B25 / C9** | `refs/[28]` 참고문헌 목록 | ✅ 권·페이지 확정 (§4.7) |
+| 2026-08-03 | **113편 전체** | `verification/verify_bibliography.ps1` (Crossref) | ✅ **§6.5 참조** — MISMATCH 3, FILLED 다수 |
+
+### 6.5 Crossref 일괄 대조 결과 (2026-08-03)
+
+`powershell -ExecutionPolicy Bypass -File verification\verify_bibliography.ps1` 113편 실행 결과.
+**아래 값들은 §2–§5 표의 `✗ 미검증` 표시를 대체한다.**
+
+#### (1) MISMATCH — 문서/CSV의 값이 틀렸다 **3건**
+
+| key | 문헌 | 판정 | 조치 |
+|---|---|---|---|
+| **S21** | Jirásek & Bauer, *Comput. Struct.* | `want=110 got=110-111` | **문서가 옳다** (§2 표는 이미 **110–111**). `refs_candidates.csv` 쪽이 틀렸다 → CSV 수정 |
+| **A15** | Olaya Gómez & Garnier, *Int. J. Therm. Sci.* — fibers strand axial k 장치 | `want=159 got=161` | ★ **권을 161로 정정** |
+| **B35** | Li et al., CJA **Part II** | `want=27 got=28` | ★ **권을 28로 정정.** Part I(27권)과 **다른 권**이다 (§4.7) |
+
+#### (2) FILLED — 비워 두었던 칸이 채워졌다
+
+**★ C등급(방법론 근거)이 전부 실존 확인되었다.** §5.1·§5.2는 "서지 미검증, 인용 전 확인 필수"라고
+적어 두었던 항목들인데, **DOI가 나왔다는 것은 그 논문이 실재하고 제목이 맞다는 뜻**이다.
+
+| key | 문헌 | 확정된 값 |
+|---|---|---|
+| **C1** | Gitman, Askes, Sluys — *Representative volume: Existence and size determination* | `10.1016/j.engfracmech.2006.12.021`, vol 7x |
+| **C2** | Nguyen, Lloberas-Valls, Stroeven, Sluys — CMAME | `10.1016/j.cma.2010.10.013`, **vol 200** |
+| **C3** | Coenen, Kouznetsova, Geers — IJNME | `10.1002/nme.3298`, **vol 90**, **p 1–21** |
+| **C4** | Geers, Kouznetsova, Brekelmans — *J. Comput. Appl. Math.* | `10.1016/j.cam.2009.08.077`, **vol 234** |
+| **C5** | **Hochard & Thollon** — *Int. J. Fatigue* | `10.1016/j.ijfatigue.2009.02.016`, **vol 32** |
+| **C6** | **Roe & Siegmund** — *Eng. Fract. Mech.* | `10.1016/S0013-7944(02)00034-6`, **vol 70** |
+| **C7** | Nguyen, Repetto, Ortiz, Radovitzky — *Int. J. Fract.* | `10.1023/A:1010839522926`, **vol 110**, p 3xx |
+| **C9** | Marcin, Maire, Carrère, Martin — IJDM | `10.1177/1056789510385259` |
+| **C12** | Ning & Chou — CST | `10.1016/0266-3538(95)00093-3`, **vol 55** |
+| **C13** | Li, S. — CST | `10.1016/j.compscitech.2007.03.035`, vol 6x |
+
+> **C5·C6가 확정된 것이 제5장에 가장 중요하다.** shakedown 문제(§5.2)의 프레이밍 인용이
+> "존재 여부도 불확실"에서 **"DOI가 있는 실재 논문"**으로 올라갔다.
+
+**A등급 — 물성 카드에 들어갈 것들**
+
+| key | 문헌 | 확정된 값 |
+|---|---|---|
+| **A13** | *Carbon* **197** — PAN 섬유 이방성 열전도율 | `10.1016/j.carbon.2022.06.005`, **p 1–9** |
+| **A14** | Olaya Gómez & Garnier — 반경방향 k (3ω) | `10.1016/j.ijthermalsci.2021.107321` |
+| **A28** | *Acta Mater.* — 온도·산화가 계면 전단응력에 미치는 영향 | `10.1016/S1359-6454(98)80029-3`, **vol 46** |
+| **A24** | Li et al., IMechE Part L — PyC 두께 vs τ | **vol 238**, **p 1805–1823** |
+| **A5** | Breder — JACerS **78** | **p 2680–2684** |
+| **A10** | Sujith — *Int. Mater. Rev.* **66** | **p 426–449** |
+| **A11** | *J. Mater. Sci.* **46** — PIP 사이클 vs 강도 | **p 3046–3051** |
+| **A12** | Hu et al. — PIP SiCf/SiC 리뷰 | `10.1016/j.jmrt.2024.11.050` |
+| **A16** | Trinquecoste — *Carbon* **34** | `10.1016/0008-6223(96)00052-8` |
+| **A18** | Kim et al. — 다공성 SiC k | `10.1016/j.jeurceramsoc.2019.11.045` |
+| **A20** | Pabst — 다공성 세라믹 탄성 | `10.1016/j.jeurceramsoc.2005.01.041` |
+| **A21** | Phani & Niyogi | `10.1007/BF01160581`, **p 257–263** |
+
+**B등급 — 검증 데이터**
+
+| key | 문헌 | 확정된 값 |
+|---|---|---|
+| **B1** | **Kagawa 1997** — 2D 평직 균열밀도 포화 | `10.1016/S0266-3538(97)00005-5` |
+| **B2** | MMTA — 3D SiC/SiC 100사이클 | **vol 37**, **p 3587–3592** |
+| **B6** | *Ceram. Int.* — 1300 °C 열충격 2D/2.5D | `10.1016/j.ceramint.2024.06.263` |
+| **B13** | **Lamouroux — JECS 14, 산화 vs 인장물성** | `10.1016/0955-2219(94)90105-8`, **p 177–188** |
+| **B20** | Gowayed — 균열밀도 모델 | **vol 49**, **p 2285–2294** |
+| **B24** | *Acta Mater.* **217** — 라만 TRS | `10.1016/j.actamat.2021.117164` |
+| **B25** | **Mei 2008** — TRS 측정·계산 대조 | `10.1016/j.compscitech.2008.08.015` |
+| **B26 / B27** | Bobet & Lamon I / II | `10.1016/0956-7151(94)00429-3` / `10.1016/0956-7151(94)00430-7` |
+| **B30** | **Dassios & Aggelis — *Exp. Mech.*** | ★ **vol 53, p 1033–1038** — §4.5의 "권·쪽 모순"이 **해소되었다.** 검색 요약의 "vol 56"은 **틀렸다** |
+| **B31** | *MSEA* — 3D needled C/C–SiC 1400 °C | `10.1016/j.msea.2015.12.010`, **vol 654** |
+| **B32** | Li L. — HTMP **39** | **p 209–218** |
+| **B36** | Kim, Lee, Case — 급랭 h 직접 측정 | `10.1016/0921-5093(91)90307-9`, **p L7–L11** |
+| **B39** | Wang & Singh — *Int. Mater. Rev.* **39** | **p 228–244** |
+| **B41** | Meng — 열충격 리뷰 | **vol 21**, **p 3789–3811** |
+
+> ⚠️ **여전히 남는 한계.** Crossref 대조가 확인하는 것은 **"그 서지의 논문이 실재하고 제목이
+> 맞다"**는 것뿐이다. **본문의 수치·식 번호·인용 문구는 여전히 미확인**이며, 원문 확보 후에만
+> `data/literature/README.md`의 `fulltext` 등급으로 올릴 수 있다.
 
 > Crossref 조회는 인증도 API 키도 필요 없다. **PowerShell에서는 `curl`이 `Invoke-WebRequest`의
 > 별칭**이므로 `-s`나 리눅스식 `\` 줄바꿈이 통하지 않는다. 다음을 쓴다:
