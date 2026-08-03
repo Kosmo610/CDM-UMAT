@@ -226,6 +226,7 @@ python3 data/properties/m6_calibration.py --check      # M6 보정 knob 우선�
 python3 data/properties/insitu_yarn_strength.py --check # 얀 Xt in-situ 출처·Weibull 구간
 python3 data/properties/porosity_stiffness.py --check  # 공극률 결정 + 강성 정합
 python3 data/properties/make_property_workbook.py --check # 물성 현황표(엑셀) 생성기
+python3 postprocess/msg_residual_census.py --check     # .msg 잔차가 어느 상에 있나
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
@@ -242,7 +243,7 @@ python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 30개를 전부 통과시킨다.**
+**커밋 전에 위 31개를 전부 통과시킨다.**
 
 ## 현재 병목
 
