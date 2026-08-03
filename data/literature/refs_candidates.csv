@@ -88,10 +88,10 @@ B38,Thermal shock of alumina by compressed air cooling,Journal of the European C
 B39,Thermal shock behaviour of ceramics and ceramic composites,International Materials Reviews,10.1179/imr.1994.39.6.228,39,
 B40,Modification and validation of the thermal shock parameter for ceramic matrix composites under water quenching condition,Materials and Design,10.1016/j.matdes.2009.04.037,30,4552-4556
 B41,A review of thermal shock behavior of ceramics Fundamental theory experimental methods and outlooks,International Journal of Applied Ceramic Technology,10.1111/ijac.14846,,
-C1,Representative volume Existence and size determination,Engineering Fracture Mechanics,,,
-C2,Homogenization-based multiscale crack modelling From micro-diffusive damage to macro-cracks,Computer Methods in Applied Mechanics and Engineering,,,
-C3,Novel boundary conditions for strain localization analyses in microstructural volume elements,International Journal for Numerical Methods in Engineering,,,
-C4,Multi-scale computational homogenization Trends and challenges,Journal of Computational and Applied Mathematics,,,
+C1,Representative volume Existence and size determination,Engineering Fracture Mechanics,10.1016/j.engfracmech.2006.12.021,74,2518-2534
+C2,Homogenization-based multiscale crack modelling From micro-diffusive damage to macro-cracks,Computer Methods in Applied Mechanics and Engineering,10.1016/j.cma.2010.10.013,200,1220-1236
+C3,Novel boundary conditions for strain localization analyses in microstructural volume elements,International Journal for Numerical Methods in Engineering,10.1002/nme.3298,90,1-21
+C4,Multi-scale computational homogenization Trends and challenges,Journal of Computational and Applied Mathematics,10.1016/j.cam.2009.08.077,234,2175-2182
 C5,A generalized damage model for woven ply laminates under static and fatigue loading conditions,International Journal of Fatigue,,,
 C6,An irreversible cohesive zone model for interface fatigue crack growth simulation,Engineering Fracture Mechanics,,,
 C7,A cohesive model of fatigue crack growth,International Journal of Fracture,,,

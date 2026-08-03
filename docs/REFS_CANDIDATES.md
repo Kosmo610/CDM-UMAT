@@ -637,14 +637,46 @@ off-axis 시편에서 τ₁₂가 뒤집힐 때 **σ₁·σ₂가 함께 압축�
 > 그런데 **연화가 시작되면 RVE 자체가 정의되지 않는다**는 것이 이 분야의 알려진 결과다.
 > RVE 크기를 바꾸면 답이 달라진다. **이 인용 없이는 제4장의 핵심 절차가 방어되지 않는다.**
 
-| # | 서지 | 검증 | 무엇을 주는가 |
-|---|---|---|---|
-| **C1** | Gitman, I.M., Askes, H., Sluys, L.J. (2007). "Representative volume: Existence and size determination." *Eng. Fract. Mech.* | ✗ | **연화 시 RVE 비존재** — 정면으로 다룬 논문 |
-| **C2** | Nguyen, V.P., Lloberas-Valls, O., Stroeven, M., Sluys, L.J. (2011). "Homogenization-based multiscale crack modelling: From micro-diffusive damage to macro-cracks." *CMAME* | ✗ | **스케일 간 에너지 등가** 처방 |
-| **C3** | Coenen, E.W.C., Kouznetsova, V.G., Geers, M.G.D. (2012). "Novel boundary conditions for strain localization analyses in microstructural volume elements." *IJNME* | ✗ | 국소화 시 주기경계조건이 깨지는 문제 |
-| **C4** | Geers, M.G.D., Kouznetsova, V.G., Brekelmans, W.A.M. (2010). "Multi-scale computational homogenization: Trends and challenges." *J. Comput. Appl. Math.* | ✗ | **"유효물성만 넘기면 손상이 전달되지 않는다"**는 표준 비판의 출처 (README 첫 문장의 근거) |
+| # | 서지 | DOI | 검증 | 무엇을 주는가 |
+|---|---|---|---|---|
+| **C1** | Gitman, I.M., Askes, H., Sluys, L.J. (2007). "Representative volume: Existence and size determination." *Eng. Fract. Mech.* **74**(16), 2518–2534. | `10.1016/j.engfracmech.2006.12.021` | **✔ 서지 확정** | **연화 시 RVE 비존재** — 정면으로 다룬 논문. 탄성·경화에서는 존재하고 크기를 정할 수 있으나 **연화에서는 존재하지 않을 수 있다** |
+| **C2** | Nguyen, V.P., Lloberas-Valls, O., Stroeven, M., Sluys, L.J. (2011). "Homogenization-based multiscale crack modelling: From micro-diffusive damage to macro-cracks." *CMAME* **200**(9–12), 1220–1236. | `10.1016/j.cma.2010.10.013` | **✔ 서지 확정** | **RVE 크기에 객관적인 traction–separation** 유도 — 스케일 간 에너지 등가 처방 |
+| **C3** | Coenen, E.W.C., Kouznetsova, V.G., Geers, M.G.D. (2012). "Novel boundary conditions for strain localization analyses in microstructural volume elements." *IJNME* **90**(1), 1–21. | `10.1002/nme.3298` | **✔ 서지 확정** | 국소화 시 **주기경계조건이 부적절해지는 문제** + 대안 경계조건 |
+| **C4** | Geers, M.G.D., Kouznetsova, V.G., Brekelmans, W.A.M. (2010). "Multi-scale computational homogenization: Trends and challenges." *J. Comput. Appl. Math.* **234**(7), 2175–2182. | `10.1016/j.cam.2009.08.077` | **✔ 서지 확정** | 1차 균질화가 **국부화에서 유효성을 잃는다**는 표준 정리 (README 첫 문장의 근거) |
 
-**⚠️ C1–C4는 전부 서지 미검증이다.** 도메인 지식 기반 후보이며 **인용 전 반드시 확인**해야 한다.
+> ### ✅ 해결 (2026-08-03) — 서지 확정 + 제4장 §4.6.1 신설
+>
+> **네 편 모두 권·호·쪽·DOI를 복수의 독립 출처에서 대조하여 확정하였다.**
+> 이전 판의 *"C1–C4는 전부 서지 미검증, 도메인 지식 기반 후보"* 는 해소되었다.
+> `data/literature/refs_candidates.csv`에 기록했고, 제2장 참고문헌에 `[C*]` 표를 두었다.
+>
+> ⚠️ **내용 등급은 `abstract`이다** — 원문 전문은 아직 확보하지 않았다. 따라서
+> 본문 서술은 **각 편의 결론 수준을 넘지 않고 인용부호를 쓰지 않는다.**
+>
+> ### ★★ 그리고 이 인용을 채우다가 **실제 결함**이 나왔다
+>
+> [C1]의 경고가 §4.6의 $\bar G_f$ 추출식을 다시 보게 만들었고, 다음이 확인되었다.
+>
+> $$\bar G_f = \underbrace{l\,g_0}_{\text{탄성 — 길이에 비례}} + \underbrace{l\,\frac{2g_0}{A}}_{\text{소산 — 재료}}$$
+>
+> **추출은 $l = L_{RVE}$ = 3.5 mm에서, 사용은 $l = l_e$ = 0.68–0.78 mm에서 한다.**
+> 그 차이 $g_0(L_{RVE}-l_e)$ = **0.41–0.70 N/mm** 가 잘못된 길이를 달고 스케일을
+> 건너며, 이는 저장소에서 출처가 확인된 유일한 파괴에너지($G_{tt}$ = 0.107 N/mm)보다
+> **크다.** `homogenize.py`와 `make_macro_thermalshock.py` 어디에도 보정이 없다.
+>
+> **M6 카드 생성 전에 고쳐야 한다** — 카드가 만들어진 뒤에 고치면 §4.9-8의 보정이
+> 통째로 무효가 된다. 제4장 §4.9-12에 기록.
+>
+> **검증:** `python3 verification/check_gf_scale_transfer.py` (26항목)
+>
+> **이것이 "인용 0건"의 진짜 의미였다 — 서지의 공백이 아니라 검토되지 않은 절차였다.**
+
+**추가 확보 후보 (§4.6.1 보강용).** 조사 중 발견한 것으로, 위 넷과 같은 계보이며
+**연화 RVE의 처방**을 더 직접적으로 다룬다.
+
+| 서지 | 검증 |
+|---|---|
+| Nguyen, V.P. 외, *On the existence of representative volumes for softening quasi-brittle materials — A failure zone averaging scheme*, *CMAME* (PII `S0045782510001854`) | △ (PII 확인, 권·쪽 미확정) |
 
 ### 5.2 ★★ shakedown 문제의 명시적 서술 — 제5장 도입의 핵심 인용
 
@@ -944,22 +976,25 @@ powershell -ExecutionPolicy Bypass -File verification\verify_bibliography.ps1 -M
 
 ## 7. 이 조사가 문서에 요구하는 변경
 
-> ### 진행 상황 — **21개 중 17개 완료 (2026-08-03)**
+> ### 진행 상황 — **21개 중 18개 완료 (2026-08-03)**
 >
 > | 상태 | 개수 | 항목 |
 > |---|---|---|
-> | ✅ **완료** | **17** | 1–7, 9, 11, 13, 15–21 |
-> | ⏸ **원문 확보 대기** | **4** | **8**(`G_tc` 출처), **10**(Maxwell–Eucken), **12**(h 변동 B36–B38), **14**(스케일 간 메시 객관성 C1–C4) |
+> | ✅ **완료** | **18** | 1–7, 9, 11, 13, **14**, 15–21 |
+> | ⏸ **원문 확보 대기** | **3** | **8**(`G_tc` 출처), **10**(Maxwell–Eucken), **12**(h 변동 B36–B38) |
 >
 > **완료분은 모두 보유 자료만으로 처리하였다** — `refs/[28]` 전문, Crossref로 확정된
-> 서지, 그리고 이미 끝난 자체 계산이다. 남은 4개는 **새 원문이 있어야** 진행된다.
+> 서지, 그리고 이미 끝난 자체 계산이다. **14는 원문 없이 서지 확정만으로 처리하였다** —
+> 결론 수준의 인용이면 §4.6.1이 성립하기 때문이다. 남은 3개는 **수치가 필요해** 원문이 있어야 한다.
 >
-> **부수 수확 — 반영 과정에서 초안 오류 2건을 추가로 잡았다.**
+> **★ 부수 수확 — 반영 과정에서 실제 결함 3건이 나왔다.**
 > ① §4.9-8의 GUESS 목록이 **15개로 적혀 있었는데 선언된 개수는 14개**였다
 > ($S_{13}$이 잘못 포함됨). ② 제1·3장의 자동 검증 총량이 928로 적혀 있었으나
-> 실제는 936이다(본 작업으로 8항목 증가). 둘 다 `check_*` 가 잡아냈다.
+> 실제는 936이다. ③ **가장 큰 것 — $\bar G_f$가 RVE 크기(3.5 mm)를 달고 거시
+> ($l_e$ = 0.68–0.78 mm)로 넘어간다.** 초과분 0.41–0.70 N/mm는 저장소에서 출처가
+> 확인된 유일한 파괴에너지보다 크다. **M6 카드 생성 전에 고쳐야 한다**(§4.9-12).
 >
-> **검증:** 27개 전수 통과.
+> **검증:** 28개 전수 통과(`check_gf_scale_transfer.py` 신설 포함).
 
 | # | 변경 대상 | 내용 | 근거 |
 |---|---|---|---|
@@ -976,7 +1011,7 @@ powershell -ExecutionPolicy Bypass -File verification\verify_bibliography.ps1 -M
 | **11** | **제5장 §5.9.2** | ✅ **완료.** §5.9.2-6에 신설 — 사이클별 잔여물성 문헌([2][3][28][43])이 **전부 CVI**이고 기준 재료는 PIP. 산화가 지배 기구라면 기공률·균열망 연결성에서 갈릴 가능성. 처리 방침 3항(계수는 CVI 보정임을 명시 / 주 결론을 상대 비교로 / 절대값은 CVI 한정) | §4.1 |
 | 12 | **제5장 §5.4.3** | h 역산의 정당화 + **"h 공간 3배 변동 → 열응력 17 %"** 한계값 추가 | B36–B38 |
 | **13** | **제1·2장** | ✅ **완료.** 제2장 §2.8.3과 제1장 §1.4의 C3을 재서술 — Li[28] Table 1의 **비례한도 8.1배 / 극한강도 1.28배**를 인용해 "실험 근거 있음, 본 연구가 반복으로 확장"으로 전환 | B34 |
-| 14 | **제4장 §4.6** | 스케일 간 메시 객관성 인용 추가 (**현재 0건**) | C1–C4 |
+| **14** | **제4장 §4.6** | ✅ **완료(2026-08-03).** C1–C4 **서지 확정**(권·호·쪽·DOI) 후 **§4.6.1 신설** — [C1] 연화 시 RVE 비존재 / [C4] 1차 균질화의 한계 / [C3] 국부화 시 주기BC 부적절 / [C2] 크기 객관적 traction–separation. 방어는 "넘기는 것은 곡선이 아니라 에너지". **그 과정에서 $\bar G_f$가 RVE 크기를 달고 넘어가는 결함 발견 → §4.9-12** | C1–C4 |
 | **15** | **제5장 §5.2** | ✅ **완료.** §2.5.4를 "본 연구가 발견한 문제"에서 **"이력변수형 손상법칙 전부의 수학적 성질"** 로 승격. T5(drift 0.00e+00)는 그 사실의 **수치 재현**으로 재배치. 제1장 §1.2.3도 동기화. ⚠️ C5–C7은 Crossref 존재 확인만 되어 **인용부호 없이** 쓰고 권·쪽은 적지 않음 | C5–C7 |
 | **16** | **`README.md` · 제2장 §2.5.3** | ✅ **완료.** README.md와 제2장 §2.5.3·제5장 §5.2.3에 경고 추가 — 전단 미회복은 통상 가정이 아니라 **[28]을 알고서 택한 보수 가정**. 회복 구동은 전단 부호가 아니라 **수직 압축**(계면 폐합)임을 명시하고 `HCLOS` 슬롯 설계를 기록(기본값 0 → T2 무영향) | §4.7-(나) |
 | **17** | **제2장 §2.5.3 · `M1_FAILURE_ANALYSIS.md`** | ✅ **완료.** §2.5.3에 `H_smo` 승격 박스 — [28]의 *"progressive damage deactivation … different deactivation rates"* 로 **"수치 편법"에서 "실험이 요구하는 정칙화"** 로. 응력상태 의존성 미반영은 §2.9-9에 1차 근사로 기록 | §4.7-(가) |

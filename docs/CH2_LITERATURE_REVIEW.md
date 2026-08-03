@@ -778,6 +778,22 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | **[S12]** | **D. P. H. Hasselman**, *Elastic energy at fracture and surface energy as design criteria for thermal shock*, **J. Am. Ceram. Soc. 46(11) (1963) 535–540** | `10.1111/j.1151-2916.1963.tb14605.x` |
 | **[S13]** | **D. P. H. Hasselman**, *Unified theory of thermal shock fracture initiation and crack propagation in brittle ceramics*, **J. Am. Ceram. Soc. 52(11) (1969) 600–604** | `10.1111/j.1151-2916.1969.tb15848.x` |
 
+**스케일 간 메시 객관성 — 제4장 §4.6.1이 부르는 문헌 (`[C*]`).** 제4장은 **연화까지
+포함한** 거시 카드를 RVE에서 뽑는다. "연화가 시작되면 RVE가 정의되지 않을 수 있다"는
+것이 이 분야의 알려진 결과이므로, 이 네 편 없이는 §4.6의 핵심 절차가 방어되지 않는다.
+**서지는 2026-08-03에 확정하였다**(권·호·쪽·DOI를 복수의 독립 출처에서 대조).
+
+| 키 | 서지 | DOI |
+|---|---|---|
+| **[C1]** | **I. M. Gitman, H. Askes, L. J. Sluys**, *Representative volume: Existence and size determination*, **Eng. Fract. Mech. 74(16) (2007) 2518–2534** — **연화 시 RVE 비존재**를 정면으로 다룬 편 | `10.1016/j.engfracmech.2006.12.021` |
+| **[C2]** | **V. P. Nguyen, O. Lloberas-Valls, M. Stroeven, L. J. Sluys**, *Homogenization-based multiscale crack modelling: From micro-diffusive damage to macro-cracks*, **Comput. Methods Appl. Mech. Engrg. 200(9–12) (2011) 1220–1236** — **RVE 크기에 객관적인 traction–separation** 유도 | `10.1016/j.cma.2010.10.013` |
+| **[C3]** | **E. W. C. Coenen, V. G. Kouznetsova, M. G. D. Geers**, *Novel boundary conditions for strain localization analyses in microstructural volume elements*, **Int. J. Numer. Methods Engrg. 90(1) (2012) 1–21** — 국부화 시 **주기경계조건의 부적절성** | `10.1002/nme.3298` |
+| **[C4]** | **M. G. D. Geers, V. G. Kouznetsova, W. A. M. Brekelmans**, *Multi-scale computational homogenization: Trends and challenges*, **J. Comput. Appl. Math. 234(7) (2010) 2175–2182** — 1차 균질화가 **국부화에서 유효성을 잃는다**는 표준 정리 | `10.1016/j.cam.2009.08.077` |
+
+> ⚠️ **본 논문이 [C1]–[C4]에서 쓰는 것은 각 편의 핵심 결론 수준이며, 원문 전문은
+> 아직 확보하지 않았다.** 서지는 확정이나 내용 등급은 `abstract`이므로, **본문의
+> 서술은 결론 수준을 넘지 않고 인용부호를 쓰지 않는다.** 전문 확보 후 승급한다.
+
 > **⚠️ 서지 확정 전 반드시 할 일.**
 > **저자 성(姓)의 순서, 학술지명, 권·연도·페이지는 `refs/README.md`에서 확인된 것**이나,
 > **이름의 이니셜은 상당수가 추정**이다([2], [5], [5b], [27], [33], [35], [01]).
