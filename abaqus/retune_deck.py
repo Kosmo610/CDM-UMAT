@@ -226,18 +226,40 @@ def materials(a):
     return "\n".join(L)
 
 
+#: The only values Abaqus accepts for the FIELD parameter of
+#: `*CONTROLS, PARAMETERS=FIELD`.  FORCE is NOT among them, and that mistake
+#: cost a lab morning: `field=force` is rejected by the input file processor,
+#: so every M4 job died in pre.exe before a single increment.
+VALID_CONTROL_FIELDS = ("DISPLACEMENT", "ROTATION", "TEMPERATURE",
+                        "ELECTRICAL POTENTIAL", "HYDROSTATIC FLUID PRESSURE",
+                        "WARPING", "GLOBAL")
+
+
 def controls(a):
-    c = ("*Controls, parameters=time incrementation\n"
-         " 12, %d, , 40, , , , %d, , ,\n"
-         "*Controls, parameters=field, field=displacement\n"
-         " , %g\n" % (a.i_r, a.i_a, a.dispctrl))
-    # Only emit the force block when we actually depart from the Abaqus
-    # default, so a deck generated with --ftol 0.005 stays byte-identical to
-    # the pre-M4 decks and the regression comparison stays meaningful.
-    if abs(a.ftol - ABAQUS_DEFAULT_FTOL) > 1.0e-12:
-        c += ("*Controls, parameters=field, field=force\n"
-              " %g,\n" % a.ftol)
-    return c + "*Controls, parameters=line search\n5\n"
+    """Solver controls for one step.
+
+    FORCE IS NOT A FIELD.  The FIELD parameter names the SOLUTION variable,
+    and for a stress/displacement analysis that is DISPLACEMENT.  The force
+    residual tolerance is the FIRST data value of that same block -- Rn^alpha,
+    default 0.005, the familiar "residual must be under 0.5 % of the average
+    flux" rule.  The displacement-correction criterion Cn^alpha is the second.
+    So loosening the force tolerance means writing
+
+        *Controls, parameters=field, field=displacement
+         0.02, 1
+
+    and NOT a second block with field=force, which does not exist.
+    """
+    # Rn blank keeps the Abaqus default, so a deck built with --ftol 0.005 is
+    # byte-identical to the pre-M4 decks and the regression stays meaningful.
+    rn = ("" if abs(a.ftol - ABAQUS_DEFAULT_FTOL) <= 1.0e-12
+          else "%g" % a.ftol)
+    return ("*Controls, parameters=time incrementation\n"
+            " 12, %d, , 40, , , , %d, , ,\n"
+            "*Controls, parameters=field, field=displacement\n"
+            " %s, %g\n"
+            "*Controls, parameters=line search\n5\n"
+            % (a.i_r, a.i_a, rn, a.dispctrl))
 
 
 def shear_lock(a):
@@ -508,7 +530,12 @@ def check():
       and "1e-12" not in out)
     t("minimum increment is 1e-08",
       out.count("1e-08, 0.0025") == 3, "(%d)" % out.count("1e-08, 0.0025"))
-    t("displacement control relaxed to 1", out.count(" , 1\n") == 3)
+    # Cn is the SECOND slot; Rn may or may not be filled depending on --ftol,
+    # so match the slot rather than one particular rendering of the line.
+    t("displacement control relaxed to 1 on every step",
+      len(re.findall(r"field=displacement\n\s*[0-9.eE+-]*,\s*1\s*\n", out)) == 3,
+      "%d steps" % len(re.findall(
+          r"field=displacement\n\s*[0-9.eE+-]*,\s*1\s*\n", out)))
     t("I_R=16 and I_A=8 on every step",
       out.count(" 12, 16, , 40, , , , 8, , ,") == 3)
     t("energy output requested", out.count("ALLSD") == 3)
@@ -610,11 +637,27 @@ def check():
     t("the tension step locks shear in the same block as the load",
       "ConstraintsDriver0, 1, 1, 0.003200\nConstraintsDriver3, 1, 1, 0.0"
       in outl)
-    t("force control emitted once per step",
-      outl.count("*Controls, parameters=field, field=force") == 3,
-      "%d" % outl.count("*Controls, parameters=field, field=force"))
-    t("force control carries the chosen ratio",
-      (" %g,\n" % D_FTOL) in outl)
+    # THE CHECK THAT WAS MISSING.  The old version asserted that a string I
+    # invented appeared in the deck -- which it did, faithfully, and Abaqus
+    # rejected the whole file for it.  Assert against Abaqus's grammar instead.
+    import re as _re
+    fields = _re.findall(r"parameters=field,\s*field=([a-z ]+)", outl)
+    t("every *Controls FIELD= names a real Abaqus field",
+      all(f.strip().upper() in VALID_CONTROL_FIELDS for f in fields),
+      "saw %s" % sorted(set(f.strip() for f in fields)))
+    t("FORCE is never used as a FIELD -- it is not one",
+      "field=force" not in outl.lower(),
+      "the force tolerance is Rn, the 1st value of field=displacement")
+    t("the force tolerance rides in the displacement block",
+      (" %g, %g\n" % (D_FTOL, D_DISPCTRL)) in outl,
+      "Rn=%g, Cn=%g" % (D_FTOL, D_DISPCTRL))
+    t("one displacement control block per step",
+      outl.count("*Controls, parameters=field, field=displacement") == 3,
+      "%d" % outl.count("*Controls, parameters=field, field=displacement"))
+    # Rn and Cn must sit on ONE data line, comma separated, in that order.
+    t("the control data line has both slots in the right order",
+      bool(_re.search(r"field=displacement\n\s*%g,\s*%g\s*\n"
+                      % (D_FTOL, D_DISPCTRL), outl)))
 
     afs = _A()
     afs.shearlock = False
@@ -627,8 +670,11 @@ def check():
       not any(("ConstraintsDriver%d, 1, 1," % d) in outf for d in (3, 4, 5)))
     t("--free-shear keeps the shear history output requests",
       all(("nset=ConstraintsDriver%d" % d) in outf for d in (3, 4, 5)))
-    t("ftol at the Abaqus default emits no force block",
-      "field=force" not in outf)
+    t("ftol at the Abaqus default leaves Rn blank, keeping the default",
+      "field=displacement\n , %g\n" % D_DISPCTRL in outf,
+      "blank Rn -> Abaqus default 0.005")
+    t("and still never writes a force field",
+      "field=force" not in outf.lower())
     t("--free-shear still writes the tension load",
       "ConstraintsDriver0, 1, 1, 0.003200" in outf)
     t("--free-shear still writes both *Temperature cards",
