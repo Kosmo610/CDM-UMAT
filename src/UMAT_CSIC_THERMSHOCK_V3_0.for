@@ -1229,10 +1229,53 @@ C=======================================================================
       SUBROUTINE KABAND(G0LE,GF,AFIX,A)
 C     Crack-band softening factor (Ge Eqs.19-21 closed form for the
 C     exponential law): A = 2*g0*le/(Gf-g0*le). Snap-back clamp 50.
+C
+C     TWO CONVENTIONS FOR GF, SELECTED BY ITS SIGN.  Energies are positive
+C     by definition, so a negative card entry is unambiguous and no card
+C     slot had to be spent on a flag.
+C
+C       GF > 0   TOTAL area convention (the original, unchanged).
+C                GF = le*g0 + le*2*g0/A, i.e. the whole area under the
+C                sigma-eps curve times le, elastic part included.
+C                -> A = 2*g0*le/(GF - g0*le)
+C
+C       GF = 0   crack band disabled, A = AFIX (the original meaning).
+C
+C       GF < 0   INELASTIC convention.  |GF| is the DISSIPATED part alone,
+C                le*2*g0/A, with the stored elastic part removed:
+C                    Gf_inel = Gf_total - g0*le
+C                Substituting collapses the formula to a division,
+C                -> A = 2*g0*le/|GF|
+C
+C     WHY THE SECOND CONVENTION EXISTS.  The total-area form carries a term
+C     g0*le, and le is whatever length was used when the number was made.
+C     postprocess/homogenize.py makes it from an RVE whose edge is 3.5 mm;
+C     this routine consumes it with CELENT, which in the macro meshes is
+C     0.68-0.78 mm.  The elastic term therefore arrives inflated by
+C     g0*(L_RVE - CELENT), which is 0.41-0.70 N/mm -- larger than the only
+C     sourced fracture energy in the repository.  Only the dissipated part
+C     is a material constant, so only that part may cross a scale boundary.
+C     See docs/CH4_RVE_HOMOGENISATION.md 4.6.1 and 4.9-12, and
+C     verification/check_gf_scale_transfer.py.
+C
+C     A card written before this convention existed has GF > 0 everywhere
+C     and takes the first branch, bit for bit as before.
       IMPLICIT NONE
       DOUBLE PRECISION G0LE,GF,AFIX,A
-      IF (GF.LE.0.0D0) THEN
+      IF (GF.EQ.0.0D0) THEN
          A=AFIX
+         RETURN
+      END IF
+      IF (GF.LT.0.0D0) THEN
+C        Inelastic convention.  The snap-back guard of the total form,
+C        GF > 1.02*g0*le, is Gf_inel > 0.02*g0*le here -- the same
+C        statement, since Gf_inel = Gf_total - g0*le.
+         IF (-GF.GT.0.02D0*G0LE) THEN
+            A=2.0D0*G0LE/(-GF)
+         ELSE
+            A=50.0D0
+         END IF
+         A=MIN(50.0D0,MAX(1.0D-2,A))
          RETURN
       END IF
       IF (GF.GT.1.02D0*G0LE) THEN

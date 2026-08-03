@@ -117,7 +117,7 @@ CASES = [
      count_bracketed, 5),
     ("check_gf_scale_transfer.py",
      "python3 verification/check_gf_scale_transfer.py",
-     count_plain, 26),
+     count_plain, 68),
 ]
 
 

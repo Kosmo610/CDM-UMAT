@@ -239,6 +239,147 @@ def part_c():
     """ % (L_RVE_INPLANE, min(les.values()), max(les.values())))
 
 
+# --------------------------------------------------------------------------
+# D. the fix: KABAND's two conventions, and homogenize.py's split
+# --------------------------------------------------------------------------
+def kaband(g0le, gf, afix):
+    """Python mirror of KABAND in src/UMAT_CSIC_THERMSHOCK_V3_0.for."""
+    if gf == 0.0:
+        return afix
+    if gf < 0.0:
+        a = 2.0 * g0le / (-gf) if (-gf) > 0.02 * g0le else 50.0
+        return min(50.0, max(1e-2, a))
+    a = 2.0 * g0le / (gf - g0le) if gf > 1.02 * g0le else 50.0
+    return min(50.0, max(1e-2, a))
+
+
+def part_d():
+    print("\n D. KABAND reads the dissipated part and rebuilds with CELENT")
+
+    src = open(os.path.join(ROOT, "src",
+                            "UMAT_CSIC_THERMSHOCK_V3_0.for")).read()
+    check("KABAND branches on the sign of GF",
+          "IF (GF.LT.0.0D0) THEN" in src)
+    check("the disable case is now GF exactly zero, not GF <= 0",
+          "IF (GF.EQ.0.0D0) THEN" in src and "IF (GF.LE.0.0D0) THEN" not in src)
+    check("the inelastic branch is A = 2*g0*le/|Gf|",
+          "A=2.0D0*G0LE/(-GF)" in src)
+    check("the original total branch is untouched",
+          "A=2.0D0*G0LE/(GF-G0LE)" in src)
+
+    hom = open(os.path.join(ROOT, "postprocess", "homogenize.py")).read()
+    check("and writes the dissipated part NEGATED into slots 31-34",
+          '-s["Gfin_" + mode] if ("Gfin_" + mode) in s else 0.0' in hom)
+    check("and keeps Lchar per mode so the split can be audited",
+          'strength["Lchar_" + mode] = r["Lchar"]' in hom)
+
+    # Call the real splitter rather than a mirror of it.  homogenize.py
+    # guards its odbAccess import so it imports fine outside Abaqus.
+    sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+    try:
+        import homogenize as H
+    except ImportError as exc:                       # pragma: no cover
+        check("homogenize.py imports outside Abaqus", False, str(exc))
+        return
+    check("homogenize.py imports outside Abaqus", True)
+
+    A_TRUE = 3.0
+    eng = {"E1": E_MEASURED, "E2": E_MEASURED}
+    st = {"Xt": X_MEASURED, "Xc": X_MEASURED,
+          "Yt": X_MEASURED, "Yc": X_MEASURED}
+    for m in ("1t", "1c", "2t", "2c"):
+        st["Lchar_" + m] = L_RVE_INPLANE
+        st["Gf_" + m] = L_RVE_INPLANE * area_closed_form(
+            X_MEASURED, E_MEASURED, A_TRUE)
+    H.split_fracture_energy(st, eng)
+
+    gg = g0(X_MEASURED, E_MEASURED)
+    for m in ("1t", "1c", "2t", "2c"):
+        check("split %s: elastic part is exactly g0*L" % m,
+              abs(st["Gfel_" + m] - gg * L_RVE_INPLANE) < 1e-12)
+        check("split %s: dissipated part recovers the true A" % m,
+              abs(2.0 * gg * L_RVE_INPLANE / st["Gfin_" + m] - A_TRUE) < 1e-9,
+              "A = %.9f" % (2.0 * gg * L_RVE_INPLANE / st["Gfin_" + m]))
+        check("split %s: the two parts sum back to the total" % m,
+              abs(st["Gfel_" + m] + st["Gfin_" + m] - st["Gf_" + m]) < 1e-12)
+
+    # A curve already inside snap-back has nothing to hand upward.  The
+    # splitter must drop it rather than emit a negative dissipation, which
+    # would reach KABAND as a POSITIVE card entry and be read as the wrong
+    # convention entirely.
+    st2 = {"Xt": X_MEASURED, "E1": E_MEASURED,
+           "Lchar_1t": L_RVE_INPLANE,
+           "Gf_1t": 0.5 * gg * L_RVE_INPLANE}       # below the elastic part
+    H.split_fracture_energy(st2, {"E1": E_MEASURED, "E2": E_MEASURED})
+    check("a snap-back RVE curve yields no Gfin (not a negative one)",
+          "Gfin_1t" not in st2)
+    check("and the card slot then falls back to 0.0 = fixed exponent",
+          kaband(gg * 0.7, 0.0, 2.0) == 2.0)
+
+    # The mode -> (strength, stiffness) pairing has to be right or every
+    # g0 is wrong.  Longitudinal modes use E1, transverse use E2.
+    check("g0 pairing: 1t/1c use E1, 2t/2c use E2",
+          H.MODE_G0_KEYS["1t"] == ("Xt", "E1")
+          and H.MODE_G0_KEYS["1c"] == ("Xc", "E1")
+          and H.MODE_G0_KEYS["2t"] == ("Yt", "E2")
+          and H.MODE_G0_KEYS["2c"] == ("Yc", "E2"))
+
+    # A positive entry must still give exactly the old answer.
+    gg = g0(X_MEASURED, E_MEASURED)
+    for le in (0.3, 1.0, 3.5):
+        for A in (0.8, 3.0, 12.0):
+            g0le = gg * le
+            gf_tot = le * area_closed_form(X_MEASURED, E_MEASURED, A)
+            old = 2.0 * g0le / (gf_tot - g0le)
+            check("positive Gf still gives the original A (le=%.1f, A=%.1f)"
+                  % (le, A), abs(kaband(g0le, gf_tot, 2.0) - old) < 1e-9)
+
+    check("Gf = 0 still disables the crack band",
+          kaband(gg * 1.0, 0.0, 2.0) == 2.0)
+
+    # The two conventions must agree when the SAME le is used, which is the
+    # statement that the fix changes nothing except which le is used.
+    for le in (0.3, 1.0, 3.5):
+        for A in (0.8, 3.0, 12.0):
+            g0le = gg * le
+            gf_tot = le * area_closed_form(X_MEASURED, E_MEASURED, A)
+            gf_inel = gf_tot - g0le
+            check("same le: total and inelastic give the same A"
+                  " (le=%.1f, A=%.1f)" % (le, A),
+                  abs(kaband(g0le, gf_tot, 2.0)
+                      - kaband(g0le, -gf_inel, 2.0)) < 1e-9,
+                  "A = %.9f" % kaband(g0le, -gf_inel, 2.0))
+
+    # And they must DISAGREE across the scale boundary, by the amount part C
+    # quantified -- otherwise there was nothing to fix.
+    print("\n    what the fix actually changes, A at the macro element:")
+    print("    %-12s %-9s %-11s %-11s %s"
+          % ("macro case", "le [mm]", "A uncorrected", "A corrected", "ratio"))
+    A_RVE = 3.0                      # a representative extracted exponent
+    gf_tot_rve = L_RVE_INPLANE * area_closed_form(X_MEASURED, E_MEASURED, A_RVE)
+    gf_inel = gf_tot_rve - gg * L_RVE_INPLANE
+    worst = 1.0
+    for k, (d, n) in sorted(MACRO.items()):
+        le = le_of(d, n)
+        g0le = gg * le
+        a_bad = kaband(g0le, gf_tot_rve, 2.0)     # old path: total, wrong le
+        a_good = kaband(g0le, -gf_inel, 2.0)      # new path
+        worst = max(worst, a_good / a_bad, a_bad / a_good)
+        print("    %-12s %-9.4f %-11.4f %-11.4f %.2f x"
+              % (k, le, a_bad, a_good, a_good / a_bad))
+    check("the correction is not cosmetic (A moves by more than 2x)",
+          worst > 2.0, "worst %.2f x" % worst)
+
+    print("""
+    A larger A is a STEEPER softening branch -- less energy dissipated per
+    unit crack area.  Uncorrected, the macro inherits the RVE's stored
+    elastic energy on top of the real dissipation and softens too gently,
+    so the specimen holds load it should have shed.  The sign of the error
+    is therefore NON-CONSERVATIVE: it over-predicts residual strength, which
+    is the quantity Ch.6 reports.
+    """)
+
+
 def main():
     print("=" * 74)
     print("check_gf_scale_transfer.py -- does Gf_bar carry the RVE's size?")
@@ -247,6 +388,7 @@ def main():
     part_a()
     part_b()
     part_c()
+    part_d()
 
     print("\n" + "=" * 74)
     if _BAD:

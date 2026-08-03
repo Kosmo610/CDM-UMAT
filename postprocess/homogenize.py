@@ -16,7 +16,11 @@ What it computes
                <prefix>_STR_<mode>_T<T>_TRS<on|off>.odb
   Gf           area under each homogenised softening branch x the RVE length
                in the loading direction (crack-band interpretation of the
-               unit cell)
+               unit cell), then SPLIT into its stored-elastic and dissipated
+               parts.  Only the dissipated part is a material constant, so
+               only that part goes on the card -- negated, which is how
+               KABAND is told which convention it is reading.  The CSV keeps
+               both parts plus g0 so the split can be audited.
   kbar         from <prefix>_COND.odb, three steady-state directions
 
 What it writes
@@ -240,6 +244,81 @@ def conductivity(path, dT=1.0):
 
 
 # ==========================================================================
+# the elastic part of Gf must not cross the scale boundary
+# ==========================================================================
+# Gf as measured above is the WHOLE area under the homogenised curve times
+# the RVE edge, which splits as
+#
+#     Gf_total = le*g0  +  le*2*g0/A ,        g0 = X^2 / (2E)
+#                \____/     \_______/
+#                elastic    dissipated
+#
+# Only the second term is the material's.  The first is stored elastic
+# energy and it scales with whatever le was used -- here the RVE edge,
+# 3.5 mm in plane.  KMACRO31 then consumes the number with CELENT, which in
+# the macro meshes is 0.68-0.78 mm, so the elastic term would arrive
+# inflated by g0*(L_RVE - CELENT) ~ 0.4-0.7 N/mm.  That is larger than the
+# only sourced fracture energy in the repository (Gtt = 0.107 N/mm, Shi
+# refs/[31]), so it is not a rounding concern.
+#
+# The transferable constant is therefore Gf_inel = Gf_total - g0*L_RVE, and
+# the card carries it NEGATED: KABAND reads a negative entry as the
+# inelastic convention and rebuilds A = 2*g0*CELENT/|Gf| with the macro
+# element's own length.  Positive entries keep the original meaning bit for
+# bit, so cards written before this existed are unaffected.
+#
+# See docs/CH4_RVE_HOMOGENISATION.md 4.6.1 and 4.9-12.
+MODE_G0_KEYS = {"1t": ("Xt", "E1"), "1c": ("Xc", "E1"),
+                "2t": ("Yt", "E2"), "2c": ("Yc", "E2")}
+
+
+def _unit_of(key):
+    """Unit for one strength-block CSV row."""
+    if key.startswith("Gf") or key.startswith("Gfin") or key.startswith("Gfel"):
+        return "N/mm"
+    if key.startswith("g0_"):
+        return "N/mm2"
+    if key.startswith("Lchar_"):
+        return "mm"
+    return "MPa"
+
+
+def split_fracture_energy(strength, eng):
+    """Add Gfin_<mode> (dissipated part) beside each Gf_<mode> (total).
+
+    Mutates `strength` in place.  Modes whose deck was not run are skipped.
+    A mode whose dissipated part is not positive is reported and left out:
+    that means the RVE response itself was inside the snap-back region, so
+    there is no dissipation to hand upward and the macro must fall back to
+    the fixed exponent.
+    """
+    for mode, (xkey, ekey) in sorted(MODE_G0_KEYS.items()):
+        gkey, lkey = "Gf_" + mode, "Lchar_" + mode
+        if gkey not in strength or lkey not in strength:
+            continue
+        X, E = strength.get(xkey), eng.get(ekey)
+        if not X or not E:
+            print("  (Gf %s: no %s or %s -- cannot split, left as total)"
+                  % (mode, xkey, ekey))
+            continue
+        g0 = X * X / (2.0 * E)
+        elastic = g0 * strength[lkey]
+        inel = strength[gkey] - elastic
+        strength["g0_" + mode] = g0
+        strength["Gfel_" + mode] = elastic
+        print("     Gf %-2s total %8.4g = elastic %8.4g (g0=%.4g x L=%.3g)"
+              "  + dissipated %8.4g N/mm"
+              % (mode, strength[gkey], elastic, g0, strength[lkey], inel))
+        if inel <= 0.0:
+            print("     ** Gf %s: dissipated part is %.4g <= 0.  The RVE"
+                  " curve is inside snap-back;" % (mode, inel))
+            print("        nothing is handed upward and the macro will use"
+                  " the fixed exponent.")
+            continue
+        strength["Gfin_" + mode] = inel
+
+
+# ==========================================================================
 # card assembly
 # ==========================================================================
 def macro_card(props_by_T, cyc, temps, nprops_note=True, crit=None):
@@ -272,8 +351,11 @@ def macro_card(props_by_T, cyc, temps, nprops_note=True, crit=None):
     slots[26] = cyc["min_pnewdt"]
     slots[27] = 1.0                                       # enable
     slots[28], slots[29], slots[30] = 1.0, 0.5, 1.0       # cutback controls
-    for i, key in enumerate(("Gf_1t", "Gf_1c", "Gf_2t", "Gf_2c")):
-        slots[31 + i] = s.get(key, 0.0)
+    # Negated dissipated part -- see split_fracture_energy above.  A mode
+    # with no dissipation to hand upward stays 0.0, which KABAND still reads
+    # as "crack band off, use the fixed exponent".
+    for i, mode in enumerate(("1t", "1c", "2t", "2c")):
+        slots[31 + i] = -s["Gfin_" + mode] if ("Gfin_" + mode) in s else 0.0
     slots[35] = 31.0                                      # CARD KEY
     slots[36] = cyc["hclo"]
     slots[37] = cyc["cycon"]
@@ -436,8 +518,10 @@ def main(argv):
             strength[slot] = abs(r["peak"])
             if mode in ("1t", "1c", "2t", "2c"):
                 strength["Gf_" + mode] = r["Gf"]
+                strength["Lchar_" + mode] = r["Lchar"]
             print("  %-4s peak = %8.2f MPa at eps = %.4f %%   Gf = %.4g N/mm"
                   % (mode, r["peak"], 100.0 * r["eps_peak"], r["Gf"]))
+        split_fracture_energy(strength, eng)
         props_by_T[T] = dict(C=C, alpha=alpha, elastic=eng, strength=strength)
 
     kbar = None
@@ -459,8 +543,7 @@ def main(argv):
             for j, ax in enumerate("123"):
                 f.write("%g,alpha%s,%.10g,1/K\n" % (T, ax, p["alpha"][j]))
             for kk, vv in sorted(p["strength"].items()):
-                f.write("%g,%s,%.10g,%s\n"
-                        % (T, kk, vv, "N/mm" if kk.startswith("Gf") else "MPa"))
+                f.write("%g,%s,%.10g,%s\n" % (T, kk, vv, _unit_of(kk)))
         if kbar:
             for j, ax in enumerate("123"):
                 f.write(",k%s,%.10g,W/(mm.K)\n" % (ax, kbar[j]))
