@@ -194,18 +194,40 @@ foreach ($r in $rows) {
                 }
             } elseif ($gotVol) { $filled += "vol=$gotVol" }
 
+            # Some publishers (notably Chinese-language journals) register only
+            # the START page.  "1367" against an expected "1367-1376" is not a
+            # contradiction, it is an incomplete record -- do not call it a
+            # mismatch, or a correct entry gets flagged forever.
             $wantPage = Normalize-Pages $r.expected_page
             $havePage = Normalize-Pages $gotPage
+            $partial  = @()
             if ($wantPage) {
                 if ($havePage -and ($havePage -ne $wantPage)) {
-                    $bad += "page(want=$($r.expected_page) got=$gotPage)"
+                    if ($wantPage.StartsWith($havePage + '-')) {
+                        $partial += "page(Crossref has start page only: $gotPage)"
+                    } else {
+                        $bad += "page(want=$($r.expected_page) got=$gotPage)"
+                    }
                 }
             } elseif ($havePage) { $filled += "page=$gotPage" }
 
-            if     ($bad.Count -gt 0)   { $status = 'MISMATCH'; $note = ($bad -join '; ') }
-            elseif ($bestScore -lt 0.6) { $status = 'LOWSCORE'; $note = "titleScore=$([math]::Round($bestScore,2))" }
-            elseif ($filled.Count -gt 0){ $status = 'FILLED';   $note = ($filled -join '; ') }
-            else                        { $status = 'OK' }
+            # A row resolved BY DOI is identified by that DOI.  A weak title
+            # score then says the stored title string is rough (Greek letters,
+            # subscripts, slashes), not that the wrong paper came back -- so it
+            # must not be downgraded to LOWSCORE.  Flag it and move on.
+            $titleWarn = ($bestScore -lt 0.6)
+
+            if     ($bad.Count -gt 0)         { $status = 'MISMATCH'; $note = ($bad -join '; ') }
+            elseif ($partial.Count -gt 0)     { $status = 'PARTIAL';  $note = ($partial + $filled) -join '; ' }
+            elseif ($titleWarn -and $method -ne 'doi') {
+                                                $status = 'LOWSCORE'; $note = "titleScore=$([math]::Round($bestScore,2))" }
+            elseif ($filled.Count -gt 0)      { $status = 'FILLED';   $note = ($filled -join '; ') }
+            else                              { $status = 'OK' }
+
+            if ($titleWarn -and $method -eq 'doi') {
+                $note = (@($note, "titleScore=$([math]::Round($bestScore,2)) (stored title is rough; DOI resolved)") |
+                         Where-Object { $_ }) -join '; '
+            }
         }
     }
 
@@ -230,6 +252,7 @@ foreach ($r in $rows) {
     $colour = switch ($status) {
         'OK'       { 'Green' }
         'FILLED'   { 'Cyan' }
+        'PARTIAL'  { 'DarkCyan' }
         'MISMATCH' { 'Red' }
         'LOWSCORE' { 'Yellow' }
         'NOTFOUND' { 'DarkGray' }

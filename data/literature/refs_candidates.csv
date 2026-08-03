@@ -65,8 +65,8 @@ B12,Kinetics and Mechanisms of Oxidation of 2D Woven C SiC Composites II Theoret
 B13,Oxidation effects on the mechanical properties of 2D woven C SiC composites,Journal of the European Ceramic Society,,14,
 B14,Oxidation Mechanisms and Kinetics of 1D-SiC C SiC Composite Materials I An Experimental Approach,Journal of the American Ceramic Society,10.1111/j.1151-2916.1994.tb07015.x,77,459-466
 B15,Oxidation Mechanisms and Kinetics of 1D-SiC C SiC Composite Materials II Modeling,Journal of the American Ceramic Society,10.1111/j.1151-2916.1994.tb07016.x,77,467-480
-B16,Intermediate temperature strength degradation in SiC SiC composites,Journal of the European Ceramic Society,,22,2777-2788
-B18,Intermediate temperature oxidative strength degradation of a SiC SiNC composite with a polymer-derived matrix,Journal of the American Ceramic Society,10.1111/jace.14741,,
+B16,Intermediate temperature strength degradation in SiC SiC composites,Journal of the European Ceramic Society,,22,
+B18,Intermediate temperature oxidative strength degradation of a SiC SiNC composite with a polymer-derived matrix,Journal of the American Ceramic Society,10.1111/jace.14741,100,1606-1617
 B20,Modeling of crack density in ceramic matrix composites,Journal of Composite Materials,10.1177/0021998314545188,,
 B21,X-ray Analysis of Residual Stresses in C SiC Composites,Applied Composite Materials,10.1023/A:1008885319105,6,51-66
 B22,In situ characterization of residual stress evolution during heat treatment of SiC SiC ceramic matrix composites using high-energy X-ray diffraction,Journal of the American Ceramic Society,10.1111/jace.17493,104,1424-1435
@@ -76,7 +76,7 @@ B25,Measurement and calculation of thermal residual stress in fiber reinforced c
 B26,Thermal residual stresses in ceramic matrix composites I Axisymmetrical model and finite element analysis,Acta Metallurgica et Materialia,,43,2241-2253
 B27,Thermal residual stresses in ceramic matrix composites II Experimental results for model materials,Acta Metallurgica et Materialia,,43,2255-2268
 B28,Measuring the effects of heat treatment on SiC SiC ceramic matrix composites using Raman spectroscopy,Journal of the American Ceramic Society,10.1111/jace.16724,103,1293-1303
-B29,Determination of Residual Thermal Stresses in a SiC Al2O3 Composite Using Neutron Diffraction,Journal of the American Ceramic Society,10.1111/j.1151-2916.1988.tb07536.x,71,
+B29,Determination of Residual Thermal Stresses in a SiC Al2O3 Composite Using Neutron Diffraction,Journal of the American Ceramic Society,10.1111/j.1151-2916.1988.tb07536.x,71,858-863
 B30,Residual Stress-Related Common Intersection Points in the Mechanical Behavior of Ceramic Matrix Composites Undergoing Cyclic Loading,Experimental Mechanics,10.1007/s11340-012-9709-y,,
 B31,Experimental study of high-temperature tensile mechanical properties of 3D needled C C-SiC composites,Materials Science and Engineering A,,,
 B32,Temperature-dependent proportional limit stress of SiC SiC fiber-reinforced ceramic-matrix composites,High Temperature Materials and Processes,10.1515/htmp-2020-0052,39,
@@ -97,7 +97,7 @@ C6,An irreversible cohesive zone model for interface fatigue crack growth simula
 C7,A cohesive model of fatigue crack growth,International Journal of Fracture,,,
 C9,Development of a macroscopic damage model for woven ceramic matrix composites,International Journal of Damage Mechanics,,20,939-957
 C10,Thermal conductivity of a thick 3D textile composite using an RVE model with specialized thermal periodic boundary conditions,Functional Composites and Structures,10.1088/2631-6331/abd7cd,3,015002
-C11,Multi-scale Modeling and Finite Element Analyses of Thermal Conductivity of 3D C SiC Composites,Chinese Journal of Mechanical Engineering,10.1186/s10033-024-01016-6,,
+C11,Multi-scale Modeling and Finite Element Analyses of Thermal Conductivity of 3D C SiC Composites,Chinese Journal of Mechanical Engineering,10.1186/s10033-024-01016-6,37,
 C12,Closed-form solutions of the in-plane effective thermal conductivities of woven-fabric composites,Composites Science and Technology,,,
 C13,Boundary conditions for unit cells from periodic microstructures and their implications,Composites Science and Technology,,,
 C14,FE2 multiscale approach for modelling the elastoviscoplastic behaviour of long fibre SiC Ti composite materials,Computer Methods in Applied Mechanics and Engineering,,,
