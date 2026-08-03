@@ -222,6 +222,7 @@ python3 data/properties/conductivity_bounds.py --check # 열전도 경계·민�
 python3 data/properties/yarn_fracture_energy.py --check # 얀 횡방향 Gtt/Gtc 출처 + 균열대 적합성
 python3 data/properties/cte_sensitivity.py --check     # 구성재 CTE가 TRS 2.34배에 미치는 몫
 python3 data/properties/trs_configuration.py --check   # CONFIG_V / CONFIG_P 결정
+python3 data/properties/m6_calibration.py --check      # M6 보정 knob 우선순위
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
@@ -238,7 +239,7 @@ python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 26개를 전부 통과시킨다.**
+**커밋 전에 위 27개를 전부 통과시킨다.**
 
 ## 현재 병목
 

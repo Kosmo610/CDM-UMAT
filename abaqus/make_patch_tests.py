@@ -60,9 +60,18 @@ seconds.
     N=10  h = 0.100 mm   2x2 across   40 elements
     N=20  h = 0.050 mm   4x4 across  320 elements
 
-  One slice of elements is given a material 5 % weaker so the localisation
+  One slice of elements is given a material 20 % weaker so the localisation
   band is chosen by the model, not by round-off.  All three h are below the
   snap-back limit Gf/(1.02*g0) = 0.2214 mm for this matrix.
+
+  THE IMPERFECTION USED TO BE 5 % AND THAT WAS NOT ENOUGH.  On 2026-08-03 the
+  three bars ran to completion and cband_damage.py found damage in 3 of 5 rows
+  at N=5 but 10 of 10 and 20 of 20 at N=10 and N=20: the finer meshes damaged
+  the WHOLE bar.  With no band there is nothing for the crack-band
+  regularisation to be objective about, and the 33.6 % energy spread measured
+  nothing.  The lesson is that a localisation demonstration has to be shown to
+  have localised before its energies mean anything -- which is why
+  cband_damage.py now runs before any energy is quoted.
 
   EXPECTED: the force-displacement curves coincide, the peak force is the
   same, and the dissipated energy equals G_f x area regardless of N.  If the
@@ -171,7 +180,15 @@ BAR_DISP = 2.0e-2                             # total end displacement, mm
 #  4.0e-3 was too short: at that pull N=20 had not reached its softening
 #  minimum at all while N=5 had already saturated and re-hardened, so the
 #  three bars were compared at completely different stages (see 0803 run).
-BAR_WEAK = 0.95                               # strength of the trigger slice
+BAR_WEAK = 0.80                               # strength of the trigger slice
+#  0.95 DID NOT LOCALISE.  cband_damage.py on the 2026-08-03 odbs found damage
+#  in 3 of 5 rows at N=5 but 10 of 10 and 20 of 20 at N=10 and N=20 -- the
+#  finer meshes damaged the ENTIRE bar, so there was no band and the energy
+#  comparison measured nothing.  A 5 % knock-down is not enough separation:
+#  neighbouring elements reach their own damage threshold before the trigger
+#  slice has softened enough to unload them.  20 % is the standard imperfection
+#  size for this demonstration and is still far below the scatter of a real
+#  ceramic.
 
 MATRIX_CARD = [2.0, 350000.0, 0.20, 310.0, 310.0, 0.0, 0.0, 0.90,
                0.90, 0.05, 0.03, 3.0, 0.25, 1.0, 0.031, 0.031,
@@ -430,10 +447,28 @@ def check():
       As[0] > As[1] > As[2])
 
     # weak slice
+    # Mirror the generator exactly: it scales BOTH Xt and Xc (see bar_deck).
+    # The old local copy scaled only Xt, so the assertion below could not have
+    # noticed if the generator ever stopped scaling Xc.
     wc = list(MATRIX_CARD)
     wc[3] *= BAR_WEAK
-    t("trigger slice is 5 %% weaker", abs(wc[3] - 294.5) < 1e-9,
-      "Xt = %.1f vs %.1f" % (wc[3], MATRIX_CARD[3]))
+    wc[4] *= BAR_WEAK
+    # Pinned to BAR_WEAK, not to one rendering of it -- the constant moved
+    # once already (0.95 -> 0.80) and a hard-coded 294.5 only caught it by
+    # accident.
+    t("trigger slice is knocked down by exactly (1 - BAR_WEAK)",
+      abs(wc[3] - MATRIX_CARD[3] * BAR_WEAK) < 1e-9,
+      "Xt = %.1f = %.0f %% of %.1f" % (wc[3], 100 * BAR_WEAK, MATRIX_CARD[3]))
+    t("both tensile and compressive strength are knocked down together",
+      abs(wc[4] - MATRIX_CARD[4] * BAR_WEAK) < 1e-9,
+      "Xc = %.1f" % wc[4])
+    # A 5 % imperfection demonstrably failed to localise on 2026-08-03.
+    t("the imperfection is large enough to have localised",
+      BAR_WEAK <= 0.90,
+      "%.0f %% knock-down; 5 %% damaged the whole bar at N=10 and N=20"
+      % (100 * (1 - BAR_WEAK)))
+    t("but still smaller than real ceramic strength scatter",
+      BAR_WEAK >= 0.70, "%.2f" % BAR_WEAK)
 
     # --- patch deck structure -------------------------------------------
     fake_head = ("*Heading\n fake\n*Node\n1, 0., 0., 0.\n"
