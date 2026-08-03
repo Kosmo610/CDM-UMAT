@@ -965,6 +965,8 @@ powershell -ExecutionPolicy Bypass -File verification\verify_bibliography.ps1 -M
 | **17** | **제2장 §2.5.3 · `M1_FAILURE_ANALYSIS.md`** | ★ **`H_smo` tanh 혼합의 정당화를 "수치 편법"에서 "실험이 지지하는 구성식"으로 승격.** 비활성화가 *"**progressive** … with **different deactivation rates**"*임이 실험으로 확인됨 | §4.7-(가) |
 | **18** | **제1·2장 C3 서술** | 급가열 반사이클의 **이축 압축**이 기지 균열에 더해 **박리 계면까지 닫아** 비활성화를 가속한다는 **기구**를 명시. 단축에서의 외삽이 아니라 이축 상태의 직접 관측 | §4.7-(다) |
 | **19** | **제4장 §4.9-9** | *"non-interacting microcracks … **relieve the TRS without affecting the elastic modulus**"* 를 유효 무응력 온도 저하의 **기구**로 인용 | §4.7-3 |
+| **20** | **제4장 §4.9-0** | ✅ **완료(2026-08-03).** "실측 2D C/SiC는 70 GPa"를 **≈140 / 70–98 두 무리**로 정정. 초기 접선끼리 비교하면 **3.36배 → 1.66배**. M6이 knob를 움직일 폭이 **절반**이 된다 | §4.7-(B)-4 |
+| **21** | **`docs/REFS_36_45_ASSESSMENT.md`** | ✅ **완료.** Mei Table I의 70 GPa 옆에 단독 사용 금지 경고 추가 (강도 248 MPa는 refs/[28]의 265.28과 6.9 % 차로 정합하므로 유효) | 동상 |
 
 ---
 

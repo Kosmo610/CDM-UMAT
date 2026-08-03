@@ -58,12 +58,24 @@ shear,0,37.34,5.53,,,12.96,3.73,139.76,16.71,1.40,0.20,fulltext
 #    independent groups -- see data/literature/failure_criteria.csv.
 #
 # 4. Ebar_0 = 142.06 GPa (tension) / 144.87 GPa (compression).
-#    refs/[43] (Mei, J. Mater. Sci. 40 (2005) 4261) Table I gives 70 GPa for
-#    2D C/SiC.  The two differ by a factor of two, so "the measured modulus of
-#    2D C/SiC" is not a single number and cannot be used as a one-sided check
-#    on the model.  docs/CH4_RVE_HOMOGENISATION.md 4.9-0 compares the M5
-#    tangent modulus against Mei alone; that comparison needs this second
-#    value beside it.
+#    "The measured modulus of 2D C/SiC" is not one number.  Four published
+#    values split into two clusters:
+#
+#      ~140 GPa : this table, 142.06 (printed, initial tangent)
+#                 ZHANG2013 refs/[03] Fig. 3, ~140 (stress-strain slope)
+#      70-98    : ZHANG2013 refs/[03] Fig. 4(b) N=0, 97.7
+#                 Mei refs/[43] Table I, 70
+#
+#    The split is not scatter between labs -- ZHANG2013 straddles it on its
+#    own, its Fig. 3 and Fig. 4(b) disagreeing by 43 %.  What each source
+#    calls "the modulus" differs.  So a model INITIAL TANGENT must be set
+#    against the ~140 cluster, not against 70.
+#
+#    This corrects docs/CH4_RVE_HOMOGENISATION.md 4.9-0, which compared the
+#    M5 initial tangent of 235.2 GPa against Mei alone and concluded the model
+#    was 3.36x too stiff.  Like for like it is 1.66x.  The direction of that
+#    diagnosis survives; its magnitude halves, and so does how far the
+#    calibration knobs have to move.
 #
 # 5. nu rises 0.07 -> 0.17 -> 0.30 -> 0.34 with off-axis angle (tension).
 #    A balanced weave loaded on-axis has very low nu; this is the check that
