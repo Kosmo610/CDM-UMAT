@@ -86,8 +86,11 @@ MAT_ANCHOR = "*Material, Name=SIC_MATRIX_DAMAGE"
 # --------------------------------------------------------------------------
 # card slot map (1-indexed, exactly as PROPS(k) in the UMAT)
 # --------------------------------------------------------------------------
-MATRIX_SLOTS = dict(dmax_t=8, dmax_c=9, eta=10, djump=11, key=22)
-YARN_SLOTS = dict(dmax_1=22, dmax_t=23, eta=24, djump=25)
+MATRIX_SLOTS = dict(e=2, xt=4, xc=5, dmax_t=8, dmax_c=9, eta=10, djump=11,
+                    gm_t=15, gm_c=16, key=22)
+YARN_SLOTS = dict(e1=2, e2=3, xt=11, xc=12, yt=13, yc=14,
+                  dmax_1=22, dmax_t=23, eta=24, djump=25,
+                  g1t=32, g1c=33, gtt=34, gtc=35)
 MATRIX_NPROPS, YARN_NPROPS = 22, 38
 MATRIX_KEY = 30.0                      # PROPS(22) guard checked by the UMAT
 
@@ -146,6 +149,100 @@ D_SHEARLOCK = True
 D_FTOL = 0.02
 ABAQUS_DEFAULT_FTOL = 0.005            # what Abaqus uses if we say nothing
 
+# --------------------------------------------------------------------------
+# 2026-08-03, M6: the three card values that stopped being guesses
+# --------------------------------------------------------------------------
+# These are NOT knobs and none of them was fitted.  Each replaces a card entry
+# whose provenance turned out to be wrong or missing:
+#
+#   --matrix-e   350000 -> 213110 MPa.  The mesh is a FILLED CELL but the real
+#                material is 19.6 % pore by its own measured density.  In a
+#                parallel sum, deleting a phase's volume and scaling its
+#                modulus are the same operation, so the knockdown 0.6089
+#                emulates the void the mesh does not have.  Derivation and the
+#                42 checks behind it: data/properties/porosity_stiffness.py.
+#
+#   --yarn-xt    2835 -> 475/581/694 MPa at 23/500/1000 C.  2835 was
+#                Vf x 3580, and 3580 is a STRAND figure.  refs/[08] Sauder
+#                Table 1 measured T300 single filaments directly and gives the
+#                Weibull parameters; evaluated at the RVE's own aligned-fibre
+#                volume of 1.063 mm^3 -- within 6 % of Sauder's own 1 mm^3
+#                reference, so no extrapolation -- they give the band above.
+#                data/properties/insitu_yarn_strength.py, 51 checks.
+#
+#   --gtt/--gtc  0 -> 0.107 N/mm.  Zero DISABLES the crack band, which leaves
+#                the transverse yarn modes not mesh objective at all.  0.107
+#                is Shi refs/[31] on 2D plain-weave C/SiC; Gtc takes the same
+#                value on Ge's convention because no transverse COMPRESSIVE
+#                fracture energy for C/SiC exists.  That is a stated
+#                limitation, not a measurement.
+#                data/properties/yarn_fracture_energy.py.
+#
+# WHAT IS DELIBERATELY *NOT* CHANGED: the matrix fracture energy Gm.  The
+# porosity knockdown applies to E, k and rho -- not to Gf, whose 0.031 N/mm
+# comes from Snead's K_Ic and is the one matrix entry with independent support.
+# Lowering E does move the snap-back limit though, and section 5 of the report
+# below prints the new margin so it cannot pass unnoticed.
+D_MATRIX_E = None                      # None = keep the template's value
+D_YARN_XT = None
+D_GTT = None
+D_GTC = None
+
+#: Largest element characteristic length in the coarse 26k mesh [mm].
+#: Measured, not assumed -- data/properties/yarn_fracture_energy.py section 4
+#: reports CELENT max 0.0845, median 0.0573 over the 26452 elements.
+#: A different mesh needs a different number here, and the .ori with it.
+MESH_CELENT_MAX = 0.0845
+SNAPBACK_MARGIN = 1.02                 # KABAND's own guard factor
+
+
+def snapback_limit(strength, modulus, gf):
+    """Largest element the crack band can regularise: le < Gf/(1.02*g0).
+
+    g0 = X^2/(2E) is the elastic energy density at the onset of softening.
+    Above this length the softening branch snaps back, KABAND clamps A to 50
+    and the element is effectively brittle -- which it reports through ATEFF,
+    but only if somebody looks.
+    """
+    if gf <= 0.0:
+        return None                    # crack band disabled: no limit, no
+        # regularisation either
+    g0 = strength * strength / (2.0 * modulus)
+    return gf / (SNAPBACK_MARGIN * g0)
+
+
+def crack_band_rows(a):
+    """(mode, strength, modulus, Gf, le_max, ok) for every regularised mode.
+
+    Called for its report, and by the self-test.  A row with Gf = 0 is listed
+    with le_max None so that 'the crack band is off' never reads as 'the crack
+    band is fine'.
+    """
+    kw, m = card_numbers(MATRIX_USERMAT["v2"])
+    kw, y = card_numbers(YARN_USERMAT["v2"])
+    me = a.matrix_e if a.matrix_e is not None else m[MATRIX_SLOTS["e"] - 1]
+    yxt = a.yarn_xt if a.yarn_xt is not None else y[YARN_SLOTS["xt"] - 1]
+    gtt = a.gtt if a.gtt is not None else y[YARN_SLOTS["gtt"] - 1]
+    gtc = a.gtc if a.gtc is not None else y[YARN_SLOTS["gtc"] - 1]
+    out = []
+    for mode, x, e, gf in (
+            ("matrix tension", m[MATRIX_SLOTS["xt"] - 1], me,
+             m[MATRIX_SLOTS["gm_t"] - 1]),
+            ("matrix compression", m[MATRIX_SLOTS["xc"] - 1], me,
+             m[MATRIX_SLOTS["gm_c"] - 1]),
+            ("yarn axial tension", yxt, y[YARN_SLOTS["e1"] - 1],
+             y[YARN_SLOTS["g1t"] - 1]),
+            ("yarn axial compression", y[YARN_SLOTS["xc"] - 1],
+             y[YARN_SLOTS["e1"] - 1], y[YARN_SLOTS["g1c"] - 1]),
+            ("yarn transverse tension", y[YARN_SLOTS["yt"] - 1],
+             y[YARN_SLOTS["e2"] - 1], gtt),
+            ("yarn transverse compression", y[YARN_SLOTS["yc"] - 1],
+             y[YARN_SLOTS["e2"] - 1], gtc)):
+        le = snapback_limit(x, e, gf)
+        out.append((mode, x, e, gf, le,
+                    None if le is None else le > MESH_CELENT_MAX))
+    return out
+
 
 def card_numbers(card):
     """Return (keyword_line, [float, ...]) for a *User Material block."""
@@ -180,11 +277,19 @@ def _fmt(x):
 HSMO_KEY = 32.0                        # PROPS(25+4*NT) guard, V3_0 only
 
 
-def retune_matrix(dmax, eta, djump, hsmo=0.0):
+def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None):
     kw, n = card_numbers(MATRIX_USERMAT["v2"])
     if len(n) != MATRIX_NPROPS:
         raise ValueError("matrix card has %d constants, expected %d"
                          % (len(n), MATRIX_NPROPS))
+    if matrix_e is not None:
+        # Guard the range rather than the value: 213110 is the porosity
+        # knockdown, but a typo of 213 or 2131100 must not reach a solver.
+        if not (50.0e3 <= matrix_e <= 500.0e3):
+            raise ValueError("matrix E = %r MPa is outside [50e3, 500e3]; "
+                             "dense CVD SiC is 460e3 and the porosity "
+                             "knockdown gives 213110" % matrix_e)
+        n[MATRIX_SLOTS["e"] - 1] = matrix_e
     n[MATRIX_SLOTS["dmax_t"] - 1] = dmax
     n[MATRIX_SLOTS["dmax_c"] - 1] = dmax
     n[MATRIX_SLOTS["eta"] - 1] = eta
@@ -200,11 +305,23 @@ def retune_matrix(dmax, eta, djump, hsmo=0.0):
     return emit_card(kw, n)
 
 
-def retune_yarn(dmax, eta, djump):
+def retune_yarn(dmax, eta, djump, yarn_xt=None, gtt=None, gtc=None):
     kw, n = card_numbers(YARN_USERMAT["v2"])
     if len(n) != YARN_NPROPS:
         raise ValueError("yarn card has %d constants, expected %d"
                          % (len(n), YARN_NPROPS))
+    if yarn_xt is not None:
+        if not (100.0 <= yarn_xt <= 4000.0):
+            raise ValueError("yarn Xt = %r MPa is outside [100, 4000]; the "
+                             "in-situ band is 475-745 and the old strand "
+                             "value was 2835" % yarn_xt)
+        n[YARN_SLOTS["xt"] - 1] = yarn_xt
+    for key, val in (("gtt", gtt), ("gtc", gtc)):
+        if val is None:
+            continue
+        if val < 0.0:
+            raise ValueError("%s = %r N/mm is negative" % (key, val))
+        n[YARN_SLOTS[key] - 1] = val
     n[YARN_SLOTS["dmax_1"] - 1] = dmax
     n[YARN_SLOTS["dmax_t"] - 1] = dmax
     n[YARN_SLOTS["eta"] - 1] = eta
@@ -215,12 +332,12 @@ def retune_yarn(dmax, eta, djump):
 def materials(a):
     L = ["*Material, Name=SIC_MATRIX_DAMAGE",
          MATRIX_DEPVAR,
-         retune_matrix(a.dmax, a.eta, a.djump, a.hsmo),
+         retune_matrix(a.dmax, a.eta, a.djump, a.hsmo, a.matrix_e),
          "*Expansion, zero=%g." % a.zero,
          "4.5e-06,",
          "*Material, Name=CSIC_YARN_DAMAGE",
          YARN_DEPVAR,
-         retune_yarn(a.dmax, a.eta, a.djump),
+         retune_yarn(a.dmax, a.eta, a.djump, a.yarn_xt, a.gtt, a.gtc),
          "*Expansion, type=ORTHO, zero=%g." % a.zero,
          "1.070925962822e-06, 3.324908565604e-06, 3.324908565604e-06"]
     return "\n".join(L)
@@ -451,6 +568,7 @@ class _A(object):
     inc = D_INC
     shearlock = D_SHEARLOCK
     ftol = D_FTOL
+    matrix_e, yarn_xt, gtt, gtc = D_MATRIX_E, D_YARN_XT, D_GTT, D_GTC
 
 
 def check():
@@ -680,6 +798,96 @@ def check():
     t("--free-shear still writes both *Temperature cards",
       outf.count("*Temperature") == 2, "%d" % outf.count("*Temperature"))
 
+    # ---- 2026-08-03, M6: the three card values that stopped being guesses --
+    t("all four M6 options default to 'leave it alone'",
+      (D_MATRIX_E, D_YARN_XT, D_GTT, D_GTC) == (None, None, None, None))
+    a6 = _A()
+    a6.matrix_e, a6.yarn_xt, a6.gtt, a6.gtc = 213109.6277699348, 694.4, .107, .107
+    out6, _, _ = retune(_fake_deck(), a6)
+    kw6, m6 = card_numbers(retune_matrix(D_DMAX, D_ETA, D_DJUMP, 0.0,
+                                         213109.6277699348))
+    kwy6, y6 = card_numbers(retune_yarn(D_DMAX, D_ETA, D_DJUMP,
+                                        694.4, 0.107, 0.107))
+    t("matrix E lands in slot 2",
+      abs(m6[MATRIX_SLOTS["e"] - 1] - 213109.6277699348) < 1e-6)
+    t("yarn Xt lands in slot 11", abs(y6[YARN_SLOTS["xt"] - 1] - 694.4) < 1e-9)
+    t("Gtt lands in slot 34", abs(y6[YARN_SLOTS["gtt"] - 1] - 0.107) < 1e-12)
+    t("Gtc lands in slot 35", abs(y6[YARN_SLOTS["gtc"] - 1] - 0.107) < 1e-12)
+    t("the matrix card is still 22 slots without --hsmo", len(m6) == 22)
+    t("the yarn card is still 38 slots", len(y6) == 38)
+    t("matrix Xt is NOT touched by the E change",
+      m6[MATRIX_SLOTS["xt"] - 1] == nm[MATRIX_SLOTS["xt"] - 1], "310")
+    # Gm is deliberately left alone: the knockdown covers E, k and rho, and Gm
+    # is the one matrix entry with independent support (Snead's K_Ic).
+    t("matrix Gf is NOT knocked down with E",
+      m6[MATRIX_SLOTS["gm_t"] - 1] == nm[MATRIX_SLOTS["gm_t"] - 1]
+      and m6[MATRIX_SLOTS["gm_c"] - 1] == nm[MATRIX_SLOTS["gm_c"] - 1],
+      "0.031 kept")
+    t("yarn Xc is NOT scaled with Xt (compression is kinking, not rupture)",
+      y6[YARN_SLOTS["xc"] - 1] == ny[YARN_SLOTS["xc"] - 1], "1956 kept")
+    t("yarn elastic constants untouched", y6[1:10] == ny[1:10])
+    t("the M6 values reach the emitted deck",
+      "694.4" in out6 and "0.107" in out6 and "213109" in out6)
+
+    # guards: a typo must not reach a solver
+    for bad_e in (213.0, 2131100.0, 0.0):
+        try:
+            retune_matrix(D_DMAX, D_ETA, D_DJUMP, 0.0, bad_e)
+            t("matrix E=%g rejected" % bad_e, False)
+        except ValueError:
+            t("matrix E=%g rejected" % bad_e, True)
+    for bad_x in (47.5, 47500.0):
+        try:
+            retune_yarn(D_DMAX, D_ETA, D_DJUMP, bad_x)
+            t("yarn Xt=%g rejected" % bad_x, False)
+        except ValueError:
+            t("yarn Xt=%g rejected" % bad_x, True)
+    try:
+        retune_yarn(D_DMAX, D_ETA, D_DJUMP, None, -0.1)
+        t("negative Gtt rejected", False)
+    except ValueError:
+        t("negative Gtt rejected", True)
+
+    # ---- the crack-band admissibility report --------------------------
+    base_rows = dict((r[0], r) for r in crack_band_rows(_A()))
+    m6_rows = dict((r[0], r) for r in crack_band_rows(a6))
+    t("Gf=0 reports le_max None, never 'fine'",
+      base_rows["yarn transverse tension"][4] is None
+      and base_rows["yarn transverse tension"][5] is None,
+      "the shipped card has Gtt=0")
+    t("matrix tension is admissible on the SHIPPED card",
+      base_rows["matrix tension"][5] is True,
+      "le_max %.4f mm" % base_rows["matrix tension"][4])
+    t("lowering E SHRINKS the matrix snap-back limit",
+      m6_rows["matrix tension"][4] < base_rows["matrix tension"][4],
+      "%.4f -> %.4f mm" % (base_rows["matrix tension"][4],
+                           m6_rows["matrix tension"][4]))
+    t("matrix tension is STILL admissible after the knockdown",
+      m6_rows["matrix tension"][5] is True,
+      "%.4f mm > CELENT max %.4f, margin %.2fx"
+      % (m6_rows["matrix tension"][4], MESH_CELENT_MAX,
+         m6_rows["matrix tension"][4] / MESH_CELENT_MAX))
+    t("lowering yarn Xt RELAXES its snap-back limit",
+      m6_rows["yarn axial tension"][4] > base_rows["yarn axial tension"][4],
+      "%.4f -> %.2f mm" % (base_rows["yarn axial tension"][4],
+                           m6_rows["yarn axial tension"][4]))
+    t("Gtt=0.107 makes transverse tension admissible",
+      m6_rows["yarn transverse tension"][5] is True,
+      "le_max %.4f mm" % m6_rows["yarn transverse tension"][4])
+    # This one is knowingly violated -- Ge's convention, no measurement exists.
+    t("Gtc=0.107 is knowingly NOT admissible, and says so",
+      m6_rows["yarn transverse compression"][5] is False,
+      "le_max %.4f mm < CELENT max %.4f -- ATEFF must be read"
+      % (m6_rows["yarn transverse compression"][4], MESH_CELENT_MAX))
+    t("the mesh CELENT max is the measured one, not a guess",
+      abs(MESH_CELENT_MAX - 0.0845) < 1e-9,
+      "yarn_fracture_energy.py section 4")
+    t("snapback_limit returns None for a disabled band",
+      snapback_limit(310.0, 350.0e3, 0.0) is None)
+    t("snapback_limit reproduces the documented 0.2214 mm",
+      abs(snapback_limit(310.0, 350.0e3, 0.031) - 0.2214) < 5e-4,
+      "%.4f" % snapback_limit(310.0, 350.0e3, 0.031))
+
     # a deck without the anchor must raise, not produce garbage
     try:
         retune(_fake_deck().replace(MAT_ANCHOR, "*Material, Name=SOMETHING"),
@@ -749,6 +957,27 @@ def main():
                          "stress error of <0.01 MPa, so the stock value is "
                          "the wrong scale for this model."
                          % (D_FTOL, ABAQUS_DEFAULT_FTOL, ABAQUS_DEFAULT_FTOL))
+    ap.add_argument("--matrix-e", dest="matrix_e", type=float,
+                    default=D_MATRIX_E,
+                    help="matrix E [MPa]. Omit to keep the card's 350000. "
+                         "213110 applies the 0.6089 porosity knockdown "
+                         "(data/properties/porosity_stiffness.py). This is a "
+                         "MISSING PHYSICAL FEATURE, not a knob.")
+    ap.add_argument("--yarn-xt", dest="yarn_xt", type=float, default=D_YARN_XT,
+                    help="yarn axial tensile strength [MPa]. Omit to keep the "
+                         "card's 2835, which is Vf x a STRAND figure. The "
+                         "in-situ band from refs/[08] is 475 / 581 / 694 at "
+                         "23 / 500 / 1000 C "
+                         "(data/properties/insitu_yarn_strength.py).")
+    ap.add_argument("--gtt", type=float, default=D_GTT,
+                    help="yarn transverse tensile fracture energy [N/mm]. "
+                         "0 DISABLES the crack band for that mode. 0.107 is "
+                         "Shi refs/[31] on 2D plain-weave C/SiC.")
+    ap.add_argument("--gtc", type=float, default=D_GTC,
+                    help="yarn transverse compressive fracture energy [N/mm]. "
+                         "No measurement exists for C/SiC; 0.107 follows Ge's "
+                         "convention of setting it equal to Gtt and is a "
+                         "STATED LIMITATION, not a measurement.")
     ap.add_argument("--check", action="store_true",
                     help="run the static self-test and exit")
     a = ap.parse_args()
@@ -781,6 +1010,31 @@ def main():
               "confirm the\n            macro shear stress is <1 %% of "
               "sigma_xx, or the lock is not free.")
     print("  zero      %g degC" % a.zero)
+    if any(v is not None for v in (a.matrix_e, a.yarn_xt, a.gtt, a.gtc)):
+        print("  M6 cards  matrix E=%s  yarn Xt=%s  Gtt=%s  Gtc=%s"
+              % tuple("unchanged" if v is None else "%g" % v
+                      for v in (a.matrix_e, a.yarn_xt, a.gtt, a.gtc)))
+        print("            ** THIS DECK IS NO LONGER ZHANG'S CARD. **  M1-M5")
+        print("            reproduced Zhang 2022 verbatim, so their 1.64x was")
+        print("            a property of HIS parameter set.  Here the card is")
+        print("            re-sourced from primary constituent data, so Zhang")
+        print("            Table 3 becomes an INDEPENDENT VALIDATION TARGET,")
+        print("            not a reproduction target.  Say so in the thesis.")
+    # The crack band is where a lowered E bites: g0 = X^2/(2E) grows, so the
+    # largest element the softening branch can survive shrinks.  Print it every
+    # time rather than only on request -- a silent brittle clamp is exactly the
+    # kind of thing that reaches a thesis figure unnoticed.
+    print("  crack band (mesh CELENT max %.4f mm)" % MESH_CELENT_MAX)
+    for mode, x, e, gf, le, ok in crack_band_rows(a):
+        if le is None:
+            print("    %-28s Gf=0        DISABLED -- mode is NOT mesh "
+                  "objective" % mode)
+        else:
+            print("    %-28s Gf=%-7.4g le_max=%.4f mm  %s"
+                  % (mode, gf, le,
+                     "OK (%.1fx)" % (le / MESH_CELENT_MAX) if ok
+                     else "** VIOLATED -- elements clamp to brittle, "
+                          "check ATEFF **"))
     if a.hsmo > 0.0:
         print("  hsmo      %g  -> matrix card is 25 slots; RUN THIS WITH "
               "user=UMAT_CSIC_THERMSHOCK_V3_0.for" % a.hsmo)

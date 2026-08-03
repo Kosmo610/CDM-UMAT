@@ -37,18 +37,50 @@ except ImportError:
     sys.exit("odbAccess not found -- run this with 'abaqus python', "
              "not with plain python.")
 
-# SDV slots, from the *Depvar block in the deck
-MATRIX_SDV = [("SDV1", "DMT   matrix tensile damage", "d"),
-              ("SDV3", "RMT   matrix tensile criterion", "r"),
-              ("SDV5", "DMACT active matrix damage", "d"),
-              ("SDV9", "EQPS  equivalent plastic strain", "p")]
-YARN_SDV = [("SDV9", "DY1   combined longitudinal damage", "d"),
-            ("SDV10", "DYT   combined transverse damage", "d"),
-            ("SDV5", "RY1T  longitudinal tensile criterion", "r"),
-            ("SDV7", "RYTT  transverse tensile criterion", "r")]
+# SDV slots, from the *Depvar block in the deck.
+#
+# ** FIXED 2026-08-03. **  These used to be plain "SDV1", "SDV3", ... and every
+# lookup silently missed.  The deck's *Depvar block NAMES its entries:
+#
+#     *Depvar
+#     20,
+#     1, DMT, Matrix tensile damage
+#
+# and when the entries are named Abaqus writes the field as SDV_DMT, not SDV1.
+# collect() returned None for all of them, and None printed as "not in odb"
+# rather than as an error, so the census reported nothing and looked fine.
+# The entries below now carry BOTH, and resolve_sdv() tries the name first.
+MATRIX_SDV = [(1, "DMT", "DMT   matrix tensile damage", "d"),
+              (3, "RMT", "RMT   matrix tensile criterion", "r"),
+              (5, "DMACT", "DMACT active matrix damage", "d"),
+              (9, "EQPS", "EQPS  equivalent plastic strain", "p"),
+              (10, "ATEFF", "ATEFF crack-band softening factor", "a")]
+YARN_SDV = [(9, "DY1", "DY1   combined longitudinal damage", "d"),
+            (10, "DYT", "DYT   combined transverse damage", "d"),
+            (5, "RY1T", "RY1T  longitudinal tensile criterion", "r"),
+            (7, "RYTT", "RYTT  transverse tensile criterion", "r")]
+
+
+def resolve_sdv(frame, slot, name):
+    """Field key for one state variable, whichever way the deck named it.
+
+    Named *Depvar -> 'SDV_DMT'.  Unnamed -> 'SDV1'.  Returns None if neither
+    is present, so the caller can say 'absent' rather than 'zero'.
+    """
+    keys = frame.fieldOutputs.keys()
+    for cand in ("SDV_%s" % name, "SDV%d" % slot, "SDV_%d" % slot,
+                 "SDV%02d" % slot):
+        if cand in keys:
+            return cand
+    return None
 
 D_BINS = (0.01, 0.1, 0.5, 0.9)
 R_BINS = (0.5, 0.8, 1.0, 1.5, 2.0)
+
+#: Value KABAND clamps the softening exponent to when the element is in the
+#: snap-back regime.  UMAT_CSIC_RVE_ZHANG2022_V1_0.for line 528: A=50.0D0,
+#: then A=MIN(50,MAX(1e-2,A)).  An element sitting at 50 is brittle.
+ATEFF_CLAMP = 50.0
 
 
 def find_sets(odb):
@@ -155,22 +187,43 @@ def report_region(frame, label, region, sdvlist):
         print("        S12 %+9.2f  S13 %+9.2f  S23 %+9.2f" % (s[3], s[4], s[5]))
         print("        I1  %+9.2f   (sign of I1 selects tension vs "
               "compression damage in the matrix)" % i1)
-    for var, name, kind in sdvlist:
+    for slot, sdvname, name, kind in sdvlist:
+        var = resolve_sdv(frame, slot, sdvname)
+        if var is None:
+            print("      %-9s %s : NOT WRITTEN TO THIS ODB "
+                  "(looked for SDV_%s and SDV%d)"
+                  % (sdvname, name, sdvname, slot))
+            continue
         pairs = collect(frame, region, var)
         if pairs is None:
-            print("      %-6s %s : NOT WRITTEN TO THIS ODB" % (var, name))
+            print("      %-9s %s : NOT WRITTEN TO THIS ODB" % (var, name))
             continue
         if not pairs:
-            print("      %-6s %s : field exists but is empty for this region"
+            print("      %-9s %s : field exists but is empty for this region"
                   % (var, name))
             continue
         st = stats(pairs)
-        print("      %-6s %s" % (var, name))
+        print("      %-9s %s" % (var, name))
         print("        mean %.4f  p50 %.4f  p90 %.4f  p99 %.4f  max %.4f"
               % (st["mean"], st["p50"], st["p90"], st["p99"], st["mx"]))
-        bins = R_BINS if kind == "r" else D_BINS
         if kind == "p":
             continue
+        if kind == "a":
+            # ATEFF is the crack-band softening factor.  KABAND clamps it to
+            # ATEFF_CLAMP when the element is in the snap-back regime, i.e.
+            # when the element is too big for the fracture energy it was
+            # given.  Those elements are effectively brittle and are NOT mesh
+            # objective, so the fraction matters -- M6 ships with Gtc = Gtt =
+            # 0.107, which retune_deck.py reports as VIOLATED for the largest
+            # elements.  This is the number that check refers to.
+            clamped = frac_over(pairs, ATEFF_CLAMP - 1.0e-9)
+            print("        CLAMPED (A = %.0f, brittle, NOT mesh objective): "
+                  "%.2f %% by volume" % (ATEFF_CLAMP, 100.0 * clamped))
+            if clamped > 0.05:
+                print("        ** over 5 %% -- do not quote a strength from "
+                      "this run without saying so **")
+            continue
+        bins = R_BINS if kind == "r" else D_BINS
         txt = "  ".join("%s>=%.2f: %5.1f%%"
                         % (kind, b, 100.0 * frac_over(pairs, b)) for b in bins)
         print("        volume fraction   %s" % txt)

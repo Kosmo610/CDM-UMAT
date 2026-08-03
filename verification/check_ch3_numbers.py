@@ -111,7 +111,7 @@ CASES = [
      count_bracketed, 12),
     ("retune_deck.py --check",
      "python3 abaqus/retune_deck.py --check",
-     count_plain, 77),
+     count_plain, 105),
     ("check_ch1_numbers.py",
      "python3 verification/check_ch1_numbers.py",
      count_plain, 49),
