@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """냉각 odb 진단: 논문 Eq.15(von Mises) 로 바꾸면 기지 손상이 늘어나는가?
 
 새 해석이 필요 없다. 이미 가지고 있는 냉각 단계 odb 를 그대로 읽는다.
@@ -123,15 +124,15 @@ def main():
         log('steps: %s' % ', '.join(odb.steps.keys()))
         found = resolve_step(odb, step)
         if found is None:
-            log('[error] 냉각 step 을 못 찾음. --step 으로 지정하세요.')
+            log('[error] no cooling step found. specify it with --step')
             sys.exit(2)
         if found != step:
-            log('[info] step "%s" 없음 -> "%s" 자동 선택' % (step, found))
+            log('[info] step "%s" not found -> using "%s"' % (step, found))
         step = found
         st = odb.steps[step]
         mset = get_elset(odb, 'Matrix')
         if mset is None:
-            log('[error] elementSet "Matrix" 없음.')
+            log('[error] elementSet "Matrix" not found')
             sys.exit(2)
 
         out = os.path.join(os.path.dirname(os.path.abspath(path)) or '.',
