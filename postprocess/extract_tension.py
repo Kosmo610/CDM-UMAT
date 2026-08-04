@@ -248,13 +248,64 @@ def write_curve(odb, outdir, V, tag=''):
         log('    최대 응력 %.2f MPa  @  변형률 %.4f %%' % (sig[k], 100 * eps[k]))
         log('    최종점    %.2f MPa  @  변형률 %.4f %%'
             % (sig[-1], 100 * eps[-1]))
+        log(peak_verdict(sig, eps, k))
         if len(sig) > 3 and eps[3] != 0:
-            log('    초기 접선계수 %.1f GPa' % (sig[3] / eps[3] / 1e3))
+            log('    초기 접선계수 %.1f GPa  (첫 증분 기준, 증분크기에 민감)'
+                % (sig[3] / eps[3] / 1e3))
+        for w in (5.0e-4, 1.0e-3):
+            e_sec, s_sec = secant(sig, eps, w)
+            if e_sec:
+                log('    할선계수 0~%.2f%% : %.1f GPa  (증분크기 무관, 비교용)'
+                    % (100 * w, s_sec / e_sec / 1e3))
         mo = max(r[-1] for r in rows if r[-1] != '')
         log('    단축성 점검: |횡방향 거시응력| 최대 %.3e MPa  (%.1e x sigma_xx)'
             % (mo, mo / max(sig) if max(sig) else 0))
         log('      -> 0 에 가까우면 driver 1-5 가 자유롭게 풀려 단축 응력상태 성립')
     return rows
+
+
+def secant(sig, eps, window):
+    """0 ~ window 변형률 구간의 할선계수용 (eps, sig).
+
+    첫 증분 기준 접선계수는 증분 크기에 따라 크게 흔들리므로, 해석끼리
+    비교할 때는 고정된 변형률 구간의 할선을 써야 한다.
+    """
+    best = None
+    for e, s in zip(eps, sig):
+        if e is None or e <= 0.0:
+            continue
+        if e <= window:
+            best = (e, s)
+        else:
+            break
+    return best if best else (None, None)
+
+
+def peak_verdict(sig, eps, k):
+    """최대점이 진짜 최대인지, 그냥 곡선의 끝인지 판정한다.
+
+    최대점이 마지막 점이면 하중을 더 줄 여지가 있었다는 뜻이므로
+    그 값은 강도가 아니라 강도의 하한이다. 이 구분을 놓치면 아직
+    상승 중인 곡선을 강도로 잘못 읽게 된다.
+    """
+    n = len(sig)
+    if n < 3:
+        return '    [판정] 점이 too few - 판정 불가'
+    smax = sig[k]
+    drop = (smax - sig[-1]) / smax * 100.0 if smax else 0.0
+    tail = max(1, int(0.02 * n))
+    if k >= n - tail:
+        return ('    [판정] *** 최대점 = 곡선의 끝. 연화 미진입 ***\n'
+                '           %.2f MPa 는 강도가 아니라 강도의 하한이다.\n'
+                '           목표변형률을 늘려서(속도는 고정) 다시 돌릴 것.'
+                % smax)
+    if drop < 2.0:
+        return ('    [판정] 최대점 통과했으나 하강폭 %.1f%% 로 미미하다.\n'
+                '           평탄부일 가능성이 있으니 더 연장하는 편이 안전하다.'
+                % drop)
+    return ('    [판정] 연화 진입 확인. 최대점 이후 %.1f%% 하강 '
+            '(잔여 %d 점).\n           최대응력 %.2f MPa 를 강도로 읽으면 된다.'
+            % (drop, n - 1 - k, smax))
 
 
 def write_damage(odb, outdir, V, stride, tag=''):
