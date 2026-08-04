@@ -37,8 +37,8 @@ ROWS = [
     ('B', 'Em', '기지 탄성계수', 350.0, 'GPa', PAPER + ' Table 2 [35-37]', '검증완료', '논문 직접 인용'),
     ('B', 'Gm', '기지 전단탄성계수', 146.0, 'GPa', PAPER + ' Table 2', '검증완료', 'E/(2(1+nu))=145.83 과 0.11% 일치 (자기무모순 확인)'),
     ('B', 'nu_m', '기지 포아송비', 0.20, '-', PAPER + ' Table 2', '검증완료', '논문 직접 인용'),
-    ('B', 'Xm,t(c)', '기지 인장=압축 강도', 310.0, 'MPa', PAPER + ' Table 2', '검증완료', '논문이 인장·압축에 같은 값 하나만 제시'),
-    ('B', 'alpha_m', '기지 열팽창계수', 4.5e-6, '1/K', PAPER + ' Table 2', '검증완료', '온도무관 상수 (논문 3.2.3)'),
+    ('B', 'Xm,t(c)', '기지 인장=압축 강도', 310.0, 'MPa', PAPER + ' Table 2', '검증완료', '논문이 인장·압축에 같은 값 하나만 제시. 845C 손상 100% 재현에는 58~62 MPa 가 필요하나 논문값을 유지함'),
+    ('B', 'alpha_m', '기지 열팽창계수', 4.5e-6, '1/K', PAPER + ' Table 2', '검증완료', '온도무관 상수 (논문 3.2.3). 얀과의 불일치로 생기는 잔류응력은 등2축 완전구속의 30% (기지 350 GPa 가 얀 횡방향 44 GPa 보다 8배 단단해서 구속이 약함)'),
 
     ('C. RVE 형상 · 체적분율', None, None, None, None, None, None, None),
     ('C', 'Lx', 'RVE x 방향 치수', 3.5, 'mm', PAPER + ' 3.2.1', '검증완료', '논문과 동일'),
@@ -63,7 +63,7 @@ ROWS = [
     ('D', 'Gy13', '얀 면내 전단탄성계수', 26431.515264, 'MPa', '= Gy12', '검증완료', '횡등방성 가정'),
     ('D', 'Gy23', '얀 횡방향 전단탄성계수', 15876.667974, 'MPa', 'Chamis [32]', '검증완료', '재계산 오차 -0.0014%'),
     ('D', 'alpha_y1', '얀 축방향 열팽창계수', 1.070925962822e-6, '1/K', 'Schapery 혼합법칙 [33]', '검증완료', '재계산 오차 -0.00013%'),
-    ('D', 'alpha_y2', '얀 횡방향 열팽창계수', 3.324908565604e-6, '1/K', 'Chamis CTE 식', '검증완료', '재계산 오차 -0.000007%'),
+    ('D', 'alpha_y2', '얀 횡방향 열팽창계수', 3.324908565604e-6, '1/K', 'Chamis CTE 식', '검증완료', '재계산 오차 -0.000007%. 민감도 검증: Schapery(3.952e-6)/혼합률(3.391e-6)로 바꿔도 잔류응력은 목표의 21~29%. 845C 갭의 원인 아님 (residual_stress_budget.py)'),
     ('D', 'alpha_y3', '얀 횡방향 열팽창계수', 3.324908565604e-6, '1/K', '= alpha_y2', '검증완료', '횡등방성 가정'),
 
     ('E. 기지 UMAT 카드 (SIC_MATRIX_DAMAGE, constants=23~24)', None, None, None, None, None, None, None),
@@ -109,6 +109,7 @@ ROWS = [
     ('F', 'PROPS 22 DMAX1', '축방향 손상 상한', 0.95, '-', '논문 미기재', '임시값', '미보정'),
     ('F', 'PROPS 23 DMAXT', '횡방향 손상 상한', 0.90, '-', '논문 미기재', '임시값', '최대점 이후 재상승 원인 중 하나'),
     ('F', 'PROPS 24 ETA', '점성 정규화 시간상수', 0.01, 'step time', '자체 수렴검사로 선정', '수치설정', '기지 ETA 의 절반으로 유지'),
+    ('F', 'PROPS 32 GF1T', '얀 축방향 파괴에너지 (크랙밴드, V2_6)', 0.03962, 'N/mm', 'fine 메쉬에서 A1T=2.0 재현하도록 역산 (논문 미기재)', '수치설정', 'le*g0*(1+2/A) = 0.0570 x 0.347576 x 2. 재료점 검증 통과(소산에너지 편차 1.00000배). snap-back 한계 le=0.112mm'),
     ('F', 'PROPS 25 DJMAX', '증분당 손상 점프 상한', 0.10, '-', '수치안정용', '수치설정', '물성 아님'),
     ('F', 'PROPS 26 FREEZESTEP', '손상이 살아있는 마지막 Step', 3.0, '-', '해석 절차 설정', '수치설정', '기지 PROPS12 와 동일해야 함'),
     ('F', 'PROPS 27 PMIN', 'PNEWDT 하한', 0.25, '-', '수치안정용', '수치설정', '물성 아님'),
@@ -358,6 +359,13 @@ for i in range(len(ACT)):
 for col, wd in zip('ABC', (24, 60, 40)):
     w3.column_dimensions[col].width = wd
 
-out = '/tmp/claude-0/-home-user-CDM-UMAT/381478c7-62b9-5b6c-abbe-ab6f0092aab8/scratchpad/CSIC_UMAT_material_properties_0803_1511.xlsx'
+# 파일명에 생성 시각을 붙인다 (KST, _MMDD_HHMM). 출력 폴더는 인자로 바꿀 수 있다.
+import sys as _sys
+import time as _time
+import os as _os
+_stamp = _time.strftime('%m%d_%H%M', _time.gmtime(_time.time() + 9 * 3600))
+_dir = _sys.argv[1] if len(_sys.argv) > 1 else _os.path.dirname(
+    _os.path.abspath(__file__))
+out = _os.path.join(_dir, 'CSIC_UMAT_material_properties_%s.xlsx' % _stamp)
 wb.save(out)
 print('saved', out, 'last data row =', last)
