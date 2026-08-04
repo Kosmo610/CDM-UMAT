@@ -127,19 +127,31 @@ shear,0,37.34,5.53,,,12.96,3.73,139.76,16.71,1.40,0.20,fulltext
 #    zero further damage once the previous maximum is not exceeded, and
 #    treats that as a LIMITATION to be repaired with a cycle term.
 #
-#    Acoustic emission on this exact material says the limitation is
-#    CORRECT PHYSICS for mechanical cycling at room temperature: no new
-#    damage events occur until the previous maximum is passed.  So the
-#    monotonic model is not wrong -- it is right about the mechanism it
-#    contains.
+#    ** 2026-08-04 AMENDMENT -- the first reading of this OVERCLAIMED. **
+#    It said the shakedown limitation is "correct physics".  Too strong,
+#    for reasons the paper itself supplies:
 #
-#    That sharpens the argument rather than weakening it.  The cycle term
-#    is needed not because the CDM mis-models mechanical cycling, but
-#    because repeated THERMAL shock adds a mechanism the Kaiser effect
-#    does not cover -- oxidation.  Mei refs/[43] closes the loop from the
-#    other side: in ARGON at 1200 C, 98.90 % is retained, i.e. with the
-#    oxidation mechanism removed the material shakes down exactly as the
-#    Kaiser effect predicts.
+#      (i)  AE silence is not absence of damage.  The very sentence quoted
+#           says interface SLIDING happens without significant AE -- and
+#           interfacial WEAR (Ch.2 2.5.4 mechanism #1, the dominant CMC
+#           mechanical-fatigue mechanism) is exactly such an AE-quiet,
+#           gradual process.  AE detects discrete cracking events, not
+#           friction.
+#      (ii) These were INCREMENTAL-amplitude tests over a handful of
+#           cycles.  They say nothing about constant-amplitude N >= 100.
+#
+#    What the Kaiser effect DOES establish, and all it establishes: no new
+#    CRACKING occurs below the previous maximum.  So T5's exact-zero drift
+#    is the cracking model being faithful to its own mechanism -- not a
+#    coding artifact, but also not proof that nothing accumulates.
+#
+#    The cycle term then carries the mechanisms OUTSIDE the previous-
+#    maximum rule: oxidation (dominant here -- Mei refs/[43]'s argon
+#    retention of 98.90 % bounds the total of all non-oxidative
+#    mechanisms over that test) and interfacial wear (declared a model
+#    limitation in Ch.2 2.9-4).  Frame it as "adding mechanisms the rule
+#    does not cover", never as "repairing a defect" NOR as "the defect
+#    was correct physics".
 #
 #      mechanical cycling, RT, air     Kaiser effect: no new damage   [28]
 #      thermal cycling, 1200 C, argon  98.90 % retained               [43]

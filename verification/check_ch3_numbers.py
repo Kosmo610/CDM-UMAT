@@ -78,7 +78,7 @@ CASES = [
      count_bracketed, 17),
     ("conductivity_bounds.py --check",
      "python3 data/properties/conductivity_bounds.py --check",
-     count_bracketed, 25),
+     count_bracketed, 30),
     ("yarn_fracture_energy.py --check",
      "python3 data/properties/yarn_fracture_energy.py --check",
      count_bracketed, 31),
