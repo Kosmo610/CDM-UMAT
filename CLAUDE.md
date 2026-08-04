@@ -85,6 +85,22 @@ Abaqus에서 돌려야 할 코드는 **항상 다운로드 가능한 zip 파일*
 막힌다 (실제로 이 문제로 막힌 적이 있다). 파일명이 겹쳐서 정말 못 합칠 때만
 예외로 하되, **먼저 사용자에게 폴더를 나눠도 되는지 물어보고** 진행한다.
 
+### 1-1. ★ 읽을 자료는 **PDF로** 준다 (사용자 지정, 2026-08-04)
+
+문서(목록·보고서·검토서)는 `.md`가 아니라 **PDF로 전달한다.** 사용자가 휴대폰에서
+읽고 파일명으로 정리하기 때문이다.
+
+```bash
+python3 postprocess/md_to_pdf.py docs/FILE.md --name 최신논문
+python3 postprocess/md_to_pdf.py docs/FILE.md --name 최신논문 --stamp 0804_2200
+```
+
+- **한글 폰트가 없으면 전부 네모로 나온다.** `fonts-nanum`·`fonts-noto-cjk`가
+  필요하며, `--selftest`가 이를 확인한다.
+- 변환 후 **`pdftoppm`으로 1페이지를 이미지로 뽑아 눈으로 확인한다.** 첫 시도에서
+  인용문 안 목록이 한 문단으로 뭉친 것이 이 확인으로 잡혔다.
+- 해석용 zip은 종전대로 zip이다. **PDF는 읽을 자료에만 적용한다.**
+
 ### 2. 파일명에 날짜·시각을 붙인다
 
 형식: **`파일명_MMDD_HHMM`** — 한국 시각(KST) 기준.
@@ -239,10 +255,11 @@ python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
+python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 30개를 전부 통과시킨다.**
+**커밋 전에 위 31개를 전부 통과시킨다.**
 
 ## 현재 병목
 
