@@ -70,6 +70,40 @@ def pct(sorted_vals, q):
     return sorted_vals[i]
 
 
+def get_set(container, name):
+    """odb 는 set 이름을 대문자로 저장하므로 대소문자를 무시하고 찾는다."""
+    if name in container:
+        return container[name]
+    up = name.upper().replace(' ', '')
+    for k in container.keys():
+        if k.upper().replace(' ', '') == up:
+            return container[k]
+    return None
+
+
+def get_elset(odb, name):
+    ra = odb.rootAssembly
+    s = get_set(ra.elementSets, name)
+    if s is not None:
+        return s
+    for inst in ra.instances.values():
+        s = get_set(inst.elementSets, name)
+        if s is not None:
+            return s
+    return None
+
+
+def resolve_step(odb, want):
+    """지정한 Step 이 없으면 이름에 cool 이 든 Step 을 자동 선택한다."""
+    s = get_set(odb.steps, want)
+    if s is not None:
+        return want
+    for k in odb.steps.keys():
+        if 'COOL' in k.upper():
+            return k
+    return None
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -87,18 +121,18 @@ def main():
     odb = openOdb(path=path, readOnly=True)
     try:
         log('steps: %s' % ', '.join(odb.steps.keys()))
-        if step not in odb.steps:
-            log('[error] step "%s" 없음' % step)
+        found = resolve_step(odb, step)
+        if found is None:
+            log('[error] 냉각 step 을 못 찾음. --step 으로 지정하세요.')
             sys.exit(2)
+        if found != step:
+            log('[info] step "%s" 없음 -> "%s" 자동 선택' % (step, found))
+        step = found
         st = odb.steps[step]
-        inst = odb.rootAssembly.instances
-        iname = list(inst.keys())[0]
-        ia = inst[iname]
-        if 'Matrix' not in ia.elementSets:
-            log('[error] elementSet "Matrix" 없음. 사용 가능: %s'
-                % ', '.join(ia.elementSets.keys()))
+        mset = get_elset(odb, 'Matrix')
+        if mset is None:
+            log('[error] elementSet "Matrix" 없음.')
             sys.exit(2)
-        mset = ia.elementSets['Matrix']
 
         out = os.path.join(os.path.dirname(os.path.abspath(path)) or '.',
                            'cooling_criterion_diag.csv')
