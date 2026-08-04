@@ -667,7 +667,7 @@ off-axis 시편에서 τ₁₂가 뒤집힐 때 **σ₁·σ₂가 함께 압축�
 > **M6 카드 생성 전에 고쳐야 한다** — 카드가 만들어진 뒤에 고치면 §4.9-8의 보정이
 > 통째로 무효가 된다. 제4장 §4.9-16에 기록.
 >
-> **검증:** `python3 verification/check_gf_scale_transfer.py` (26항목)
+> **검증:** `python3 verification/check_gf_scale_transfer.py` (81항목)
 >
 > **이것이 "인용 0건"의 진짜 의미였다 — 서지의 공백이 아니라 검토되지 않은 절차였다.**
 

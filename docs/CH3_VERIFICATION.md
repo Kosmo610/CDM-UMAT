@@ -38,7 +38,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 | 17 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
-| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 거부 포함) | 17 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 15종 거부 + $\bar G_f$ 규약 감사) | 38 |
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델 선택 | 25 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
@@ -58,9 +58,9 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 190 |
-| `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해와 두 규약의 일치 | 68 |
+| `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
-| **합계** | | **1263** |
+| **합계** | | **1297** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -330,7 +330,7 @@ UMAT은 카드 슬롯을 위치로 읽으므로, **슬롯이 하나 밀리면 �
 
 | 검증기 | 무엇을 막는가 |
 |---|---|
-| `make_macro_thermalshock.py --selftest` | 거시 카드의 슬롯 수·가드 상수·`*Depvar` 개수. **불량 카드 11종을 실제로 거부하는지**까지 확인 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드의 슬롯 수·가드 상수·`*Depvar` 개수. **불량 카드 15종을 실제로 거부하는지**까지 확인. 여기에는 UMAT이 **거부하지 않는** $\bar G_f$ 규약 오류(§4.9-16)도 포함된다 |
 | `retune_deck.py --check` | 재튜닝 시 메시·주기경계조건 보존, 의도한 4개 슬롯만 변경, `constants=` 개수 갱신 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 블록의 행 수·단조성 |
 
@@ -499,7 +499,7 @@ $E$ = 100 000 MPa, $\nu$ = 0.30, $\alpha$ = 5×10⁻⁶/K, 단위 거시변형 1
   (≤ 3.0×10⁻¹⁵) 이내로 일치**한다. 이는 "모델이 맞다"와 "코드가 맞다"를 분리하여
   둘 다 확인한 것이다.
 - 입력덱은 솔버 없이 정적 검증되며, 카드 가드 상수로 계보 혼용이 차단된다.
-- 총 **1263개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
+- 총 **1297개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
 
 > **따라서 이후 장에서 관측되는 불일치는 코드의 오류가 아니라 모델 가정 또는 물성의
 > 문제로 귀속할 수 있다.** 이것이 이 장의 실질적 산출물이다.
