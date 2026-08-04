@@ -161,8 +161,12 @@ def kw_option(kw_line, key):
     return None
 
 
-def filter_mesh(text):
-    """Keep TexGen topology; drop material/section/step; capture elset+orientation."""
+def filter_mesh(text, drop_orientation=False):
+    """Keep TexGen topology; drop material/section/step; capture elset+orientation.
+
+    drop_orientation=True also strips *Orientation and its *Distribution table, so
+    the result runs without the companion .ori file (used by the PBC patch test,
+    where every element gets the same isotropic material anyway)."""
     kept, yarn_elsets, matrix_elset, orient_name = [], [], None, None
     in_step = False
     max_node = 0
@@ -179,9 +183,12 @@ def filter_mesh(text):
             continue
         if name == "heading":
             continue                        # replaced by our own heading
+        if name.startswith("distribution") and drop_orientation:
+            continue                        # *Distribution / *Distribution Table
         if name == "orientation":
             orient_name = kw_option(kw, "Name") or "TexGenOrientations"
-            kept.append((kw, data))         # keep the orientation definition
+            if not drop_orientation:
+                kept.append((kw, data))     # keep the orientation definition
             continue
         if name in ("elset", "el set"):
             es = kw_option(kw, "ElSet") or kw_option(kw, "elset")
