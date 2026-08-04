@@ -1255,7 +1255,7 @@ C     0.68-0.78 mm.  The elastic term therefore arrives inflated by
 C     g0*(L_RVE - CELENT), which is 0.41-0.70 N/mm -- larger than the only
 C     sourced fracture energy in the repository.  Only the dissipated part
 C     is a material constant, so only that part may cross a scale boundary.
-C     See docs/CH4_RVE_HOMOGENISATION.md 4.6.1 and 4.9-16, and
+C     See docs/CH4_RVE_HOMOGENISATION.md 4.6.1 and 4.9-12, and
 C     verification/check_gf_scale_transfer.py.
 C
 C     A card written before this convention existed has GF > 0 everywhere

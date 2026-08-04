@@ -1,0 +1,116 @@
+key,title,journal,expected_doi,expected_volume,expected_page
+S1,Crack band theory for fracture of concrete,Materials and Structures,10.1007/BF02486267,16,155-177
+S2,Failure criteria for unidirectional fiber composites,Journal of Applied Mechanics,10.1115/1.3153664,47,329-334
+S3,A general theory of strength for anisotropic materials,Journal of Composite Materials,10.1177/002199837100500106,5,58-80
+S4,A progressive quadratic failure criterion for a laminate,Composites Science and Technology,10.1016/S0266-3538(96)00141-8,58,1023-1032
+S5,A constitutive model for anisotropic damage in fiber-composites,Mechanics of Materials,10.1016/0167-6636(94)00053-0,20,125-152
+S7,Thermal expansion coefficients of composite materials based on energy principles,Journal of Composite Materials,10.1177/002199836800200308,2,380-404
+S8,Finite element approach for modelling fatigue damage in fibre-reinforced composite materials,Composites Part B Engineering,10.1016/S1359-8368(01)00038-5,32,575-588
+S9,Development of continuum damage mechanics for elastic solids sustaining anisotropic and unilateral damage,International Journal of Damage Mechanics,10.1177/105678959300200401,2,311-329
+S10,Damage induced anisotropy on the difficulties associated with the active passive unilateral condition,International Journal of Damage Mechanics,10.1177/105678959200100201,1,148-171
+S11,Factors affecting thermal stress resistance of ceramic materials,Journal of the American Ceramic Society,10.1111/j.1151-2916.1955.tb14545.x,38,3-15
+S12,Elastic energy at fracture and surface energy as design criteria for thermal shock,Journal of the American Ceramic Society,10.1111/j.1151-2916.1963.tb14605.x,46,535-540
+S13,Unified theory of thermal shock fracture initiation and crack propagation in brittle ceramics,Journal of the American Ceramic Society,10.1111/j.1151-2916.1969.tb15848.x,52,600-604
+S15,A continuous damage mechanics model for ductile fracture,Journal of Engineering Materials and Technology,10.1115/1.3225775,107,83-89
+S17,Theory of mechanical properties of ceramic-matrix composites,Journal of the American Ceramic Society,10.1111/j.1151-2916.1991.tb06852.x,74,2837-2845
+S18,Theory of multiple fracture of fibrous composites,Journal of Materials Science,10.1007/BF00550155,8,352-362
+S19,Damage modelling of the elementary ply for laminated composites,Composites Science and Technology,10.1016/0266-3538(92)90097-M,43,257-267
+S20,Continuum damage mechanics anisotropy and damage deactivation for brittle materials like concrete and ceramic composites,International Journal of Damage Mechanics,10.1177/105678959500400102,4,5-22
+S21,Numerical aspects of the crack band approach,Computers and Structures,10.1016/j.compstruc.2012.06.006,110-111,60-78
+S22,A consistent characteristic length for smeared cracking models,International Journal for Numerical Methods in Engineering,10.1002/nme.1620280214,28,461-474
+S23,A simple numerical method of cycle jumps for cyclically loaded structures,International Journal of Fatigue,10.1016/j.ijfatigue.2006.01.010,28,1677-1689
+S24,A fatigue failure criterion for fiber reinforced materials,Journal of Composite Materials,10.1177/002199837300700404,7,448-464
+A1,High-temperature flexural strength of SiC ceramics prepared by additive manufacturing,International Journal of Applied Ceramic Technology,10.1111/ijac.13454,17,438-448
+A2,Flexural Strength and Shear Strength of SiC-to-SiC Joints Fabricated by a Mo Diffusion Bonding Technique,Journal of the American Ceramic Society,10.1111/j.1551-2916.2005.00381.x,88,1892-1899
+A3,Fracture Toughness and Flexural Strength of CVD SiC Chevron-Notched and Surface Crack in Flexure Specimens,Journal of the American Ceramic Society,10.1111/j.1551-2916.2004.01093.x,87,1093-1101
+A4,High-Temperature Fracture Strength of a CVD-SiC Coating Layer for TRISO Nuclear Fuel Particles by a Micro-Tensile Test,Journal of the Korean Ceramic Society,10.4191/kcers.2015.52.6.441,52,441-448
+A5,Time-Dependent Strength Degradation of a Siliconized Silicon Carbide Determined by Dynamic Fatigue,Journal of the American Ceramic Society,10.1111/j.1151-2916.1995.tb08040.x,78,
+A6,Material Properties of a Sintered alpha-SiC,Journal of Physical and Chemical Reference Data,10.1063/1.556000,26,1195-1203
+A7,Effect of pyrolysis temperature on the microstructure and thermal conductivity of polymer-derived monolithic and porous SiC ceramics,Journal of the European Ceramic Society,10.1016/j.jeurceramsoc.2020.09.028,41,1151-1162
+A8,High-Temperature Properties and Applications of Si-Based Polymer-Derived Ceramics A Review,Materials,10.3390/ma14030614,14,614
+A9,Thermal Properties of SiOC Glasses and Glass Ceramics at Elevated Temperatures,Materials,10.3390/ma11020279,11,279
+A10,Mechanical behaviour of polymer derived ceramics a review,International Materials Reviews,10.1080/09506608.2020.1784616,66,
+A11,Influence of polymer infiltration and pyrolysis process on mechanical strength of polycarbosilane-derived silicon carbide ceramics,Journal of Materials Science,10.1007/s10853-010-5182-0,46,
+A12,A review on high-performance SiCf SiC composites prepared by PIP process,Journal of Materials Research and Technology,,33,7216-7235
+A13,Anisotropic thermal and electrical conductivities of individual polyacrylonitrile-based carbon fibers,Carbon,,197,
+A14,Radial thermal conductivity of a PAN type carbon fiber using the 3 omega method,International Journal of Thermal Sciences,,172,107321
+A15,Design of a new device for fibers strand axial thermal conductivity measurement,International Journal of Thermal Sciences,10.1016/j.ijthermalsci.2020.106740,161,106740
+A16,High temperature thermal and mechanical properties of high tensile carbon single filaments,Carbon,,34,923-929
+A17,Thermal conductivity of porous materials,Journal of Materials Research,10.1557/jmr.2013.179,28,2260-2272
+A18,Effects of porosity on electrical and thermal conductivities of porous SiC ceramics,Journal of the European Ceramic Society,,40,996-1004
+A20,Elasticity of porous ceramics a critical study of modulus porosity relations,Journal of the European Ceramic Society,,26,
+A21,Young's modulus of porous brittle solids,Journal of Materials Science,,22,
+A22,In-plane shear experimental method and mechanical behavior of ceramic matrix mini-composites,Journal of Materials Research and Technology,10.1016/j.jmrt.2023.04.139,24,5541-5551
+A23,Transverse tensile mechanical experimental method and behavior of ceramic matrix mini-composites,Composite Structures,10.1016/j.compstruct.2022.115923,297,115923
+A24,Influence of interphase type and thickness on the interface properties and tensile damage evolution of C SiC composites,,10.1177/14644207241234395,,
+A25,Effect of pyrocarbon interphase texture and thickness on tensile damage and fracture in T-700 carbon fiber reinforced silicon carbide minicomposites,Journal of the American Ceramic Society,10.1111/jace.18193,105,2171-2181
+A27,Damage Evolution and Fracture Behavior of C SiC Minicomposites with Different Interphases under Uniaxial Tensile Load,Materials,10.3390/ma14061525,14,1525
+A28,Effects of temperature and of oxidation on the interfacial shear stress between fibres and matrix in ceramic-matrix composites,Acta Materialia,,,
+A29,Fracture toughness of the tensile and compressive fibre failure modes in laminated composites,Composites Science and Technology,10.1016/j.compscitech.2005.12.023,66,2069-2079
+A30,Compressive intralaminar fracture toughness and residual strength of 2D woven carbon fibre reinforced composites,Theoretical and Applied Fracture Mechanics,10.1016/j.tafmec.2020.102487,106,102487
+A31,A continuum damage model for composite laminates Part I Constitutive model,Mechanics of Materials,10.1016/j.mechmat.2007.03.005,39,897-908
+A32,A continuum damage model for composite laminates Part II Computational implementation and validation,Mechanics of Materials,10.1016/j.mechmat.2007.03.006,39,909-919
+B1,Thermal shock damage in a two-dimensional SiC SiC composite reinforced with woven SiC fibers,Composites Science and Technology,,57,607-611
+B2,Thermal shock behavior of a three-dimensional SiC SiC composite,Metallurgical and Materials Transactions A,10.1007/s11661-006-1053-3,,
+B3,Thermal Shock and Residual Strength Testing of SiC SiC Composite Braided Tubes,Experimental Mechanics,10.1007/s11340-023-00962-x,63,955-964
+B4,Thermal Shock Damage and In-plane Shear Performance Degradation of 2D SiCf SiC at Medium Temperature,Journal of Inorganic Materials,10.15541/jim20240273,39,1367-1376
+B5,Effects of thermal aging on the cyclic thermal shock behavior of oxide oxide ceramic matrix composites,Materials Science and Engineering A,10.1016/j.msea.2019.138494,769,138494
+B6,Properties evolution and damage mechanism of SiC SiC composites after thermal shock at 1300 C,Ceramics International,,50,
+B7,Thermal shock behaviour of angle-ply and woven dense ceramic-matrix composites,Journal of Materials Science,10.1007/s10853-007-2314-2,43,4112-4118
+B8,Thermal Shock Behavior of Two-Dimensional Woven Fiber-Reinforced Ceramic Composites,Journal of the American Ceramic Society,10.1111/j.1151-2916.1996.tb07996.x,79,1783-1792
+B9,Cyclic Thermal Shock Damage Behavior in CVI SiC SiC High-Pressure Turbine Twin Guide Vanes,Materials,10.3390/ma14206104,14,6104
+B10,Oxidation Kinetics and Stress Effects for the Oxidation of Continuous Carbon Fibers within a Microcracked C SiC Ceramic Matrix Composite,Journal of the American Ceramic Society,10.1111/j.1551-2916.2007.02170.x,91,519-526
+B11,Kinetics and Mechanisms of Oxidation of 2D Woven C SiC Composites I Experimental Approach,Journal of the American Ceramic Society,10.1111/j.1151-2916.1994.tb07096.x,77,2049-2057
+B12,Kinetics and Mechanisms of Oxidation of 2D Woven C SiC Composites II Theoretical Approach,Journal of the American Ceramic Society,10.1111/j.1151-2916.1994.tb07097.x,77,2058-2068
+B13,Oxidation effects on the mechanical properties of 2D woven C SiC composites,Journal of the European Ceramic Society,,14,
+B14,Oxidation Mechanisms and Kinetics of 1D-SiC C SiC Composite Materials I An Experimental Approach,Journal of the American Ceramic Society,10.1111/j.1151-2916.1994.tb07015.x,77,459-466
+B15,Oxidation Mechanisms and Kinetics of 1D-SiC C SiC Composite Materials II Modeling,Journal of the American Ceramic Society,10.1111/j.1151-2916.1994.tb07016.x,77,467-480
+B16,Intermediate temperature strength degradation in SiC SiC composites,Journal of the European Ceramic Society,,22,
+B18,Intermediate temperature oxidative strength degradation of a SiC SiNC composite with a polymer-derived matrix,Journal of the American Ceramic Society,10.1111/jace.14741,100,1606-1617
+B20,Modeling of crack density in ceramic matrix composites,Journal of Composite Materials,10.1177/0021998314545188,,
+B21,X-ray Analysis of Residual Stresses in C SiC Composites,Applied Composite Materials,10.1023/A:1008885319105,6,51-66
+B22,In situ characterization of residual stress evolution during heat treatment of SiC SiC ceramic matrix composites using high-energy X-ray diffraction,Journal of the American Ceramic Society,10.1111/jace.17493,104,1424-1435
+B23,Residual stress variation in SiCf SiC composite during heat treatment and its effects on mechanical behavior,Journal of Advanced Ceramics,10.1007/s40145-020-0395-4,9,567-575
+B24,Measurement of Residual Stress in Silicon Carbide Fibers of Tubular Composites Using Raman Spectroscopy,Acta Materialia,,217,117164
+B25,Measurement and calculation of thermal residual stress in fiber reinforced ceramic matrix composites,Composites Science and Technology,,68,3285-3292
+B26,Thermal residual stresses in ceramic matrix composites I Axisymmetrical model and finite element analysis,Acta Metallurgica et Materialia,,43,2241-2253
+B27,Thermal residual stresses in ceramic matrix composites II Experimental results for model materials,Acta Metallurgica et Materialia,,43,2255-2268
+B28,Measuring the effects of heat treatment on SiC SiC ceramic matrix composites using Raman spectroscopy,Journal of the American Ceramic Society,10.1111/jace.16724,103,1293-1303
+B29,Determination of Residual Thermal Stresses in a SiC Al2O3 Composite Using Neutron Diffraction,Journal of the American Ceramic Society,10.1111/j.1151-2916.1988.tb07536.x,71,858-863
+B30,Residual Stress-Related Common Intersection Points in the Mechanical Behavior of Ceramic Matrix Composites Undergoing Cyclic Loading,Experimental Mechanics,10.1007/s11340-012-9709-y,,
+B31,Experimental study of high-temperature tensile mechanical properties of 3D needled C C-SiC composites,Materials Science and Engineering A,,,
+B32,Temperature-dependent proportional limit stress of SiC SiC fiber-reinforced ceramic-matrix composites,High Temperature Materials and Processes,10.1515/htmp-2020-0052,39,
+B33,Stress-Induced Microcracking and Fracture Characterization for Ultra-High-Temperature Ceramic Matrix Composites at High Temperatures,Materials,10.3390/ma15207074,15,7074
+B34,Damage characteristics and constitutive modeling of the 2D C SiC composite Part I Experiment and analysis,Chinese Journal of Aeronautics,10.1016/j.cja.2014.10.026,27,1586-1597
+B35,Damage characteristics and constitutive modeling of the 2D C SiC composite Part II Material model and numerical implementation,Chinese Journal of Aeronautics,10.1016/j.cja.2014.10.027,28,314-326
+B36,The measurement of the surface heat transfer coefficient for ceramics quenched into a water bath,Materials Science and Engineering A,,145,
+B38,Thermal shock of alumina by compressed air cooling,Journal of the European Ceramic Society,10.1016/j.jeurceramsoc.2006.06.012,27,1919-1925
+B39,Thermal shock behaviour of ceramics and ceramic composites,International Materials Reviews,10.1179/imr.1994.39.6.228,39,
+B40,Modification and validation of the thermal shock parameter for ceramic matrix composites under water quenching condition,Materials and Design,10.1016/j.matdes.2009.04.037,30,4552-4556
+B41,A review of thermal shock behavior of ceramics Fundamental theory experimental methods and outlooks,International Journal of Applied Ceramic Technology,10.1111/ijac.14846,,
+C1,Representative volume Existence and size determination,Engineering Fracture Mechanics,10.1016/j.engfracmech.2006.12.021,74,2518-2534
+C2,Homogenization-based multiscale crack modelling From micro-diffusive damage to macro-cracks,Computer Methods in Applied Mechanics and Engineering,10.1016/j.cma.2010.10.013,200,1220-1236
+C3,Novel boundary conditions for strain localization analyses in microstructural volume elements,International Journal for Numerical Methods in Engineering,10.1002/nme.3298,90,1-21
+C4,Multi-scale computational homogenization Trends and challenges,Journal of Computational and Applied Mathematics,10.1016/j.cam.2009.08.077,234,2175-2182
+C5,A generalized damage model for woven ply laminates under static and fatigue loading conditions,International Journal of Fatigue,,,
+C6,An irreversible cohesive zone model for interface fatigue crack growth simulation,Engineering Fracture Mechanics,,,
+C7,A cohesive model of fatigue crack growth,International Journal of Fracture,,,
+C9,Development of a macroscopic damage model for woven ceramic matrix composites,International Journal of Damage Mechanics,,20,939-957
+C10,Thermal conductivity of a thick 3D textile composite using an RVE model with specialized thermal periodic boundary conditions,Functional Composites and Structures,10.1088/2631-6331/abd7cd,3,015002
+C11,Multi-scale Modeling and Finite Element Analyses of Thermal Conductivity of 3D C SiC Composites,Chinese Journal of Mechanical Engineering,10.1186/s10033-024-01016-6,37,
+C12,Closed-form solutions of the in-plane effective thermal conductivities of woven-fabric composites,Composites Science and Technology,,,
+C13,Boundary conditions for unit cells from periodic microstructures and their implications,Composites Science and Technology,,,
+C14,FE2 multiscale approach for modelling the elastoviscoplastic behaviour of long fibre SiC Ti composite materials,Computer Methods in Applied Mechanics and Engineering,,,
+C15,Meso-FE modelling of textile composites Road map data flow and algorithms,Composites Science and Technology,,,
+C16,Multiscale modeling of composite materials a roadmap towards virtual testing,Advanced Materials,,,
+C17,Computational mechanics of fatigue and life predictions for composite materials and structures,Computer Methods in Applied Mechanics and Engineering,10.1016/S0045-7825(02)00401-2,191,4827-4849
+C18,Fatigue life prediction using 2-scale temporal asymptotic homogenization,International Journal for Numerical Methods in Engineering,10.1002/nme.1069,61,329-359
+C19,Gradient-enhanced damage modelling of high-cycle fatigue,International Journal for Numerical Methods in Engineering,,49,1547-1569
+C20,Maturity of 3D failure criteria for fibre-reinforced composites Comparison between theories and experiments Part B of WWFE-II,Journal of Composite Materials,,,
+C22,Constitutive model and failure criterion for orthotropic ceramic matrix composites under macroscopic plane stress,Journal of the American Ceramic Society,10.1111/jace.17487,,
+C23,Thermal-mechanical behavior of a SiC SiC ceramic matrix composite subjected to laser heating,Composite Structures,,,
+C24,Representation of Thermomechanical Damage in Fiber-Reinforced Ceramic Composites at High Thermal Gradients,AIAA Journal,10.2514/1.J063058,,
+NEW1,Development of damage in a 2D woven C SiC composite under mechanical loading I Mechanical characterization,Composites Science and Technology,,56,1363-1372
+NEW2,Cyclic loading of a SiC-fiber reinforced ceramic matrix composite reveals damage mechanisms and thermal residual stress state,Composites Part A Applied Science and Manufacturing,,44,105-113
+NEW_SMITH2013,Thermal conductivity of porous materials,Journal of Materials Research,10.1557/jmr.2013.179,28,2260-2272
+NEW_WANG2006,A new approach to modelling the effective thermal conductivity of heterogeneous materials,International Journal of Heat and Mass Transfer,,49,3075-3083

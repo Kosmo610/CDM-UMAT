@@ -184,6 +184,8 @@ ABAQUS_DEFAULT_FTOL = 0.005            # what Abaqus uses if we say nothing
 # Lowering E does move the snap-back limit though, and section 5 of the report
 # below prints the new margin so it cannot pass unnoticed.
 D_MATRIX_E = None                      # None = keep the template's value
+D_G1T = None
+D_G1C = None
 D_YARN_XT = None
 D_GTT = None
 D_GTC = None
@@ -224,16 +226,17 @@ def crack_band_rows(a):
     yxt = a.yarn_xt if a.yarn_xt is not None else y[YARN_SLOTS["xt"] - 1]
     gtt = a.gtt if a.gtt is not None else y[YARN_SLOTS["gtt"] - 1]
     gtc = a.gtc if a.gtc is not None else y[YARN_SLOTS["gtc"] - 1]
+    g1t = a.g1t if a.g1t is not None else y[YARN_SLOTS["g1t"] - 1]
+    g1c = a.g1c if a.g1c is not None else y[YARN_SLOTS["g1c"] - 1]
     out = []
     for mode, x, e, gf in (
             ("matrix tension", m[MATRIX_SLOTS["xt"] - 1], me,
              m[MATRIX_SLOTS["gm_t"] - 1]),
             ("matrix compression", m[MATRIX_SLOTS["xc"] - 1], me,
              m[MATRIX_SLOTS["gm_c"] - 1]),
-            ("yarn axial tension", yxt, y[YARN_SLOTS["e1"] - 1],
-             y[YARN_SLOTS["g1t"] - 1]),
+            ("yarn axial tension", yxt, y[YARN_SLOTS["e1"] - 1], g1t),
             ("yarn axial compression", y[YARN_SLOTS["xc"] - 1],
-             y[YARN_SLOTS["e1"] - 1], y[YARN_SLOTS["g1c"] - 1]),
+             y[YARN_SLOTS["e1"] - 1], g1c),
             ("yarn transverse tension", y[YARN_SLOTS["yt"] - 1],
              y[YARN_SLOTS["e2"] - 1], gtt),
             ("yarn transverse compression", y[YARN_SLOTS["yc"] - 1],
@@ -305,7 +308,31 @@ def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None):
     return emit_card(kw, n)
 
 
-def retune_yarn(dmax, eta, djump, yarn_xt=None, gtt=None, gtc=None):
+def retune_yarn(dmax, eta, djump, yarn_xt=None,
+                g1t=None, g1c=None, gtt=None, gtc=None):
+    """Retune the yarn card.
+
+    The four fracture energies are exposed because Ch.4 4.9-0 (2nd amendment)
+    and verification/m6_calibration_plan.py put them at the head of the M6
+    queue:
+
+      G1t = G1c = 12.5 N/mm is one of the four DEV inputs, carried over from
+      Ge refs/[24] Table 3, which is carbon/PHENOLIC.  At that value the
+      crack-band exponent of the yarn longitudinal branch is A = 0.239 --
+      8.4x gentler than the fixed default of 2.0 -- so the yarn sheds almost
+      no load after peak.  That is the leading explanation for M5_c26k_T1000
+      producing 313 monotonically increasing points with no peak.  A = 2.0
+      would need 2.664 N/mm.
+
+      Gtt = Gtc = 0 switches the crack band OFF for the transverse modes, so
+      they run at the fixed exponent and are not mesh-regularised at all --
+      and the transverse modes are the ones the cooldown drives.  Gtt has a
+      source (Shi refs/[31], 0.107 N/mm on 2D plain weave C/SiC) and it is
+      admissible on this mesh: the snap-back limit Gf/g0 is 1.482 mm against
+      a largest CELENT of 0.0845 mm.  Gtc has no source and stays 0.
+
+    Passing None leaves a slot at whatever the deck already had.
+    """
     kw, n = card_numbers(YARN_USERMAT["v2"])
     if len(n) != YARN_NPROPS:
         raise ValueError("yarn card has %d constants, expected %d"
@@ -316,16 +343,31 @@ def retune_yarn(dmax, eta, djump, yarn_xt=None, gtt=None, gtc=None):
                              "in-situ band is 475-745 and the old strand "
                              "value was 2835" % yarn_xt)
         n[YARN_SLOTS["xt"] - 1] = yarn_xt
-    for key, val in (("gtt", gtt), ("gtc", gtc)):
+    for key, val in (("g1t", g1t), ("g1c", g1c),
+                     ("gtt", gtt), ("gtc", gtc)):
         if val is None:
             continue
         if val < 0.0:
-            raise ValueError("%s = %r N/mm is negative" % (key, val))
+            raise ValueError(
+                "%s = %g: a NEGATIVE yarn fracture energy would be read "
+                "by KABAND as the INELASTIC convention, which only the "
+                "MACRO card uses (Ch.4 4.6.1).  The micro card carries "
+                "total-area values." % (key, val))
         n[YARN_SLOTS[key] - 1] = val
     n[YARN_SLOTS["dmax_1"] - 1] = dmax
     n[YARN_SLOTS["dmax_t"] - 1] = dmax
     n[YARN_SLOTS["eta"] - 1] = eta
     n[YARN_SLOTS["djump"] - 1] = djump
+    for key, val in (("g1t", g1t), ("g1c", g1c),
+                     ("gtt", gtt), ("gtc", gtc)):
+        if val is not None:
+            if val < 0.0:
+                raise ValueError(
+                    "%s = %g: a NEGATIVE yarn fracture energy would be read "
+                    "by KABAND as the inelastic convention, which only the "
+                    "MACRO card uses (Ch.4 4.6.1).  The micro card carries "
+                    "total-area values." % (key, val))
+            n[YARN_SLOTS[key] - 1] = val
     return emit_card(kw, n)
 
 
@@ -337,7 +379,8 @@ def materials(a):
          "4.5e-06,",
          "*Material, Name=CSIC_YARN_DAMAGE",
          YARN_DEPVAR,
-         retune_yarn(a.dmax, a.eta, a.djump, a.yarn_xt, a.gtt, a.gtc),
+         retune_yarn(a.dmax, a.eta, a.djump, a.yarn_xt,
+                     a.g1t, a.g1c, a.gtt, a.gtc),
          "*Expansion, type=ORTHO, zero=%g." % a.zero,
          "1.070925962822e-06, 3.324908565604e-06, 3.324908565604e-06"]
     return "\n".join(L)
@@ -569,6 +612,7 @@ class _A(object):
     shearlock = D_SHEARLOCK
     ftol = D_FTOL
     matrix_e, yarn_xt, gtt, gtc = D_MATRIX_E, D_YARN_XT, D_GTT, D_GTC
+    g1t, g1c = D_G1T, D_G1C
 
 
 def check():
@@ -807,7 +851,7 @@ def check():
     kw6, m6 = card_numbers(retune_matrix(D_DMAX, D_ETA, D_DJUMP, 0.0,
                                          213109.6277699348))
     kwy6, y6 = card_numbers(retune_yarn(D_DMAX, D_ETA, D_DJUMP,
-                                        694.4, 0.107, 0.107))
+                                        yarn_xt=694.4, gtt=0.107, gtc=0.107))
     t("matrix E lands in slot 2",
       abs(m6[MATRIX_SLOTS["e"] - 1] - 213109.6277699348) < 1e-6)
     t("yarn Xt lands in slot 11", abs(y6[YARN_SLOTS["xt"] - 1] - 694.4) < 1e-9)
@@ -838,12 +882,12 @@ def check():
             t("matrix E=%g rejected" % bad_e, True)
     for bad_x in (47.5, 47500.0):
         try:
-            retune_yarn(D_DMAX, D_ETA, D_DJUMP, bad_x)
+            retune_yarn(D_DMAX, D_ETA, D_DJUMP, yarn_xt=bad_x)
             t("yarn Xt=%g rejected" % bad_x, False)
         except ValueError:
             t("yarn Xt=%g rejected" % bad_x, True)
     try:
-        retune_yarn(D_DMAX, D_ETA, D_DJUMP, None, -0.1)
+        retune_yarn(D_DMAX, D_ETA, D_DJUMP, gtt=-0.1)
         t("negative Gtt rejected", False)
     except ValueError:
         t("negative Gtt rejected", True)
@@ -895,6 +939,46 @@ def check():
         t("missing material anchor is rejected", False)
     except ValueError:
         t("missing material anchor is rejected", True)
+
+    # ---- yarn fracture energies (M6 stage 0/1) ---------------------------
+    def _yarn_slots(txt):
+        import re as _re
+        m = _re.search(r"\*Material, Name=CSIC_YARN_DAMAGE(.*?)\*Expansion",
+                       txt, _re.S)
+        blk = _re.search(r"\*User Material[^\n]*\n(.*)", m.group(1),
+                         _re.S).group(1)
+        return [float(x) for x in blk.replace("\n", ",").split(",")
+                if x.strip()]
+
+    base = retune(_fake_deck(), _A())[0]
+    nb = _yarn_slots(base)
+    t("untouched deck keeps G1t = 12.5", abs(nb[31] - 12.5) < 1e-12,
+      "%g" % nb[31])
+    t("untouched deck keeps Gtt = 0", nb[33] == 0.0, "%g" % nb[33])
+
+    a = _A()
+    a.g1t = a.g1c = 2.664
+    a.gtt = 0.107
+    n2 = _yarn_slots(retune(_fake_deck(), a)[0])
+    t("--g1t reaches PROPS(32)", abs(n2[31] - 2.664) < 1e-12, "%g" % n2[31])
+    t("--g1c reaches PROPS(33)", abs(n2[32] - 2.664) < 1e-12, "%g" % n2[32])
+    t("--gtt reaches PROPS(34)", abs(n2[33] - 0.107) < 1e-12, "%g" % n2[33])
+    t("--gtc left alone stays 0", n2[34] == 0.0, "%g" % n2[34])
+    t("the card is still %d constants" % YARN_NPROPS,
+      len(n2) == YARN_NPROPS, "%d" % len(n2))
+    t("nothing else on the yarn card moved",
+      all(abs(x - y) < 1e-12 for i, (x, y) in enumerate(zip(nb, n2))
+          if i not in (31, 32, 33)))
+
+    # A negative micro-card Gf would be read by KABAND as the MACRO card's
+    # inelastic convention (Ch.4 4.6.1).  It must be refused here.
+    a = _A()
+    a.g1t = -1.0
+    try:
+        retune(_fake_deck(), a)
+        t("a negative yarn Gf is refused", False)
+    except ValueError:
+        t("a negative yarn Gf is refused", True)
 
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
@@ -950,6 +1034,30 @@ def main():
                          "localises (pivot RATIO 2.6e+10), so the default is "
                          "to lock them. Use this to reproduce the M3 decks or "
                          "to measure the shear response deliberately.")
+    ap.add_argument("--g1t", type=float, default=D_G1T,
+                    help="yarn longitudinal TENSILE fracture energy, N/mm. "
+                         "The deck carries 12.5, a DEV input taken from Ge "
+                         "refs/[24] Table 3 which is carbon/PHENOLIC. At 12.5 "
+                         "the crack-band exponent is A = 0.239, 8.4x gentler "
+                         "than the fixed default, which is why M5 T1000 never "
+                         "peaked. A = 2.0 needs 2.664. See "
+                         "verification/m6_calibration_plan.py.")
+    ap.add_argument("--g1c", type=float, default=D_G1C,
+                    help="yarn longitudinal COMPRESSIVE fracture energy, N/mm "
+                         "(deck: 12.5, same provenance as --g1t).")
+    ap.add_argument("--gtt", type=float, default=D_GTT,
+                    help="yarn TRANSVERSE tensile fracture energy, N/mm. The "
+                         "deck carries 0, which switches the crack band OFF "
+                         "for the mode the cooldown drives. Shi refs/[31] "
+                         "measured 0.107 on 2D plain weave C/SiC and it is "
+                         "admissible on this mesh (limit 1.482 mm vs CELENT "
+                         "0.0845 mm).")
+    ap.add_argument("--gtc", type=float, default=D_GTC,
+                    help="yarn TRANSVERSE compressive fracture energy, N/mm "
+                         "(deck: 0). NO measurement exists for a CMC and the "
+                         "re-search of 2026-08-03 confirmed the absence, so "
+                         "changing this is a sensitivity case, not a fix "
+                         "(Ch.4 4.9-6a).")
     ap.add_argument("--ftol", type=float, default=D_FTOL,
                     help="force residual ratio Rn^alpha (default %g; Abaqus "
                          "default is %g). The traction-free macro drivers "
@@ -969,15 +1077,6 @@ def main():
                          "in-situ band from refs/[08] is 475 / 581 / 694 at "
                          "23 / 500 / 1000 C "
                          "(data/properties/insitu_yarn_strength.py).")
-    ap.add_argument("--gtt", type=float, default=D_GTT,
-                    help="yarn transverse tensile fracture energy [N/mm]. "
-                         "0 DISABLES the crack band for that mode. 0.107 is "
-                         "Shi refs/[31] on 2D plain-weave C/SiC.")
-    ap.add_argument("--gtc", type=float, default=D_GTC,
-                    help="yarn transverse compressive fracture energy [N/mm]. "
-                         "No measurement exists for C/SiC; 0.107 follows Ge's "
-                         "convention of setting it equal to Gtt and is a "
-                         "STATED LIMITATION, not a measurement.")
     ap.add_argument("--check", action="store_true",
                     help="run the static self-test and exit")
     a = ap.parse_args()

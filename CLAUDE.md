@@ -229,6 +229,7 @@ python3 data/properties/make_property_workbook.py --check # 물성 현황표(엑
 python3 postprocess/msg_residual_census.py --check     # .msg 잔차가 어느 상에 있나
 python3 abaqus/make_rve_conductivity.py --check        # RVE 열전도 덱 (면집합·DC3D4)
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
+python3 data/literature/digitize_ref28_fig17.py --check # refs/[28] Fig.17 TRS (Table 1로 검산)
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
 python3 abaqus/retune_deck.py --check                 # 덱 재튜닝 (카드 슬롯 + 스텝)
@@ -241,10 +242,13 @@ python3 verification/check_chapter_consistency.py     # 장 간 모순 (검증 2
 python3 verification/check_chapter_claims.py          # 장이 부른 파일·명령 (검증 3회차, 느림)
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
+python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
+python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
+python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 32개를 전부 통과시킨다.**
+**커밋 전에 위 36개를 전부 통과시킨다.**
 
 ## 현재 병목
 
