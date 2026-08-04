@@ -80,3 +80,97 @@ shear,0,37.34,5.53,,,12.96,3.73,139.76,16.71,1.40,0.20,fulltext
 # 5. nu rises 0.07 -> 0.17 -> 0.30 -> 0.34 with off-axis angle (tension).
 #    A balanced weave loaded on-axis has very low nu; this is the check that
 #    the column really is Poisson ratio.
+#
+# ==========================================================================
+# FULL-TEXT RE-READ, 2026-08-03.  What the first pass missed.
+# ==========================================================================
+#
+# 5. PROCESSING AND POROSITY OF THIS EXACT MATERIAL (section 2.1).
+#
+#    "The preforms were laminated by T300 carbon fibre plain-woven fabrics,
+#     and then the CVI process was employed to deposit a thin layer of
+#     pyrocarbon interface and a SiC matrix at around 1000 C ...
+#     After final deposition of the 50 um SiC matrix on the surface, the
+#     bulk density of the as-received specimens is about 2.0 g/cm3, with
+#     fibre and porosity contents of 40% and 10-15%, respectively."
+#
+#      fibre volume fraction    40 %          <- our RVE is 39.5 %
+#      POROSITY                 10-15 %       <- COMPOSITE level, measured
+#      bulk density             2.0 g/cm3
+#      SiC deposition temp.     ~1000 C
+#
+#    WHY THIS MATTERS.  Ch.4 4.7.3 had to argue that porosity is REQUIRED
+#    because the dense two-phase lower bound (6.74) exceeds the measured
+#    conductivity (6.29), and it borrowed 24 % from refs/[22], which is a
+#    DIFFERENT material characterised by X-ray CT.  Now the same material
+#    that Table 1 describes carries its own measured figure.
+#
+#    conductivity_bounds.py needs 4.48-5.89 % MATRIX porosity to reach the
+#    measured kbar3.  Matrix is ~50 % of the volume, so that is roughly
+#    2-3 % at composite level -- comfortably inside the measured 10-15 %.
+#    The porosity argument no longer rests on a borrowed number.
+#
+#    The 1000 C deposition temperature is a second, independent statement
+#    of the same quantity ZHANG2013 refs/[03] gives.  The deck uses a
+#    stress-free temperature of 1050 C (4.9-2, 4.9-11).
+#
+# 6. ** THE KAISER EFFECT -- the experimental counterpart of 2.5.4. **
+#
+#    "During the cyclic loadings, AE counts and energy increase are
+#     NEGLIGIBLE until the stress (or strain) exceeds the maximum stress
+#     (or strain) in the previous cycle.  This phenomenon reveals the
+#     distinct 'Kaiser effect' of the material and it also indicates that
+#     RE-OPENING of the matrix microcracks and interface sliding DO NOT
+#     CREATE significant AE."   (section 3.1, and again in 3.2)
+#
+#    Ch.2 2.5.4 argues that a history-variable damage law produces exactly
+#    zero further damage once the previous maximum is not exceeded, and
+#    treats that as a LIMITATION to be repaired with a cycle term.
+#
+#    Acoustic emission on this exact material says the limitation is
+#    CORRECT PHYSICS for mechanical cycling at room temperature: no new
+#    damage events occur until the previous maximum is passed.  So the
+#    monotonic model is not wrong -- it is right about the mechanism it
+#    contains.
+#
+#    That sharpens the argument rather than weakening it.  The cycle term
+#    is needed not because the CDM mis-models mechanical cycling, but
+#    because repeated THERMAL shock adds a mechanism the Kaiser effect
+#    does not cover -- oxidation.  Mei refs/[43] closes the loop from the
+#    other side: in ARGON at 1200 C, 98.90 % is retained, i.e. with the
+#    oxidation mechanism removed the material shakes down exactly as the
+#    Kaiser effect predicts.
+#
+#      mechanical cycling, RT, air     Kaiser effect: no new damage   [28]
+#      thermal cycling, 1200 C, argon  98.90 % retained               [43]
+#      thermal cycling, 900 C, air     E 98 -> 46.5 GPa               [03]
+#
+#    Three independent observations, one story: damage accumulates only
+#    when a mechanism beyond "exceeding the previous maximum" is present,
+#    and in this temperature range that mechanism is oxidation.
+#
+# 7. COMPRESSION PRODUCES NO ADDITIONAL DAMAGE (section 3.2).
+#
+#    "Since there is no obvious modulus change at low stress levels of
+#     these unloading-reloading curves, it is reasonable to assume that
+#     the compression stress components sigma_1 and sigma_2 DO NOT RESULT
+#     IN ADDITIONAL DAMAGE."
+#
+#    This is the direct experimental basis for the unilateral treatment:
+#    compression deactivates existing damage and creates none of its own.
+#
+# 8. SHEAR RECOVERY CAN BE COMPLETE (section 3.2).
+#
+#    "the damaged shear modulus PARTLY OR EVEN FULLY recovers as the
+#     stress increases"
+#
+#    So the HCLOS slot proposed in REFS_CANDIDATES 4.7-(b) must admit the
+#    full range [0, 1], not a small correction.
+#
+# 9. THE HYSTERESIS-INTERSECTION METHOD IS NOT THIS PAPER'S (ref 4).
+#
+#    The reading of O'(sigma_r, eps_r) as the thermal residual stress is
+#    attributed to Camus, Guillaumat & Baste, Compos. Sci. Technol.
+#    56(12) (1996) 1363-1372.  data/literature/digitize_ref28_fig17.py
+#    uses that method, so the METHOD should be cited to Camus and the
+#    MEASUREMENT to refs/[28].
