@@ -13,6 +13,9 @@ results and verify the code for reuse in follow-on research.
 ## Layout
 
 ```
+src/UMAT_CSIC_RVE_DAMAGE_V2_7.for         CURRENT production UMAT (V2 lineage;
+                                           see docs/CODE_HISTORY.md for V1_0->V2_7)
+src/UMAT_CSIC_RVE_DAMAGE_V2_{5,6}.for     prior V2 steps kept for provenance
 src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for      UMAT: KYARN30 (yarn) + KMTRX30 (matrix)
                                            - full Ge-2018 model; physics toggled by card
 abaqus/ZHANG2022_{RT23,T500,T1000}_V1_0.inp   verified baseline decks (plasticity/Eq.18 OFF)
