@@ -134,27 +134,36 @@ def read_damage(path):
     return out
 
 
-def peak_of(e, s):
-    """(최대응력, 그 변형률, 연화진입여부).
+def local_peak(s, win=25, dropfrac=0.03):
+    """첫 하중 급강하 직전의 국부최대 index. 없으면 None."""
+    n = len(s)
+    if n < 2 * win + 2:
+        return None
+    for i in range(win, n - win):
+        if s[i] > 0 and s[i] == max(s[i - win:i + win + 1]):
+            if min(s[i:]) < s[i] * (1.0 - dropfrac):
+                return i
+    return None
 
-    끝에서 다시 상승 중이면 연화로 치지 않는다. 손상이 몰려 응력이
-    한 번 떨어졌다가 되올라오는 곡선의 국부최대를 강도로 읽으면,
-    더 끌었을 때 그 값을 넘어서기 때문이다.
+
+def peak_of(e, s):
+    """(강도, 그 변형률, 확정여부).
+
+    이 곡선들은 "상승 -> 급강하 -> 재상승" 모양이다. 재상승은 DMAX
+    상한이 남기는 잔류강성이 만드는 것이고 실제 시편은 첫 급강하에서
+    끊어지므로, 강도는 전역최대가 아니라 그 국부최대다. 1000 C 런은
+    재상승이 국부최대를 넘어서서(128.3 > 122.2) 전역최대를 쓰면
+    엉뚱한 값을 강도로 읽게 된다.
     """
     if not s:
         return (float('nan'), float('nan'), False)
-    k = max(range(len(s)), key=lambda i: s[i])
     n = len(s)
+    lp = local_peak(s)
+    if lp is not None:
+        return (s[lp], e[lp], True)        # 급강하 = 물리적 파괴점
+    k = max(range(n), key=lambda i: s[i])
     tail = max(1, int(0.02 * n))
     softened = (k < n - tail) and s[k] > 0 and (s[k] - s[-1]) / s[k] > 0.02
-    if softened:
-        i0 = max(0, int(0.9 * n) - 1)
-        de = e[-1] - e[i0]
-        esl = (s[-1] - s[i0]) / de if de > 0 else 0.0
-        ref = next((s[i] / e[i] for i in range(n)
-                    if e[i] > 0 and e[i] <= 0.05), 0.0)
-        if ref > 0 and esl > 0.05 * ref:
-            softened = False          # 하강 후 재상승 -> 국부최대
     return (s[k], e[k], softened)
 
 

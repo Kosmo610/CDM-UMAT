@@ -248,7 +248,14 @@ def write_curve(odb, outdir, V, tag=''):
         log('    최대 응력 %.2f MPa  @  변형률 %.4f %%' % (sig[k], 100 * eps[k]))
         log('    최종점    %.2f MPa  @  변형률 %.4f %%'
             % (sig[-1], 100 * eps[-1]))
-        log(peak_verdict(sig, eps, k))
+        lp = local_peak(sig)
+        if lp is not None and lp != k:
+            log('    [강도] 국부최대 %.2f MPa @ 변형률 %.4f %%'
+                % (sig[lp], 100 * eps[lp]))
+            log('           (첫 하중 급강하 직전. 전역최대 %.2f 는 재상승'
+                % sig[k])
+            log('            구간의 값이므로 강도가 아니다.)')
+        log(peak_verdict(sig, eps, k, lp))
         if len(sig) > 3 and eps[3] != 0:
             log('    초기 접선계수 %.1f GPa  (첫 증분 기준, 증분크기에 민감)'
                 % (sig[3] / eps[3] / 1e3))
@@ -281,6 +288,27 @@ def secant(sig, eps, window):
     return best if best else (None, None)
 
 
+def local_peak(sig, win=25, dropfrac=0.03):
+    """첫 하중 급강하 직전의 국부최대 index. 없으면 None.
+
+    이 RVE 곡선은 "상승 -> 급강하 -> 재상승" 모양이 반복된다.
+    재상승은 DMAX 상한 때문에 남는 잔류강성이 만드는 것이고, 실제
+    시편은 첫 급강하 지점에서 끊어진다. 따라서 물리적 강도는 전역
+    최대가 아니라 이 국부최대다. 실제로 1000 C 런은 재상승이 국부
+    최대를 넘어서서(128.32 > 122.19) 전역최대를 쓰면 잘못 읽힌다.
+    """
+    n = len(sig)
+    if n < 2 * win + 2:
+        return None
+    for i in range(win, n - win):
+        if sig[i] <= 0.0:
+            continue
+        if sig[i] == max(sig[i - win:i + win + 1]):
+            if min(sig[i:]) < sig[i] * (1.0 - dropfrac):
+                return i
+    return None
+
+
 def end_slope(sig, eps, frac=0.10):
     """곡선 끝 frac 구간의 할선 기울기 [MPa/strain]."""
     n = len(sig)
@@ -291,7 +319,7 @@ def end_slope(sig, eps, frac=0.10):
     return (sig[-1] - sig[i0]) / de
 
 
-def peak_verdict(sig, eps, k):
+def peak_verdict(sig, eps, k, lp=None):
     """최대점이 진짜 최대인지, 곡선의 끝인지, 되올라오는 국부최대인지.
 
     최대점이 마지막 점이면 하중을 더 줄 여지가 있었다는 뜻이므로 그
@@ -318,18 +346,26 @@ def peak_verdict(sig, eps, k):
     rising = ref > 0.0 and esl > 0.05 * ref
 
     if k >= n - tail:
+        if lp is not None and lp != k:
+            # 급강하를 이미 겪고 재상승해 전역최대가 끝에 온 경우.
+            # 강도는 확보되었으므로 더 돌릴 필요가 없다.
+            return ('    [판정] 급강하를 이미 지났고 재상승 중이라 전역최대가\n'
+                    '           곡선의 끝(%.2f MPa)에 왔다. 강도는 위의\n'
+                    '           국부최대 %.2f MPa 로 확정된다. 더 끌 필요 없다.'
+                    % (smax, sig[lp]))
         return ('    [판정] *** 최대점 = 곡선의 끝. 연화 미진입 ***\n'
                 '           %.2f MPa 는 강도가 아니라 강도의 하한이다.\n'
                 '           목표변형률을 늘려서(속도는 고정) 다시 돌릴 것.'
                 % smax)
     if rising:
         smin = min(sig[k:])
-        return ('    [판정] *** 하강 후 재상승. 국부최대일 뿐이다 ***\n'
-                '           %.2f -> 최저 %.2f -> 최종 %.2f MPa 이고\n'
+        return ('    [판정] *** 하강 후 재상승 ***\n'
+                '           %.2f -> 최저 %.2f -> 최종 %.2f MPa,\n'
                 '           끝 10%% 구간이 %.1f GPa 로 아직 오르는 중이다.\n'
-                '           더 끌면 %.2f 를 넘어설 수 있으므로 이 값도\n'
-                '           강도가 아니라 하한으로 읽어야 한다.'
-                % (smax, smin, sig[-1], esl / 1e3, smax))
+                '           재상승은 DMAX 상한이 남기는 잔류강성 때문이며\n'
+                '           실제 시편은 급강하 지점에서 끊어진다.\n'
+                '           -> 위의 [강도] 국부최대를 강도로 읽을 것.'
+                % (smax, smin, sig[-1], esl / 1e3))
     if drop < 2.0:
         return ('    [판정] 최대점 통과했으나 하강폭 %.1f%% 로 미미하다.\n'
                 '           평탄부일 가능성이 있으니 더 연장하는 편이 안전하다.'
