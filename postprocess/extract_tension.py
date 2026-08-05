@@ -281,31 +281,63 @@ def secant(sig, eps, window):
     return best if best else (None, None)
 
 
-def peak_verdict(sig, eps, k):
-    """최대점이 진짜 최대인지, 그냥 곡선의 끝인지 판정한다.
+def end_slope(sig, eps, frac=0.10):
+    """곡선 끝 frac 구간의 할선 기울기 [MPa/strain]."""
+    n = len(sig)
+    i0 = max(0, int((1.0 - frac) * n) - 1)
+    de = eps[-1] - eps[i0]
+    if de <= 0.0:
+        return 0.0
+    return (sig[-1] - sig[i0]) / de
 
-    최대점이 마지막 점이면 하중을 더 줄 여지가 있었다는 뜻이므로
-    그 값은 강도가 아니라 강도의 하한이다. 이 구분을 놓치면 아직
-    상승 중인 곡선을 강도로 잘못 읽게 된다.
+
+def peak_verdict(sig, eps, k):
+    """최대점이 진짜 최대인지, 곡선의 끝인지, 되올라오는 국부최대인지.
+
+    최대점이 마지막 점이면 하중을 더 줄 여지가 있었다는 뜻이므로 그
+    값은 강도가 아니라 강도의 하한이다.
+
+    하강했더라도 끝에서 다시 상승 중이면 그것도 국부최대일 뿐이다.
+    손상이 한 번 몰리며 응력이 떨어졌다가 남은 건전부가 하중을 받아
+    다시 올라오는 형태인데, 이때 최대점을 강도로 읽으면 곡선을 더
+    끌었을 때 그 값을 넘어설 수 있다. 실제로 V2_6 GF 런이 0.282%
+    에서 139.4 로 떨어진 뒤 0.365% 에서 124.1 을 찍고 끝(0.545%)에는
+    135.9 까지 되올라와 있었다.
     """
     n = len(sig)
     if n < 3:
-        return '    [판정] 점이 too few - 판정 불가'
+        return '    [판정] 점이 부족해 판정 불가'
     smax = sig[k]
-    drop = (smax - sig[-1]) / smax * 100.0 if smax else 0.0
+    if smax <= 0.0:
+        return '    [판정] 최대응력이 0 이하 - 판정 불가'
+    drop = (smax - sig[-1]) / smax * 100.0
     tail = max(1, int(0.02 * n))
+    esl = end_slope(sig, eps)
+    e0, s0 = secant(sig, eps, 5.0e-4)
+    ref = (s0 / e0) if (e0 and s0) else 0.0
+    rising = ref > 0.0 and esl > 0.05 * ref
+
     if k >= n - tail:
         return ('    [판정] *** 최대점 = 곡선의 끝. 연화 미진입 ***\n'
                 '           %.2f MPa 는 강도가 아니라 강도의 하한이다.\n'
                 '           목표변형률을 늘려서(속도는 고정) 다시 돌릴 것.'
                 % smax)
+    if rising:
+        smin = min(sig[k:])
+        return ('    [판정] *** 하강 후 재상승. 국부최대일 뿐이다 ***\n'
+                '           %.2f -> 최저 %.2f -> 최종 %.2f MPa 이고\n'
+                '           끝 10%% 구간이 %.1f GPa 로 아직 오르는 중이다.\n'
+                '           더 끌면 %.2f 를 넘어설 수 있으므로 이 값도\n'
+                '           강도가 아니라 하한으로 읽어야 한다.'
+                % (smax, smin, sig[-1], esl / 1e3, smax))
     if drop < 2.0:
         return ('    [판정] 최대점 통과했으나 하강폭 %.1f%% 로 미미하다.\n'
                 '           평탄부일 가능성이 있으니 더 연장하는 편이 안전하다.'
                 % drop)
     return ('    [판정] 연화 진입 확인. 최대점 이후 %.1f%% 하강 '
-            '(잔여 %d 점).\n           최대응력 %.2f MPa 를 강도로 읽으면 된다.'
-            % (drop, n - 1 - k, smax))
+            '(잔여 %d 점),\n           끝 기울기 %.1f GPa.  최대응력 %.2f MPa '
+            '를 강도로 읽으면 된다.'
+            % (drop, n - 1 - k, esl / 1e3, smax))
 
 
 def write_damage(odb, outdir, V, stride, tag=''):

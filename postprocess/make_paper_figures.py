@@ -135,12 +135,26 @@ def read_damage(path):
 
 
 def peak_of(e, s):
-    """(최대응력, 그 변형률, 연화진입여부)."""
+    """(최대응력, 그 변형률, 연화진입여부).
+
+    끝에서 다시 상승 중이면 연화로 치지 않는다. 손상이 몰려 응력이
+    한 번 떨어졌다가 되올라오는 곡선의 국부최대를 강도로 읽으면,
+    더 끌었을 때 그 값을 넘어서기 때문이다.
+    """
     if not s:
         return (float('nan'), float('nan'), False)
     k = max(range(len(s)), key=lambda i: s[i])
-    tail = max(1, int(0.02 * len(s)))
-    softened = (k < len(s) - tail) and (s[k] - s[-1]) / s[k] > 0.02
+    n = len(s)
+    tail = max(1, int(0.02 * n))
+    softened = (k < n - tail) and s[k] > 0 and (s[k] - s[-1]) / s[k] > 0.02
+    if softened:
+        i0 = max(0, int(0.9 * n) - 1)
+        de = e[-1] - e[i0]
+        esl = (s[-1] - s[i0]) / de if de > 0 else 0.0
+        ref = next((s[i] / e[i] for i in range(n)
+                    if e[i] > 0 and e[i] <= 0.05), 0.0)
+        if ref > 0 and esl > 0.05 * ref:
+            softened = False          # 하강 후 재상승 -> 국부최대
     return (s[k], e[k], softened)
 
 
