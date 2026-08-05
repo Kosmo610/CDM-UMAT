@@ -267,7 +267,7 @@ def conductivity(path, dT=1.0):
 # element's own length.  Positive entries keep the original meaning bit for
 # bit, so cards written before this existed are unaffected.
 #
-# See docs/CH4_RVE_HOMOGENISATION.md 4.6.1 and 4.9-12.
+# See docs/CH4_RVE_HOMOGENISATION.md 4.6.1 and 4.9-16.
 MODE_G0_KEYS = {"1t": ("Xt", "E1"), "1c": ("Xc", "E1"),
                 "2t": ("Yt", "E2"), "2c": ("Yc", "E2")}
 

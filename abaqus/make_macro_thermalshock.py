@@ -377,12 +377,129 @@ def write(path, parts):
     print("  wrote %s" % path)
 
 
-def check_macro_card(card_text, where=""):
-    """Mirror KMACRO31's own card guards in Python.
+#: Fracture-energy slots, 1-based, with the strength and modulus each one is
+#: paired against.  Taken from KMACRO31's own KABAND calls, not assumed:
+#:     CALL KABAND(XT*XT/(2*E1)*CELENT,G1T,...)   -> slot 32 uses PROPS(11),(2)
+#:     CALL KABAND(YT*YT/(2*E2)*CELENT,GTT,...)   -> slot 34 uses PROPS(13),(3)
+#: The fixed-exponent fallback A that KABAND returns for a zero entry lives in
+#: slots 18-21 in the same order.
+GF_MODES = ((32, "1t", 11, 2, 18), (33, "1c", 12, 2, 19),
+            (34, "2t", 13, 3, 20), (35, "2c", 14, 3, 21))
 
-    Every rejection below is one that the UMAT would raise as a CALL XIT at
-    job start.  Catching it here costs nothing; catching it in Abaqus costs a
-    submission, a queue wait and a confusing .msg.
+#: Which f(T) column scales which slot, again read off KMACRO31:
+#: F(1)->E1, F(2)->E2 and E3, F(4)->Xt and Xc, F(5)->Yt and Yc.
+GF_TCOL = {2: 1, 3: 2, 11: 4, 12: 4, 13: 5, 14: 5}
+
+
+def _kaband(g0le, gf, afix):
+    """Python mirror of KABAND in src/UMAT_CSIC_THERMSHOCK_V3_0.for.
+
+    Kept here rather than imported so that this validator has no dependency
+    on the postprocess package: deck generation must work in a bare checkout.
+    verification/check_gf_scale_transfer.py holds the same mirror and tests it
+    against the Fortran text.
+    """
+    if gf == 0.0:
+        return afix
+    if gf < 0.0:
+        a = 2.0 * g0le / (-gf) if (-gf) > 0.02 * g0le else 50.0
+    else:
+        a = 2.0 * g0le / (gf - g0le) if gf > 1.02 * g0le else 50.0
+    return min(50.0, max(1.0e-2, a))
+
+
+def _le_list(le):
+    """Accept a single characteristic length or a range of them."""
+    if le is None:
+        return []
+    if isinstance(le, (int, float)):
+        le = [le]
+    return sorted(set(float(v) for v in le if v and float(v) > 0.0))
+
+
+def gf_audit(p, nt, le=None):
+    """What each fracture-energy slot will actually DO inside KMACRO31.
+
+    Two silent failures live in these four numbers, and neither one makes the
+    UMAT complain, so neither can be caught anywhere but here.
+
+    A POSITIVE entry is the Ch.4 4.9-16 defect.  Positive means the TOTAL area
+    convention, Gf = le*g0 + le*2*g0/A, which carries whatever length made it.
+    The only maker of macro cards in this repository is postprocess/
+    homogenize.py, and it extracts with the RVE edge, 3.5 mm, while a macro
+    element here is 0.68-0.94 mm.  KABAND takes the number without complaint
+    and returns a softening exponent several times too small -- a branch that
+    sheds load too slowly, so the specimen keeps carrying stress it should
+    have lost.  That over-predicts residual strength, which is the quantity
+    Ch.6 reports, so the error is non-conservative.
+
+    A CLAMPED entry is the other one.  KABAND holds A inside [0.01, 50], and
+    A = 50 is specifically the snap-back fallback: the element is too long to
+    resolve that mode's crack band at all, and the card silently stops meaning
+    what the RVE measured.  Since KMACRO31 scales E and X by the f(T) table
+    but leaves Gf alone, g0 moves with temperature while |Gf| does not -- so a
+    mode can be fine at the reference temperature and clamped at another.  The
+    audit therefore walks every row of the table, not just the first.
+
+    `le` is the macro element's characteristic length (CELENT, the cube root
+    of the element volume for a hex).  Pass the real graded range; without it
+    only the sign can be judged.
+    """
+    les = _le_list(le)
+    rows = []
+    for slot, mode, xslot, eslot, aslot in GF_MODES:
+        gf = p[slot - 1]
+        rec = dict(slot=slot, mode=mode, gf=gf, afix=p[aslot - 1],
+                   sign=("total" if gf > 0.0 else
+                         "off" if gf == 0.0 else "inelastic"),
+                   states=[])
+        X0, E0 = p[xslot - 1], p[eslot - 1]
+        for T, fx, fe in _t_factors(p, nt, xslot, eslot):
+            X, E = X0 * fx, E0 * fe
+            if X <= 0.0 or E <= 0.0:
+                continue
+            g0 = X * X / (2.0 * E)
+            for lc in les:
+                A = _kaband(g0 * lc, gf, rec["afix"])
+                rec["states"].append(dict(
+                    T=T, le=lc, g0=g0, A=A,
+                    clamped=("snapback" if A >= 50.0 - 1e-9 else
+                             "floor" if A <= 1.0e-2 + 1e-12 else "")))
+        rows.append(rec)
+    return rows
+
+
+def _t_factors(p, nt, xslot, eslot):
+    """(T, strength multiplier, modulus multiplier) for every table row.
+
+    The table starts at PROPS(48) and is 8 wide: T, fE1, fE2, fG, fXt, fYt,
+    fS, fC.  With no table there is still one state -- the reference row,
+    which is 1.0 by construction.
+    """
+    xcol, ecol = GF_TCOL[xslot], GF_TCOL[eslot]
+    if nt <= 0 or len(p) < 47 + 8 * nt:
+        return [(None, 1.0, 1.0)]
+    out = []
+    for i in range(nt):
+        row = p[47 + 8 * i:55 + 8 * i]
+        out.append((row[0], row[xcol], row[ecol]))
+    return out
+
+
+def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
+    """Mirror KMACRO31's own card guards in Python, and audit what it accepts.
+
+    Every rejection down to the failure-criterion block is one that the UMAT
+    would raise as a CALL XIT at job start.  Catching it here costs nothing;
+    catching it in Abaqus costs a submission, a queue wait and a confusing
+    .msg.
+
+    The fracture-energy check at the end is a different animal and is worth
+    keeping straight: KABAND does NOT reject a positive Gf.  It accepts it,
+    runs, and returns the wrong softening branch.  There is no CALL XIT to
+    mirror, so this validator is the only place the mistake can be stopped.
+    `allow_total_gf` exists for a card whose Gf really was measured at the
+    macro element's own length -- nothing in this repository produces one.
     """
     lines = card_text.splitlines()
     ndep, vals, head = None, [], None
@@ -448,9 +565,65 @@ def check_macro_card(card_text, where=""):
     elif ndep is not None and ndep < 22:
         raise SystemExit("macro card%s: *Depvar >= 22 required, got %d"
                          % (tag, ndep))
-    return dict(nprops=n, nt=nt, ndepvar=ndep,
+
+    gf = gf_audit(p, nt, le)
+    stale = [g for g in gf if g["sign"] == "total"]
+    if stale and not allow_total_gf:
+        msg = ["macro card%s: slots %s carry a POSITIVE fracture energy."
+               % (tag, ", ".join(str(g["slot"]) for g in stale))]
+        msg.append("  A positive entry is the TOTAL-area convention, which "
+                   "contains g0 times")
+        msg.append("  the length it was extracted at.  A macro card is by "
+                   "definition consumed")
+        msg.append("  at a different length, so only the DISSIPATED part may "
+                   "cross the scale")
+        msg.append("  boundary and it is carried NEGATED.  See Ch.4 4.9-16.")
+        for g in stale:
+            worst = max((s["A"] for s in g["states"]), default=None)
+            msg.append("    slot %d (%s): Gf = %+.6g N/mm -> A = %s"
+                       % (g["slot"], g["mode"], g["gf"],
+                          "%.4g at best" % worst if worst is not None
+                          else "unknown without le"))
+        msg.append("  Regenerate with postprocess/homogenize.py (it splits "
+                   "and negates), or")
+        msg.append("  pass allow_total_gf=True if this card really was "
+                   "measured at le(macro).")
+        raise SystemExit("\n".join(msg))
+    return dict(nprops=n, nt=nt, ndepvar=ndep, gf=gf,
                 criteria=(n == 56 + 8 * nt and
                           int(round(p[47 + 8 * nt])) > 0))
+
+
+def print_gf_audit(rows):
+    """Say what the crack band will do, per mode, before anything is run.
+
+    A clamped mode is not an error -- it is a legitimate outcome that means
+    the macro mesh cannot resolve that mode's band -- but it must be visible,
+    because a peak stress quoted out of a snap-back-clamped run is a mesh
+    result rather than a material one.
+    """
+    live = [r for r in rows if r["states"]]
+    if not live:
+        print("  crack band: no characteristic length given, sign only")
+        return
+    print("  crack band, A per mode (KABAND):")
+    for r in live:
+        if r["sign"] == "off":
+            print("    %-3s slot %d  OFF -> fixed exponent A = %.4g"
+                  % (r["mode"], r["slot"], r["afix"]))
+            continue
+        As = [s["A"] for s in r["states"]]
+        clamps = sorted(set(s["clamped"] for s in r["states"] if s["clamped"]))
+        note = ""
+        if "snapback" in clamps:
+            snap = [s for s in r["states"] if s["clamped"] == "snapback"]
+            note = ("  ** SNAP-BACK CLAMP at %d of %d (T, le) states -- the "
+                    "element is too long for this band"
+                    % (len(snap), len(r["states"])))
+        elif "floor" in clamps:
+            note = "  ** floor clamp A = 0.01"
+        print("    %-3s slot %d  |Gf| = %.6g N/mm  ->  A = %.4g - %.4g%s"
+              % (r["mode"], r["slot"], abs(r["gf"]), min(As), max(As), note))
 
 
 def _mangle(card, slot=None, value=None, depvar=None, drop=0):
@@ -490,24 +663,33 @@ def selftest():
     print("check_macro_card selftest")
     fails = []
 
-    def expect_ok(name, card):
+    def expect_ok(name, card, **kw):
         try:
-            info = check_macro_card(card, name)
+            info = check_macro_card(card, name, **kw)
             print("  [PASS] accepts %-38s NPROPS=%d Depvar=%s"
                   % (name, info["nprops"], info["ndepvar"]))
+            return info
         except SystemExit as exc:
             fails.append(name)
             print("  [FAIL] rejected a VALID card %s: %s" % (name, exc))
+            return None
 
-    def expect_reject(name, card):
+    def expect_reject(name, card, **kw):
         try:
-            check_macro_card(card, name)
+            check_macro_card(card, name, **kw)
         except SystemExit as exc:
             print("  [PASS] rejects %-38s (%s)"
-                  % (name, str(exc).split(":")[-1].strip()[:46]))
+                  % (name, str(exc).splitlines()[0].split(":")[-1].strip()[:46]))
             return
         fails.append(name)
         print("  [FAIL] ACCEPTED a broken card: %s" % name)
+
+    def expect_true(name, cond, detail=""):
+        if cond:
+            print("  [PASS] %-46s %s" % (name, detail))
+        else:
+            fails.append(name)
+            print("  [FAIL] %-46s %s" % (name, detail))
 
     c = PLACEHOLDER_CARD
     expect_ok("placeholder card, criteria on", c)
@@ -529,6 +711,70 @@ def selftest():
     bad = c.replace("constants=56", "constants=48")
     expect_reject("constants= disagrees with the values", bad)
 
+    # ---- the Ch.4 4.9-16 convention -------------------------------------
+    # These are the ones the UMAT will NOT catch.  A positive Gf runs, and
+    # returns a softening branch that is too gentle by the ratio of the two
+    # lengths, so the only defence is refusing to write the deck.
+    E1, Xt = 105000.0, 220.0
+    g0 = Xt * Xt / (2.0 * E1)                     # 0.2305 N/mm2
+    LE = 0.7                                      # a ZHANG2013-sized element
+    A_WANTED = 3.0
+    gfin = 2.0 * g0 * LE / A_WANTED               # dissipated part at this le
+
+    for slot, mode in ((32, "1t"), (33, "1c"), (34, "2t"), (35, "2c")):
+        expect_reject("slot %d (%s) positive = total-area convention"
+                      % (slot, mode),
+                      _mangle(c, slot=slot, value=0.9), le=LE)
+    expect_ok("the same card with allow_total_gf",
+              _mangle(c, slot=32, value=0.9), le=LE, allow_total_gf=True)
+    expect_ok("negated dissipated part is accepted",
+              _mangle(c, slot=32, value=-gfin), le=LE)
+    expect_ok("Gf = 0 (band off) is accepted", c, le=LE)
+
+    # The audit has to reproduce KABAND, not merely judge the sign.
+    info = check_macro_card(_mangle(c, slot=32, value=-gfin), "audit", le=LE)
+    rec = info["gf"][0]
+    # patch_card writes the slot with %.10g, so the value that comes back has
+    # been through a ten-significant-digit text round trip.  1e-6 is the text,
+    # not the algebra; check_gf_scale_transfer.py tests the algebra at 1e-9.
+    expect_true("audit recovers the exponent that made the entry",
+                abs(rec["states"][0]["A"] - A_WANTED) < 1e-6,
+                "A = %.9f (wanted %.1f)" % (rec["states"][0]["A"], A_WANTED))
+    expect_true("audit reads g0 = X^2/2E from the card's own slots",
+                abs(rec["states"][0]["g0"] - g0) < 1e-9,
+                "g0 = %.6f N/mm2" % rec["states"][0]["g0"])
+    expect_true("a zero slot reports the fixed exponent, not a computed one",
+                info["gf"][1]["sign"] == "off"
+                and info["gf"][1]["states"][0]["A"] == info["gf"][1]["afix"],
+                "A = %.4g" % info["gf"][1]["afix"])
+
+    # Snap-back: too little dissipation for the element length.  KABAND
+    # clamps to 50 and the branch stops being the one that was measured.
+    tiny = 0.01 * g0 * LE
+    info = check_macro_card(_mangle(c, slot=32, value=-tiny), "snap", le=LE)
+    expect_true("snap-back clamp is reported, not silently applied",
+                info["gf"][0]["states"][0]["clamped"] == "snapback",
+                "|Gf| = %.4g N/mm at le = %.2f mm" % (tiny, LE))
+
+    # The pairing must be right or every g0 is wrong.  Halving Yt may only
+    # move the transverse modes.
+    half = patch_card(_mangle(c, slot=32, value=-gfin), 13, 0.5 * 220.0)
+    a_long = check_macro_card(half, "pair", le=LE)["gf"][0]["states"][0]["g0"]
+    a_tran = check_macro_card(half, "pair", le=LE)["gf"][2]["states"][0]["g0"]
+    expect_true("Yt moves the transverse g0 and leaves the longitudinal one",
+                abs(a_long - g0) < 1e-9 and abs(a_tran - 0.25 * g0) < 1e-9,
+                "g0(1t) = %.6f, g0(2t) = %.6f" % (a_long, a_tran))
+
+    # KMACRO31 scales E and X by f(T) but never Gf, so a mode can be fine at
+    # the reference temperature and clamped at another.  The audit must walk
+    # every table row rather than trusting the first.
+    info = check_macro_card(_mangle(c, slot=32, value=-gfin), "ttab",
+                            le=[LE, 2.0 * LE])
+    nstate = len(info["gf"][0]["states"])
+    expect_true("audit walks every (temperature, le) state",
+                nstate == max(info["nt"], 1) * 2,
+                "%d states from NT=%d x 2 lengths" % (nstate, info["nt"]))
+
     # Cross-module: the card that postprocess/homogenize.py will actually
     # emit after the RVE virtual tests must pass this validator.  Without
     # this the two files can drift apart and nobody notices until M3.
@@ -544,6 +790,11 @@ def selftest():
                        G23=22000.0)
         strength = dict(Xt=220.0, Xc=480.0, Yt=220.0, Yc=480.0,
                         S12=110.0, S13=90.0, S23=90.0)
+        # Give it real dissipated parts as well, so the card that comes back
+        # exercises the sign convention instead of four zeros.  If homogenize
+        # ever stops negating them, this validator now says so.
+        for m in ("1t", "1c", "2t", "2c"):
+            strength["Gfin_" + m] = 0.12
         for temps in ([23.0], [23.0, 500.0, 1000.0]):
             by_T = {}
             for i, T in enumerate(temps):
@@ -553,10 +804,24 @@ def selftest():
                     strength={k: v * f for k, v in strength.items()},
                     alpha=(2.5e-6, 2.5e-6, 5.0e-6))
             for crit, tag in ((hz.DEFAULT_CRIT, "on"), (None, "off")):
-                expect_ok("homogenize.py card, NT=%d, criteria %s"
-                          % (len(temps), tag),
-                          hz.macro_card(by_T, hz.DEFAULT_CYC, temps,
-                                        crit=crit))
+                emitted = hz.macro_card(by_T, hz.DEFAULT_CYC, temps, crit=crit)
+                info = expect_ok("homogenize.py card, NT=%d, criteria %s"
+                                 % (len(temps), tag), emitted, le=0.7)
+                if info is None:
+                    continue
+                expect_true("  and its four Gf slots are all negated",
+                            all(g["sign"] == "inelastic" for g in info["gf"]),
+                            ", ".join("%s %+.3g" % (g["mode"], g["gf"])
+                                      for g in info["gf"]))
+                # KMACRO31 scales X and E with f(T) but leaves Gf alone, so A
+                # is temperature dependent even though the card slot is not.
+                # The audit has to see one state per table row.
+                seen = [s["T"] for s in info["gf"][0]["states"]]
+                expect_true("  and reports A at every one of the %d table rows"
+                            % len(temps), seen == list(temps),
+                            "A = %s" % ", ".join(
+                                "%.3f" % s["A"]
+                                for s in info["gf"][0]["states"]))
 
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
@@ -667,6 +932,11 @@ def main():
                          "cycles all at once (see quench_calibration.py)")
     ap.add_argument("--validation-zhang2013", action="store_true",
                     help="deprecated alias for --specimen ZHANG2013")
+    ap.add_argument("--allow-total-gf", action="store_true",
+                    help="accept POSITIVE fracture energies in slots 32-35.  "
+                         "Only correct if the card's Gf was measured at the "
+                         "macro element's own length -- homogenize.py never "
+                         "produces such a card.  See Ch.4 4.9-16.")
     ap.add_argument("--list-checks", action="store_true")
     ap.add_argument("--selftest", action="store_true",
                     help="check that check_macro_card() accepts good cards "
@@ -710,11 +980,24 @@ def main():
     if not args.thermal:
         print("  !! using PLACEHOLDER thermal properties -- run RVE_COND first")
 
-    info = check_macro_card(card, os.path.basename(args.card or "placeholder"))
+    # CELENT for a hex is the cube root of the element volume.  The mesh is
+    # graded toward the quenched faces, so there is a range, and the crack
+    # band has to be checked at BOTH ends: the thin surface elements are the
+    # ones that resolve the gradient and the ones most likely to snap back.
+    dzs = [zs[i + 1] - zs[i] for i in range(len(zs) - 1)]
+    dx, dy = Lx / float(nx), Ly / float(ny)
+    le_range = [(dx * dy * min(dzs)) ** (1.0 / 3.0),
+                (dx * dy * max(dzs)) ** (1.0 / 3.0)]
+    print("  element characteristic length CELENT = %.4g - %.4g mm"
+          % (le_range[0], le_range[1]))
+
+    info = check_macro_card(card, os.path.basename(args.card or "placeholder"),
+                            le=le_range, allow_total_gf=args.allow_total_gf)
     print("  macro card OK: NPROPS=%d (NT=%d), *Depvar=%s, "
           "failure criteria %s"
           % (info["nprops"], info["nt"], info["ndepvar"],
              "ON" if info["criteria"] else "OFF"))
+    print_gf_audit(info["gf"])
     if not info["criteria"]:
         print("  !! failure-criterion block is OFF.  Turning it on LATER means "
               "re-running\n     every macro job -- it only adds STATEV.  "

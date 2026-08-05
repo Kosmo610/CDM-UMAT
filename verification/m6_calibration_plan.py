@@ -12,7 +12,7 @@ calibration is even aiming at:
           published moduli were seen to fall in two clusters
   4.9-8   the 14 GUESS card inputs were split into three kinds, only one of
           which calibration should be moving
-  4.9-12  Gf now hands the DISSIPATED part across the scale boundary, which
+  4.9-16  Gf now hands the DISSIPATED part across the scale boundary, which
           moves the macro softening exponent by 2.2x
 
 This script turns those into a plan and, more importantly, checks the plan
@@ -396,7 +396,7 @@ def part_plan():
    does not move.  A value that changes the answer is a defect to report,
    not a knob to tune.
 
- STAGE 5 -- re-derive the macro card with the 4.9-12 convention.
+ STAGE 5 -- re-derive the macro card with the 4.9-16 convention.
    homogenize.py now hands the DISSIPATED part upward.  The macro softening
    exponent moves 2.2x from the uncorrected value, in the direction that
    was over-predicting residual strength.  Any macro result produced before

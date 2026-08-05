@@ -3,5 +3,10 @@
   "branch": "claude/thesis-csic-thermal-shock-5m53iv",
   "merged_from_a1_upto": "595e552",
   "note": "read = a1의 메시지 중 '반영까지 끝낸' id. PROTOCOL.md §4.",
-  "read": []
+  "read": [
+    "a1-0001",
+    "a1-0002",
+    "a1-0003",
+    "a1-0004"
+  ]
 }

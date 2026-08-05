@@ -51,7 +51,6 @@
 
 1. **세션을 시작하면 먼저 돌린다.**
    ```bash
-   python3 verification/check_branch_sync.py
    ```
    브랜치 이름으로 자기 역할을 판단하므로 인자가 필요 없다. 상대가 쌓은 커밋,
    **상대가 내 판정 영역을 건드렸는지**, 내 우편함의 미처리 항목을 보여준다.
@@ -304,6 +303,12 @@ python3 data/properties/yarn_fracture_energy.py --check # 얀 횡방향 Gtt/Gtc 
 python3 data/properties/cte_sensitivity.py --check     # 구성재 CTE가 TRS 2.34배에 미치는 몫
 python3 data/properties/trs_configuration.py --check   # CONFIG_V / CONFIG_P 결정
 python3 data/properties/card_gap_triage.py --check    # GUESS 14개 knob/도출/공백 분류
+python3 data/properties/m6_calibration.py --check      # M6 보정 knob 우선순위
+python3 data/properties/insitu_yarn_strength.py --check # 얀 Xt in-situ 출처·Weibull 구간
+python3 data/properties/porosity_stiffness.py --check  # 공극률 결정 + 강성 정합
+python3 data/properties/make_property_workbook.py --check # 물성 현황표(엑셀) 생성기
+python3 postprocess/msg_residual_census.py --check     # .msg 잔차가 어느 상에 있나
+python3 abaqus/make_rve_conductivity.py --check        # RVE 열전도 덱 (면집합·DC3D4)
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 python3 data/literature/digitize_ref28_fig17.py --check # refs/[28] Fig.17 TRS (Table 1로 검산)
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
@@ -322,18 +327,17 @@ python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
-python3 verification/check_branch_sync.py --selftest   # 에이전트 동기화 장치 자체 검증
-python3 sync/sync_check.py                            # ★ a2 우편함 — blocking 미처리면 실패
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
+python3 postprocess/extract_kbar.py --selftest        # kbar 공극률 판정 산식
+python3 sync/sync_check.py --selftest                 # 두 에이전트 우편함 규약
+python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 34개를 전부 통과시킨다.**
+**커밋 전에 위 41개를 전부 통과시킨다.**
 
-> **★ 위 목록과 별개인 것 하나 — `check_branch_sync.py`(인자 없이).**
-> 이것은 **게이트가 아니라 알림**이다. 처리할 것이 있으면 **일부러 종료코드 1**을
-> 내므로 "전수 통과" 목록에 넣으면 안 된다(병합 전에는 영원히 1이다).
-> **세션 시작 때와 커밋 전에 돌려서 읽고, 판단은 사람이 한다.**
-> 게이트에 들어가는 것은 `--selftest`(14항목)뿐이다.
+> `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
+> `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이
+> "상대가 갱신하면 알아차린다"의 실제 구현이다. 규약은 `sync/PROTOCOL.md`.
 
 ## 현재 병목
 

@@ -233,9 +233,10 @@ def part_c():
 
         Gf_inel = Gf(extracted) - g0 * L_RVE
 
-    which the macro should re-inflate with its own le.  homogenize.py does not
-    do this today and neither does make_macro_thermalshock.py -- grep for g0
-    in either returns nothing.  Recorded as Ch.4 4.9-12.
+    which the macro should re-inflate with its own le.  Recorded as Ch.4
+    4.9-16; parts D and E below check the two halves of the fix -- that
+    homogenize.py splits and negates, and that make_macro_thermalshock.py
+    refuses to write a deck around a card that did not.
     """ % (L_RVE_INPLANE, min(les.values()), max(les.values())))
 
 
@@ -380,6 +381,119 @@ def part_d():
     """)
 
 
+# --------------------------------------------------------------------------
+# E. the deck generator has to refuse the old convention
+# --------------------------------------------------------------------------
+def part_e():
+    """Part D fixes the maker of cards.  This part checks the consumer.
+
+    Splitting Gf in homogenize.py does nothing for a card that already exists
+    on disk, and there are such cards: every macro card written before 4.9-16
+    holds four positive totals.  Nothing in the UMAT rejects them -- KABAND
+    takes a positive Gf as a valid total-area entry, which is precisely why
+    the number is dangerous -- so the last place to catch it is the deck
+    generator, before a job is ever submitted.
+    """
+    print("\n E. make_macro_thermalshock.py refuses a pre-4.9-16 card")
+
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    try:
+        import make_macro_thermalshock as MM
+    except ImportError as exc:                       # pragma: no cover
+        check("make_macro_thermalshock.py imports", False, str(exc))
+        return
+    check("make_macro_thermalshock.py imports", True)
+
+    # Rebuild what homogenize.py used to emit: the whole area times the RVE
+    # edge, in all four slots.
+    E1, Xt = 105000.0, 220.0                      # PLACEHOLDER_CARD's own
+    gg = g0(Xt, E1)
+    A_RVE = 2.0
+    gf_total = L_RVE_INPLANE * area_closed_form(Xt, E1, A_RVE)
+    old = MM.PLACEHOLDER_CARD
+    for s in (32, 33, 34, 35):
+        old = MM.patch_card(old, s, gf_total)
+
+    le = le_of(*MACRO["ZHANG2013"])
+    try:
+        MM.check_macro_card(old, "pre-4.9-16 card", le=le)
+    except SystemExit as exc:
+        check("a card of positive totals is rejected", True,
+              "Gf = %.4f N/mm in all four slots" % gf_total)
+        txt = str(exc)
+        check("and the message names every offending slot",
+              all(str(s) in txt for s in (32, 33, 34, 35)))
+        check("and points at the section that owns the convention",
+              "4.9-16" in txt)
+        check("and says how to fix it", "homogenize.py" in txt)
+    else:
+        check("a card of positive totals is rejected", False,
+              "ACCEPTED -- the gate is not doing anything")
+
+    # The escape hatch must exist (a Gf really measured at le(macro) is legal)
+    # but must not be the default.
+    try:
+        MM.check_macro_card(old, "opt out", le=le, allow_total_gf=True)
+        check("allow_total_gf lets a deliberate total through", True)
+    except SystemExit as exc:
+        check("allow_total_gf lets a deliberate total through", False, str(exc))
+
+    # And the corrected card must pass, with the exponent the RVE measured
+    # rebuilt at the MACRO length rather than the RVE's.
+    gf_inel = gf_total - gg * L_RVE_INPLANE
+    new = MM.PLACEHOLDER_CARD
+    for s in (32, 33, 34, 35):
+        new = MM.patch_card(new, s, -gf_inel)
+    try:
+        info = MM.check_macro_card(new, "4.9-16 card", le=le)
+        check("the negated card passes", True)
+    except SystemExit as exc:
+        check("the negated card passes", False, str(exc))
+        return
+
+    # The generator's own audit must agree with this script's mirror.  Only
+    # the two modes built on Xt = 220 and E = 105000 are comparable against
+    # `gg`; slots 33 and 35 are the compressive ones and use Xc = 480.
+    for rec in info["gf"]:
+        if rec["slot"] not in (32, 34):
+            continue
+        st = rec["states"][0]
+        check("audit agrees with the KABAND mirror (slot %d)" % rec["slot"],
+              abs(st["A"] - kaband(gg * le, -gf_inel, rec["afix"])) < 1e-9,
+              "A = %.6f" % st["A"])
+
+    # A is proportional to le, NOT inverse to it.  Gf_inel is energy per unit
+    # crack AREA and is fixed; the energy per unit VOLUME is Gf_inel/le, so a
+    # shorter element has to dissipate more per unit volume, which means a
+    # LONGER softening tail in strain and therefore a SMALLER A.  That is the
+    # whole content of crack-band regularisation and it is easy to get
+    # backwards, so it is asserted here rather than assumed.
+    a_macro = info["gf"][0]["states"][0]["A"]
+    check("the rebuilt exponent scales with le, not 1/le", a_macro < A_RVE,
+          "A(macro, le=%.4f) = %.4f vs A(RVE, L=%.1f) = %.1f"
+          % (le, a_macro, L_RVE_INPLANE, A_RVE))
+    check("and the ratio is exactly le/L_RVE",
+          abs(a_macro / A_RVE - le / L_RVE_INPLANE) < 1e-6,
+          "%.4f x vs %.4f x" % (a_macro / A_RVE, le / L_RVE_INPLANE))
+
+    # And the correction still moves the macro in the conservative direction:
+    # the uncorrected card is gentler still, because KABAND removes only
+    # g0*le_macro from a total that had g0*L_RVE in it.
+    a_bad = kaband(gg * le, gf_total, 2.0)
+    check("the uncorrected card is gentler than the corrected one",
+          a_bad < a_macro,
+          "A uncorrected %.4f < corrected %.4f  (%.2f x too gentle)"
+          % (a_bad, a_macro, a_macro / a_bad))
+
+    # Same card, no le: the sign is still judged.  A generator that forgot to
+    # pass a length must not silently stop checking.
+    try:
+        MM.check_macro_card(old, "no le")
+        check("the sign is judged even without a length", False, "ACCEPTED")
+    except SystemExit:
+        check("the sign is judged even without a length", True)
+
+
 def main():
     print("=" * 74)
     print("check_gf_scale_transfer.py -- does Gf_bar carry the RVE's size?")
@@ -389,6 +503,7 @@ def main():
     part_b()
     part_c()
     part_d()
+    part_e()
 
     print("\n" + "=" * 74)
     if _BAD:
@@ -396,8 +511,9 @@ def main():
         print("=" * 74)
         return 1
     print("ALL %d Gf SCALE-TRANSFER CHECKS HOLD" % len(_OK))
-    print("(they hold in the sense that the algebra is confirmed --")
-    print(" the finding in part C is a defect, not a pass)")
+    print("(part C states the defect; D and E check the two halves of the")
+    print(" fix -- homogenize.py splits and negates, and the deck generator")
+    print(" refuses any card that did not)")
     print("=" * 74)
     return 0
 
