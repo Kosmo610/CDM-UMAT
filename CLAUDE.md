@@ -246,9 +246,15 @@ python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
+python3 sync/sync_check.py --selftest                 # 두 에이전트 우편함 규약
+python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 36개를 전부 통과시킨다.**
+**커밋 전에 위 38개를 전부 통과시킨다.**
+
+> `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
+> `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이
+> "상대가 갱신하면 알아차린다"의 실제 구현이다. 규약은 `sync/PROTOCOL.md`.
 
 ## 현재 병목
 
