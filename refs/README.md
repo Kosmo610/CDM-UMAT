@@ -85,6 +85,19 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 | **30** | **Q. Zhang, J. Ge, Liang 외**, *…2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. B 313 (2026) 113395** | **우리 기반 논문과 같은 그룹의 2026 후속작.** 단 **진폭 증가** 기계 반복이라 shakedown이 안 생김 → 우리 문제와 다름을 명시할 근거 |
 | **20**=**21** | **Z. Yang, J. Wang, R. Yang, J. Jiao**, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **IJSS 300 (2024) 112927** | 급랭 문제에 가장 가까움. 단 **ERR 기반 균열 개시**(누적손상 아님) + 라미네이트 1D |
 
+> **⚠️ 중복 2쌍 — PDF 47개, 서로 다른 논문은 45편이다.**
+> `[20]`=`[21]` (IJSS 300 (2024) 112927) 은 아래 표에 이미 적혀 있고,
+> **`[32]`=`[39]` (J. Compos. Sci. 4(4) (2020) 183, doi:10.3390/jcs4040183)**
+> 는 2026-08-05 점검에서 추출 텍스트 md5 대조로 처음 발견되었다.
+> 어느 쪽도 참고문헌 목록에 두 번 들어가 있지는 않다.
+> 판정기: `python3 data/literature/refs_audit.py --check`
+
+> **⚠️ 고분자 기지 논문 7편이 섞여 있다 — 카드값 출처로 쓰면 안 된다.**
+> `[24]`(탄소/페놀), `[25]`(탄소/에폭시), `[26]`(에폭시), `[37]`·`[38]`·`[40]`·`[41]`(에폭시).
+> 이 중 `[25]`·`[26]`은 파일명이 '3D C-SiC 물성'이라 특히 위험하다.
+> **기법(균질화·주기경계조건) 인용은 정당하고, 물성 인용만 금지**된다.
+> 실제로 `[24]`에서 얀 $G_{1t}$·$G_{1c}$와 횡방향 강도가 넘어온 적이 있다.
+
 **파손기준 세트** (`[27]`,`[32]`,`[33]`,`[34]`,`[35]`,`[28]`) — D-criterion 계열.
 `[33]` Yang, Jiao, Guo, *TAML* 4 (2014) 021007이 원전. `[35]` Yan 외, *Mater. Des.* 32 (2011)
 3504는 **고온 면내 전단 파손** 데이터로 온도의존 파손포락선 검증에 쓸 수 있습니다.

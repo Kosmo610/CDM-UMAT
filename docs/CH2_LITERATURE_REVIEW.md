@@ -766,7 +766,9 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [5] | Q. Zhang, J. Ge, L. Zhang, Y. He, Z. Wu, J. Liang, *Effect of thermal residual stress on the tensile properties and damage process of C/SiC composites at high temperatures*, **Ceram. Int. 48 (2022) 3109–3124** |
 | [5b] | R. Skinner, A. Chattopadhyay, *Multiscale temperature-dependent ceramic matrix composite damage model with thermal residual stresses and manufacturing-induced damage*, **Compos. Struct. 268 (2021) 114006** |
 | [06] | L. L. Snead, T. Nozawa, Y. Katoh, T.-S. Byun, S. Kondo, D. A. Petti, *Handbook of SiC properties for fuel performance modeling*, **J. Nucl. Mater. 371 (2007) 329–377** |
+| [07] | **C. Pradère, C. Sauder**, *Transverse and longitudinal coefficient of thermal expansion of carbon fibers at high temperatures (300–2500 K)*, **Carbon 46 (2008) 1874–1884**, doi:`10.1016/j.carbon.2008.07.035` — 제3·4장 섬유 CTE |
 | [09] | C. Pradère, J.-C. Batsale, J.-M. Goyhénèche, R. Pailler, S. Dilhaire, *Thermal properties of carbon fibers at very high temperature*, **Carbon 47 (2009) 737–743** |
+| [13] | **Y. Katoh, T. Nozawa, L. L. Snead, T. Hinoki, A. Kohyama**, *Property tailorability for advanced CVI silicon carbide composites for fusion*, **Fusion Eng. Des. 81 (2006) 937–944**, doi:`10.1016/j.fusengdes.2005.08.045` — 제4장 $\bar k$ 대조 |
 | [15] | S. Zhang, D. Zhang, J. Zhou, F. Du, K. Guan, Z. Guan, W. J. Cantwell, *Quantification of thermal residual stresses and their effects on the mechanical behavior of 3D C/SiC composites*, **Compos. Part A 207 (2026) 109796** |
 | [17] | P. Zhang, L. Zhu, Y. Tong, Y. Li, Y. Xing, H. Lan, Y. Sun, X. Liang, *Revealing thermal shock behaviors and damage mechanism of 3D needled C/C–SiC composites based on multi-scale analysis*, **J. Mater. Res. Technol. 29 (2024) 2016–2034** |
 | [20] | Z. Yang, J. Wang, R. Yang, J. Jiao, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **Int. J. Solids Struct. 300 (2024) 112927** |
@@ -775,11 +777,12 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [24] | J. Ge, et al., **Compos. Sci. Technol. 157 (2018) 86–98** — 본 연구 구성모델의 원 모델 |
 | [27] | Z. Yang, J. Jiao, J. Wang, W. Huang, Y. Guo, **Compos. Part A 77 (2015) 181** |
 | [30] | Q. Zhang, J. Ge, B. Li, S. Zhao, Z. Liu, J. Liang, *Investigation of mechanical behavior and damage process of 2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. Part B 313 (2026) 113395** |
+| [31] | **W. Shi, C. Zhang, B. Wang, M. Li, C. Zhang**, *Mode I interlaminar fracture toughness of two-dimensional continuous fiber reinforced ceramic matrix composites using wedge-loaded double cantilever beam method*, **Compos. Part A 168 (2023) 107466**, doi:`10.1016/j.compositesa.2023.107466` — 제4장 얀 $G_{tt}$ 출처 |
 | [33] | Z. Yang, J. Jiao, Y. Guo, *(D-criterion 원전)*, **Theor. Appl. Mech. Lett. 4 (2014) 021007** |
 | [35] | H. Yan, C. Zhang, Y. Qiao, X. Li, D. Han, *(고온 면내 전단)*, **Mater. Des. 32 (2011) 3504** |
 | [01] | Z. Yang, X. Liu, *A continuum fatigue damage model for the cyclic thermal shocked CMC*, **Int. J. Fatigue 134 (2020) 105507**; 및 *A CDM model for 2-D woven oxide/oxide CMC under cyclic thermal shocks*, **Ceram. Int. 46 (2020) 6029–6037** |
 | **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: Part I — Experiment and analysis*, **Chin. J. Aeronaut. 27(6) (2014) 1586–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
-| **[43]** | **H. Mei** 등, 반복 열싸이클 하 C/SiC (아르곤 분위기), **`refs/[43]`** — §2.5.4의 산화 대조군 |
+| **[43]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, P. Fang, J. Zhang**, *Thermal shock behavior of two-dimensional C/SiC composites in controlled atmospheres*, **J. Mater. Sci. 40 (2005) 4261–4265** — §2.5.4의 산화 대조군. 초록이 아르곤 50회 후 **98.90 %** 유지를 명시한다 |
 
 **기법 원전 — 본 논문이 이름으로 부르는 문헌 (전 장 공통 `[S*]` 목록).**
 아래는 보유 45편에 포함되어 있지 않아 **확보 대상**이며, 제3·4·5장의 `[S*]` 표기도
