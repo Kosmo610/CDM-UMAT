@@ -39,14 +39,14 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 | 17 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
 | `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 15종 거부 + $\bar G_f$ 규약 감사) | 38 |
-| `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델 선택 | 25 |
+| `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
 | `trs_configuration.py --check` | CONFIG_V / CONFIG_P 결정과 두 관문 | 33 |
 | `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 | 27 |
 | `insitu_yarn_strength.py --check` | 얀 $X_t$의 in-situ 출처·Weibull 구간·온도형상 | 51 |
-| `porosity_stiffness.py --check` | 공극률 결정(밀도 역산)·강성 정합·측정 규약 | 42 |
+| `porosity_stiffness.py --check` | 공극률 결정(CVI 하한)·강성 정합·공정 귀속 | 56 |
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
 | `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 | 12 |
 | `make_rve_conductivity.py --check` | 열전도 덱 — 면집합 재생성·DC3D4·드라이버 제거 | 37 |
@@ -60,9 +60,10 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 190 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
+| `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
-| `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
-| **합계** | | **1332** |
+| `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 40 |
+| **합계** | | **1383** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -501,7 +502,7 @@ $E$ = 100 000 MPa, $\nu$ = 0.30, $\alpha$ = 5×10⁻⁶/K, 단위 거시변형 1
   (≤ 3.0×10⁻¹⁵) 이내로 일치**한다. 이는 "모델이 맞다"와 "코드가 맞다"를 분리하여
   둘 다 확인한 것이다.
 - 입력덱은 솔버 없이 정적 검증되며, 카드 가드 상수로 계보 혼용이 차단된다.
-- 총 **1332개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
+- 총 **1383개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
 
 > **따라서 이후 장에서 관측되는 불일치는 코드의 오류가 아니라 모델 가정 또는 물성의
 > 문제로 귀속할 수 있다.** 이것이 이 장의 실질적 산출물이다.

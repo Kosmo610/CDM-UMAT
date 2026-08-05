@@ -36,6 +36,70 @@
 
 ---
 
+## ★ 두 에이전트 구조 (사용자 지정, 2026-08-05) — **양쪽 세션 공통**
+
+이 논문은 **두 채팅이 각자 브랜치를 갖고** 진행한다.
+
+| | 역할 | 브랜치 | 받는 곳 | 보내는 곳 |
+|---|---|---|---|---|
+| **에이전트 1** | 논문 조사 · 물성 정리 | `claude/paper-reference-research-pksw5p` | `docs/TO_LITERATURE.md` | `docs/TO_ANALYSIS.md` |
+| **에이전트 2** | 코드 작성 · 해석 결과 | `claude/thesis-csic-thermal-shock-5m53iv` | `docs/TO_ANALYSIS.md` | `docs/TO_LITERATURE.md` |
+
+**둘은 서로의 대화를 볼 수 없다. 저장소가 유일한 통신선이다.**
+
+### 반드시 지킬 것 — 세 가지
+
+1. **세션을 시작하면 먼저 돌린다.**
+   ```bash
+   ```
+   브랜치 이름으로 자기 역할을 판단하므로 인자가 필요 없다. 상대가 쌓은 커밋,
+   **상대가 내 판정 영역을 건드렸는지**, 내 우편함의 미처리 항목을 보여준다.
+   종료코드 1이면 **처리할 것이 있다는 뜻이다.**
+
+2. **커밋하기 전에 한 번 더 돌린다.** 내 변경이 상대의 발견과 어긋나는 채로
+   쌓이는 것을 막는다. 실제로 그런 일이 있었다 — 에이전트 2가 얀 $X_t$의
+   카드값이 **다발 강도**임을 찾아낸 뒤에도, 에이전트 1은 그것을 모른 채
+   "독립 근거 있음"으로 분류한 상태를 유지하고 있었다.
+
+3. **상대에게 알릴 것이 생기면 즉시 발신함에 적는다.** 형식은
+   `docs/BRANCH_PROTOCOL.md` §4.4. **처리된 항목은 지우지 말고 ✅ 만 붙인다** —
+   왜 그렇게 결정했는지가 나중에 필요해진다.
+
+### 판정이 갈리면
+
+**파일로 영역을 나누지 않는다**(그 규칙은 실패했다). **누가 최종 판정하는가**로 나눈다.
+
+| 사안 | 최종 판정 |
+|---|---|
+| 값의 **출처·신뢰등급**, **카드 적법성**(구성재 vs 복합재), 장별 **인용** | **에이전트 1** |
+| 값을 **코드가 쓰는 방식**, 수렴·솔버·덱·UMAT | **에이전트 2** |
+
+**어느 쪽이든 상대 영역의 파일을 고쳐도 된다.** 단 판정이 갈리면 위 표가 정하고,
+**판정권자가 틀렸으면 근거를 가진 쪽 값을 받는다.**
+
+### 병합
+
+- **큰 작업이 끝나면 즉시 병합한다.** 오래 두면 충돌이 커진다.
+- 충돌은 대개 **장부 충돌**이다 — 양쪽이 검증 총량 카운터를 다르게 고친 것.
+  내용 충돌이면 그것은 **판정이 갈린 것**이므로 위 표로 해결한다.
+
+### ★ 우편함은 `sync/` 다 (a2가 만들고 소유, 2026-08-05)
+
+`sync/PROTOCOL.md`가 정본이다. **`sync/sync_check.py`·`PROTOCOL.md`·`outbox_a2.json`·
+`state_a2.json`은 a2 소유이므로 a1은 절대 편집하지 않는다.** 고쳐야 하면
+`sync/outbox_a1.json`에 `kind: "question"`으로 요청한다.
+
+```bash
+python3 sync/sync_check.py               # a2가 보낸 것 확인
+python3 sync/sync_check.py --ack a2-0001 # 반영 완료 기록 ("읽음"이 아니라 "반영함")
+```
+
+**a1 소유는 `sync/outbox_a1.json`·`sync/state_a1.json` 둘뿐이다.**
+
+상세는 `docs/BRANCH_PROTOCOL.md`와 `sync/PROTOCOL.md`.
+
+---
+
 ## ★ 해석 실행 원칙 (사용자 지정, 항상 적용)
 
 **Abaqus 해석은 돌리는 데 시간이 오래 걸립니다. 해석 1회에서 최대한 많은 정보를 뽑으세요.**
@@ -84,6 +148,22 @@ Abaqus에서 돌려야 할 코드는 **항상 다운로드 가능한 zip 파일*
 `postprocess/extract_ss_curve.py`처럼 경로를 적어줘도 실제로는 그 경로가 없어 실행이
 막힌다 (실제로 이 문제로 막힌 적이 있다). 파일명이 겹쳐서 정말 못 합칠 때만
 예외로 하되, **먼저 사용자에게 폴더를 나눠도 되는지 물어보고** 진행한다.
+
+### 1-1. ★ 읽을 자료는 **PDF로** 준다 (사용자 지정, 2026-08-04)
+
+문서(목록·보고서·검토서)는 `.md`가 아니라 **PDF로 전달한다.** 사용자가 휴대폰에서
+읽고 파일명으로 정리하기 때문이다.
+
+```bash
+python3 postprocess/md_to_pdf.py docs/FILE.md --name 최신논문
+python3 postprocess/md_to_pdf.py docs/FILE.md --name 최신논문 --stamp 0804_2200
+```
+
+- **한글 폰트가 없으면 전부 네모로 나온다.** `fonts-nanum`·`fonts-noto-cjk`가
+  필요하며, `--selftest`가 이를 확인한다.
+- 변환 후 **`pdftoppm`으로 1페이지를 이미지로 뽑아 눈으로 확인한다.** 첫 시도에서
+  인용문 안 목록이 한 문단으로 뭉친 것이 이 확인으로 잡혔다.
+- 해석용 zip은 종전대로 zip이다. **PDF는 읽을 자료에만 적용한다.**
 
 ### 2. 파일명에 날짜·시각을 붙인다
 
@@ -245,13 +325,14 @@ python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
+python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 python3 postprocess/extract_kbar.py --selftest        # kbar 공극률 판정 산식
 python3 sync/sync_check.py --selftest                 # 두 에이전트 우편함 규약
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 38개를 전부 통과시킨다.**
+**커밋 전에 위 40개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

@@ -78,7 +78,7 @@ CASES = [
      count_bracketed, 38),
     ("conductivity_bounds.py --check",
      "python3 data/properties/conductivity_bounds.py --check",
-     count_bracketed, 25),
+     count_bracketed, 34),
     ("yarn_fracture_energy.py --check",
      "python3 data/properties/yarn_fracture_energy.py --check",
      count_bracketed, 31),
@@ -99,7 +99,7 @@ CASES = [
      count_bracketed, 51),
     ("porosity_stiffness.py --check",
      "python3 data/properties/porosity_stiffness.py --check",
-     count_bracketed, 42),
+     count_bracketed, 56),
     ("make_property_workbook.py --check",
      "python3 data/properties/make_property_workbook.py --check",
      count_bracketed, 22),
@@ -139,12 +139,16 @@ CASES = [
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
      count_plain, 15),
+    ("md_to_pdf.py --selftest",
+     "python3 postprocess/md_to_pdf.py --selftest",
+     lambda s: len(__import__("re").findall(
+         r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 11),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
      count_bracketed, 12),
     ("sync_check.py --selftest",
      "python3 sync/sync_check.py --selftest",
-     count_bracketed, 35),
+     count_bracketed, 40),
 ]
 
 

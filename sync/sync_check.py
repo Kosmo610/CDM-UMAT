@@ -577,10 +577,16 @@ def selftest():
         ids = [m.get("id") for m in box.get("messages", [])]
         ck("message ids are unique", len(ids) == len(set(ids)))
         ck("message ids are in order", ids == sorted(ids), ", ".join(ids))
-        for m in box.get("messages", []):
-            problems = validate(m, "a2")
-            ck("outgoing %s is well formed" % m.get("id"), problems == [],
-               "; ".join(problems))
+        # One assertion for the whole mailbox, not one per message.  Counting
+        # per message made the selftest total grow every time mail was sent,
+        # which put Ch.3's verification count out of date on each send.
+        broken = [(m.get("id"), validate(m, "a2"))
+                  for m in box.get("messages", [])]
+        broken = [(i, p) for i, p in broken if p]
+        ck("every outgoing message is well formed (%d checked)" % len(ids),
+           not broken,
+           "; ".join("%s: %s" % (i, ", ".join(p)) for i, p in broken)
+           or "all clean")
 
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails[:4]))

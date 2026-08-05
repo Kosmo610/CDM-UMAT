@@ -23,3 +23,4 @@ __pycache__/
 *.sel
 *_ss.csv
 ss_curves_by_temperature.png
+dist/*.pdf

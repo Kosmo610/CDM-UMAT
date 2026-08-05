@@ -147,6 +147,30 @@ python3 sync/sync_check.py --ack-all       # 전부
 
 ---
 
+## 4-2. ⚠️ 상대 소유 파일을 **복사해 오면** add/add 충돌이 난다 (실측)
+
+첫 병합에서 실제로 났다. a1이 규약대로 `sync/` 4개 파일을 a2 브랜치에서
+**한 글자도 안 고치고 복사**했는데도, git 입장에서는 두 브랜치가 **같은 경로에
+서로 다른 새 파일을 만든 것**이라 `CONFLICT (add/add)` 가 된다. 내용이 같아도
+공통조상에 그 경로가 없으면 병합할 기준이 없기 때문이다.
+
+**해결은 항상 소유자 쪽을 그대로 취한다:**
+
+```bash
+git checkout --ours   -- sync/sync_check.py sync/PROTOCOL.md \
+                         sync/outbox_a2.json sync/state_a2.json   # a2가 병합할 때
+git checkout --theirs -- sync/outbox_a1.json sync/state_a1.json
+```
+
+토론할 것이 없다 — 주인의 판본이 정의상 옳다. 반대로 **주인이 아닌 쪽의 판본을
+취하면 그 뒤로 조용히 갈라진다.**
+
+> 복사해 오지 않고 병합만 기다리는 편이 깔끔하지만, 상대 도구를 쓰려면 복사가
+> 필요하므로 금지하지는 않는다. 대신 **복사했다는 사실을 `kind: "changed"`로
+> 알린다.**
+
+---
+
 ## 5. 병합할 때
 
 이 폴더는 충돌하지 않지만, 나머지 저장소는 충돌할 수 있다. 병합 전에:
