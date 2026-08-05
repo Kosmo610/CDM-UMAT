@@ -468,12 +468,16 @@ def main():
         print('              구분한다 (예: --tag _xt500). 병렬 추출 시 덮어쓰기 방지용.')
         print('  --step NAME 인장 Step 이름. 기본 Tension_23C.')
         print('              고온 덱은 --step Tension_500C 처럼 지정한다.')
+        print('  --nodamage  손상 CSV 를 건너뛰고 응력-변형만 뽑는다.')
+        print('              돌고 있는 해석을 엿볼 때처럼 최대점만 보면')
+        print('              될 때 쓴다. 손상 추출이 훨씬 오래 걸린다.')
         sys.exit(1)
     stride = 10
     if '--stride' in args:
         i = args.index('--stride')
         if i + 1 < len(args):
             stride = int(args[i + 1])
+    nodamage = '--nodamage' in args
     tag = ''
     if '--tag' in args:
         i = args.index('--tag')
@@ -509,10 +513,14 @@ def main():
                 sys.exit(2)
         log('tension step = %s' % TEN_STEP)
         V = rve_volume(odb, TEN_STEP)
-        log('[1/2] tension_stress_strain%s.csv' % tag)
+        n = 1 if nodamage else 2
+        log('[1/%d] tension_stress_strain%s.csv' % (n, tag))
         write_curve(odb, outdir, V, tag)
-        log('[2/2] tension_damage%s.csv' % tag)
-        write_damage(odb, outdir, V, stride, tag)
+        if nodamage:
+            log('[--nodamage] 손상 CSV 는 건너뛴다.')
+        else:
+            log('[2/2] tension_damage%s.csv' % tag)
+            write_damage(odb, outdir, V, stride, tag)
     finally:
         odb.close()
         try:
