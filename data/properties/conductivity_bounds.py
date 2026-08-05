@@ -169,6 +169,10 @@ def rve_kbar1(k_yarn_long, k_yarn_trans, k_m, vy=VY_RVE):
 K_VOID = 0.025
 #: matrix porosity of the material refs/[22] characterised by X-ray CT
 POROSITY_REF22 = 0.24
+#: constituent densities, g/cm3, for the rule-of-mixtures inversion below
+RHO_FIBRE_T300, RHO_SIC = 1.76, 3.21
+#: refs/[28] section 2.1 also states the bulk density: "about 2.0 g/cm3"
+RHO_REF28 = 2.0
 #: COMPOSITE-level porosity of the SAME architecture as this thesis --
 #: refs/[28] section 2.1 (full text, 2026-08-04): "the bulk density of the
 #: as-received specimens is about 2.0 g/cm3, with fibre and porosity
@@ -674,6 +678,53 @@ def check():
     ck("and refs/[22]'s CT-measured 24 % falls inside that band",
        inv_lo <= POROSITY_REF22 <= inv_hi,
        "%.1f <= 24.0 <= %.1f" % (100 * inv_lo, 100 * inv_hi))
+    # 10. refs/[28] IS INTERNALLY INCONSISTENT, and the resolution matters.
+    #     Its own density and fibre content imply a different porosity from
+    #     the one its text states.  Found via the analysis branch's density
+    #     inversion (commit 012dca1), checked here independently.
+    def porosity_from_density(rho, vf=0.40, rf=RHO_FIBRE_T300, rm=RHO_SIC):
+        """rho = Vf*rho_f + Vm*rho_m  ->  porosity = 1 - Vf - Vm."""
+        return 1.0 - vf - (rho - vf * rf) / rm
+
+    def density_for_porosity(p, vf=0.40, rf=RHO_FIBRE_T300, rm=RHO_SIC):
+        return vf * rf + (1.0 - vf - p) * rm
+
+    p_inv = porosity_from_density(RHO_REF28)
+    ck("density inversion of [28]'s own rho = 2.0 gives ~19.6 percent",
+       abs(p_inv - 0.196) < 0.005, "%.1f %%" % (100 * p_inv))
+    lo28, hi28 = POROSITY_REF28_COMPOSITE
+    ck("that EXCEEDS [28]'s own stated 10-15 percent", p_inv > hi28,
+       "%.1f %% vs stated %.0f-%.0f %%" % (100 * p_inv, 100 * lo28, 100 * hi28))
+    rho_lo, rho_hi = density_for_porosity(hi28), density_for_porosity(lo28)
+    ck("and rounding cannot explain it -- 10-15 %% needs rho = %.2f-%.2f"
+       % (rho_lo, rho_hi), rho_lo > RHO_REF28 * 1.05,
+       "%.0f-%.0f %% above the stated 2.0" % (100 * (rho_lo / RHO_REF28 - 1),
+                                              100 * (rho_hi / RHO_REF28 - 1)))
+    ck("the two readings bracket rather than contradict the need",
+       max(comp.values()) < lo28 < p_inv,
+       "need %.1f %% < open %.0f %% < total %.1f %%"
+       % (100 * max(comp.values()), 100 * lo28, 100 * p_inv))
+    print("""
+  ** refs/[28] STATES TWO POROSITIES THAT DO NOT AGREE. **  Its text says
+  10-15 %%; inverting its own bulk density of 2.0 g/cm3 at 40 %% fibre gives
+  %.1f %%.  Rounding does not close that -- 10-15 %% would need 2.15-2.31
+  g/cm3.  The likely reading is OPEN versus TOTAL: 10-15 %% is what an
+  Archimedes immersion measures (connected pores only), the inversion gives
+  total (connected + closed).  The paper's own "final deposition of the
+  50 um SiC matrix ON THE SURFACE" -- a seal coat -- would lower measured
+  open porosity while leaving total untouched, which fits.
+
+  WHICH ONE TO USE, AND WHERE:
+    conductivity (this file, Ch.4 4.7.3)  -> TOTAL, %.1f %%.  Closed pores
+        impede heat exactly as open ones do.
+    oxidation / the sign of k (Ch.2 2.5.4) -> OPEN, 10-15 %%.  Oxygen needs
+        a connected path; closed pores are irrelevant to it.
+
+  Either way the conductivity conclusion holds and gets stronger: the need
+  is %.1f-%.1f %% at composite level, below BOTH readings.
+""" % (100 * p_inv, 100 * p_inv,
+       100 * min(comp.values()), 100 * max(comp.values())))
+
     print("""
   SAME-MATERIAL CLOSURE.  The porosity argument of Ch.4 4.7.3 no longer
   rests on a borrowed number.  refs/[28] states 10-15 %% porosity for the
