@@ -45,17 +45,18 @@ E:\LTH\
 | 덱 | `CSIC_PLAIN_WEAVE_RVE_500C_DIRECT_GF.inp` | `CSIC_PLAIN_WEAVE_RVE_1000C_DIRECT_GF.inp` |
 | job | `CSIC_t500_direct` | `CSIC_t1000_direct` |
 | 추출 태그 | `_500D` | `_1000D` |
+| 산출 CSV | `tension_stress_strain_500D.csv` | `tension_stress_strain_1000D.csv` |
+| | `tension_damage_500D.csv` | `tension_damage_1000D.csv` |
 
 ### GF1T 정정 배치
 
 | 항목 | Try_GFC | Try_GFC25 |
 |---|---|---|
+| 폴더 | `E:\LTH\Try_GFC` | `E:\LTH\Try_GFC25` |
 | 덱 | `CSIC_PLAIN_WEAVE_RVE_23C_GFC.inp` | `CSIC_PLAIN_WEAVE_RVE_23C_GFC25.inp` |
 | job | `CSIC_t23_gfc` | `CSIC_t23_gfc25` |
-| 태그 | `_GFC` | `_GFC25` |
+| 추출 태그 | `_GFC` | `_GFC25` |
 | 차이 | 23C GF 대비 **GF1T 만** 0.03962→0.022728 | GFC 대비 **eta 만** 0.5x→0.25x |
-| 산출 CSV | `tension_stress_strain_500D.csv` | `tension_stress_strain_1000D.csv` |
-| | `tension_damage_500D.csv` | `tension_damage_1000D.csv` |
 
 태그는 `make_paper_figures.py` 의 `TAGMAP` 에 등록되어 있어야 온도가
 자동으로 잡힌다. `_500D` / `_1000D` 는 등록되어 있다.
