@@ -83,6 +83,10 @@ TAGMAP = {
     # GF1T 정정 배치 (0.03962 -> 0.022728)
     '_GFC': (23, '23C GF corrected'),
     '_GFC25': (23, '23C GFC eta 0.25x'),
+    # PAPERFAITH 체인: 논문 충실 설정 (경유 경로, V2_7)
+    '_P0': (23, '23C P0 no-Weibull'),
+    '_P1': (23, '23C P1 +MCRIT'),
+    '_P2': (23, '23C P2 +Yt50'),
 }
 COLORS = {23: '#1f77b4', 500: '#d62728', 1000: '#2ca02c'}
 

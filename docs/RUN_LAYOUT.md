@@ -21,8 +21,11 @@ E:\LTH\
 │
 ├─ Try_D500\                     DIRECT 500 C   (실행 중)
 ├─ Try_D1000\                    DIRECT 1000 C  (실행 중)
-├─ Try_GFC\                      ★ GF1T 정정 23 C
-└─ Try_GFC25\                    ★ GF1T 정정 + eta 0.25x
+├─ Try_GFC\                      GF1T 정정 (보류)
+├─ Try_GFC25\                    GF1T 정정 + eta (보류)
+├─ Try_P0\                       ★ PAPERFAITH: Weibull 제거
+├─ Try_P1\                       ★ PAPERFAITH: +MCRIT=1
+└─ Try_P2\                       ★ PAPERFAITH: +Yt=50
 ```
 
 ## 각 폴더에 들어가는 것 — 4개
@@ -57,6 +60,16 @@ E:\LTH\
 | job | `CSIC_t23_gfc` | `CSIC_t23_gfc25` |
 | 추출 태그 | `_GFC` | `_GFC25` |
 | 차이 | 23C GF 대비 **GF1T 만** 0.03962→0.022728 | GFC 대비 **eta 만** 0.5x→0.25x |
+
+### PAPERFAITH 체인 (논문 완벽 재현 트랙 — 링크당 변수 1개)
+
+| 항목 | Try_P0 | Try_P1 | Try_P2 |
+|---|---|---|---|
+| 덱 | `..._23C_P0.inp` | `..._23C_P1.inp` | `..._23C_P2.inp` |
+| job | `CSIC_t23_p0` | `CSIC_t23_p1` | `CSIC_t23_p2` |
+| 태그 | `_P0` | `_P1` | `_P2` |
+| 차이 | t23_long 대비 **WEIBM=0** | P0 + **MCRIT=1** (V2_7) | P1 + **Yt=50** |
+| 판정 | Weibull↔손상률 갭 | 논문 기준의 효과 | Fig.4 의 88% |
 
 태그는 `make_paper_figures.py` 의 `TAGMAP` 에 등록되어 있어야 온도가
 자동으로 잡힌다. `_500D` / `_1000D` 는 등록되어 있다.
