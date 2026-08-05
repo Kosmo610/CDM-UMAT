@@ -123,7 +123,7 @@ def rve_volume(odb):
                     return v, st
         except Exception:
             pass
-    return GEOM_V, '기하 대체값'
+    return GEOM_V, 'geometric fallback'
 
 
 def invert6(C):
@@ -168,13 +168,20 @@ def stiffness(odb, V):
             ho = hr.historyOutputs
             by[lab] = (ho['U1'].data if 'U1' in ho else None,
                        ho['RF1'].data if 'RF1' in ho else None)
+        if not by:
+            # pre.exe 가 모든 Step 정의를 odb 에 미리 써두므로, 실행되지
+            # 않은 Step 도 odb.steps 에는 존재한다. history 가 비어 있으면
+            # 그 Step 은 실제로 돈 적이 없다는 뜻이다.
+            log('  [skip] %s: step exists but never ran '
+                '(job stopped before this step)' % name)
+            continue
         u, _ = by.get(labels[DRIVERS[j]], (None, None))
         if not u:
-            log('  [warn] %s: 구동 드라이버 U1 없음' % name)
+            log('  [warn] %s: no U1 history on the driven driver' % name)
             continue
         eps = u[-1][1]
         if abs(eps) < 1e-12:
-            log('  [warn] %s: 섭동 변형률이 0' % name)
+            log('  [warn] %s: perturbation strain is zero' % name)
             continue
         for i in range(6):
             _, r = by.get(labels[DRIVERS[i]], (None, None))
@@ -224,15 +231,18 @@ def process(path):
     odb = openOdb(path=path, readOnly=True)
     try:
         V, src = rve_volume(odb)
-        log('  RVE 체적 %.6f mm^3 (%s)' % (V, src))
+        log('  RVE volume %.6f mm^3 (from step %s)' % (V, src))
         C, found = stiffness(odb, V)
         if not found:
-            log('  [error] HOM_* 스텝이 없다. 이 덱은 균질화 스텝 미포함.')
+            log('  [error] no usable HOM_* step in this odb.')
+            log('          The job must run PAST the tension step for the')
+            log('          six perturbation steps to execute. A job that')
+            log('          was stopped during tension has no stiffness.')
             return None
-        log('  읽은 스텝 %d 개: %s'
+        log('  read %d step(s): %s'
             % (len(found), ', '.join('%s(eps=%.1e)' % f for f in found)))
         log('')
-        log('  손상 후 균질화 강성 C [MPa]')
+        log('  damaged homogenized stiffness C [MPa]')
         log('        ' + ''.join('%12s' % l for l in LAB))
         for i in range(6):
             row = ''.join(('%12.1f' % C[i][j]) if C[i][j] is not None
@@ -240,11 +250,11 @@ def process(path):
             log('   %-4s %s' % (LAB[i], row))
         asym = asymmetry(C)
         log('')
-        log('  대칭성 위반 최대 %.3f %%  -> %s'
-            % (asym, '양호' if asym < 2.0 else '*** 확인 필요 ***'))
+        log('  max asymmetry %.3f %%  -> %s'
+            % (asym, 'OK' if asym < 2.0 else '*** CHECK ***'))
         eng = engineering(C)
         if eng:
-            log('  공학상수  E11 %.1f  E22 %.1f  E33 %.1f GPa'
+            log('  eng.const  E11 %.1f  E22 %.1f  E33 %.1f GPa'
                 % (eng['E11'] / 1e3, eng['E22'] / 1e3, eng['E33'] / 1e3))
             log('            G12 %.1f  G13 %.1f  G23 %.1f GPa'
                 % (eng['G12'] / 1e3, eng['G13'] / 1e3, eng['G23'] / 1e3))
@@ -298,7 +308,7 @@ def main():
 
     if len(res) > 1:
         log('')
-        log(' 비교 (E11 기준)')
+        log(' comparison (E11)')
         base = res[0]['eng']['E11'] if res[0]['eng'] else None
         for r in res:
             if not r['eng']:
