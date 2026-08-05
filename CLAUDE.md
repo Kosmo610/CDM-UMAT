@@ -303,6 +303,7 @@ python3 data/properties/conductivity_bounds.py --check # 열전도 경계·민�
 python3 data/properties/yarn_fracture_energy.py --check # 얀 횡방향 Gtt/Gtc 출처 + 균열대 적합성
 python3 data/properties/cte_sensitivity.py --check     # 구성재 CTE가 TRS 2.34배에 미치는 몫
 python3 data/properties/trs_configuration.py --check   # CONFIG_V / CONFIG_P 결정
+python3 data/properties/card_gap_triage.py --check    # GUESS 14개 knob/도출/공백 분류
 python3 data/literature/digitize.py --check           # 그림 디지타이즈 재현
 python3 data/literature/digitize_ref28_fig17.py --check # refs/[28] Fig.17 TRS (Table 1로 검산)
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
@@ -326,7 +327,7 @@ python3 sync/sync_check.py                            # ★ a2 우편함 — blo
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 33개를 전부 통과시킨다.**
+**커밋 전에 위 34개를 전부 통과시킨다.**
 
 > **★ 위 목록과 별개인 것 하나 — `check_branch_sync.py`(인자 없이).**
 > 이것은 **게이트가 아니라 알림**이다. 처리할 것이 있으면 **일부러 종료코드 1**을

@@ -45,6 +45,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
 | `trs_configuration.py --check` | CONFIG_V / CONFIG_P 결정과 두 관문 | 33 |
 | `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 94 |
+| `card_gap_triage.py --check` | GUESS 14개의 knob/도출/공백 분류와 얀 물성 독립대조 | 66 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
 | `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝 키워드·얀 $G_f$) | 86 |
@@ -55,7 +56,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해와 두 규약의 일치 | 68 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
 | `check_branch_sync.py --selftest` | 두 에이전트 동기화 장치(우편함·영역·역할 판단) | 14 |
-| **합계** | | **1067** |
+| **합계** | | **1133** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
