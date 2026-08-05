@@ -17,10 +17,14 @@ extract_tension.py 가 뽑아놓은 CSV 들을 모아 논문 대조 그림을 �
     summary_vs_paper.csv        위 숫자 표
 
 사용법:
-    python3 make_paper_figures.py [폴더] [--out 출력폴더]
+    python3 make_paper_figures.py [폴더 ...] [--out 출력폴더]
 
     python3 make_paper_figures.py E:/LTH/Try_1430
+    python3 make_paper_figures.py E:/LTH/Try_1300 E:/LTH/Try_1430 --out E:/LTH
     python3 make_paper_figures.py .            # 현재 폴더
+
+ 해석을 폴더로 나눠 돌린 경우 폴더를 여러 개 나열하면 된다.
+ 태그가 겹치면 이름 뒤에 폴더명이 붙는다.
 
 태그 -> 온도 매핑은 TAGMAP 에서 관리한다. 모르는 태그는 파일명에서
 숫자를 찾아 추정하고, 그래도 모르면 23 C 로 둔다.
@@ -140,15 +144,25 @@ def peak_of(e, s):
     return (s[k], e[k], softened)
 
 
-def discover(folder):
-    """폴더에서 tension_stress_strain*.csv 를 찾아 태그별로 정리."""
-    found = []
-    for p in sorted(glob.glob(os.path.join(folder,
-                                           'tension_stress_strain*.csv'))):
-        base = os.path.basename(p)
-        tag = base[len('tension_stress_strain'):-len('.csv')]
-        dmg = os.path.join(folder, 'tension_damage%s.csv' % tag)
-        found.append((tag, p, dmg if os.path.exists(dmg) else None))
+def discover(folders):
+    """여러 폴더에서 tension_stress_strain*.csv 를 찾아 태그별로 정리.
+
+    해석을 폴더로 나눠 돌리면(.obj 충돌 회피) CSV 도 폴더별로 흩어진다.
+    태그가 겹치면 폴더 이름을 붙여 구분한다.
+    """
+    found, seen = [], {}
+    for folder in folders:
+        for p in sorted(glob.glob(os.path.join(
+                folder, 'tension_stress_strain*.csv'))):
+            base = os.path.basename(p)
+            tag = base[len('tension_stress_strain'):-len('.csv')]
+            dmg = os.path.join(folder, 'tension_damage%s.csv' % tag)
+            key = tag
+            if key in seen:
+                key = '%s@%s' % (tag, os.path.basename(
+                    os.path.normpath(folder)))
+            seen[key] = True
+            found.append((tag, key, p, dmg if os.path.exists(dmg) else None))
     return found
 
 
@@ -195,7 +209,7 @@ def fig_table3(runs, outdir):
     """온도별로 가장 멀리 간 런 하나씩 골라 논문과 비교."""
     best = {}
     for r in runs:
-        if r[0] in DIAGNOSTIC:
+        if r[0].split('@', 1)[0] in DIAGNOSTIC:
             continue
         T, pk = r[3], r[5]
         if T not in best or pk[0] > best[T][5][0]:
@@ -266,31 +280,35 @@ def main():
         i = args.index('--out')
         outdir = args[i + 1]
         del args[i:i + 2]
-    folder = args[0] if args else '.'
-    outdir = outdir or folder
-    if not os.path.isdir(folder):
-        print('[error] 폴더가 없다: %s' % folder)
+    folders = args if args else ['.']
+    outdir = outdir or folders[0]
+    missing = [f for f in folders if not os.path.isdir(f)]
+    if missing:
+        print('[error] 폴더가 없다: %s' % ', '.join(missing))
         return 2
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
 
-    found = discover(folder)
+    found = discover(folders)
     if not found:
-        print('[error] %s 에 tension_stress_strain*.csv 가 없다.' % folder)
+        print('[error] tension_stress_strain*.csv 가 없다: %s'
+              % ', '.join(folders))
         print('        먼저 extract_tension.py 를 돌려야 한다.')
         return 2
 
     runs, dmgruns = [], []
-    print('찾은 런 %d 개' % len(found))
-    for tag, ssp, dmp in found:
+    print('폴더 %d 개, 찾은 런 %d 개' % (len(folders), len(found)))
+    for tag, key, ssp, dmp in found:
         T, name = tag_info(tag)
+        if key != tag:
+            name = '%s [%s]' % (name, key.split('@', 1)[1])
         e, s = read_ss(ssp)
         if not s:
             print('  [skip] %s : 데이터 없음' % os.path.basename(ssp))
             continue
         pk = peak_of(e, s)
-        runs.append((tag, e, s, T, name, pk))
-        print('  %-12s %5d C  점 %5d  최대 %8.2f MPa @ %.4f %%  %s'
+        runs.append((key, e, s, T, name, pk))
+        print('  %-20s %5d C  점 %5d  최대 %8.2f MPa @ %.4f %%  %s'
               % (name, T, len(s), pk[0], pk[1],
                  '연화확인' if pk[2] else '*** 상승중(하한) ***'))
         if dmp:
