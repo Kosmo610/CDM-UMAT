@@ -459,10 +459,23 @@ def main():
     odb = openOdb(path=path, readOnly=True)
     try:
         log('steps: %s' % ', '.join(odb.steps.keys()))
-        log('tension step = %s' % TEN_STEP)
         if TEN_STEP not in odb.steps:
-            log('[error] step "%s" 없음' % TEN_STEP)
-            sys.exit(2)
+            # --step 을 안 줬거나 온도가 다른 덱이면 Tension_* 을 찾아 쓴다.
+            # 없으면 그때 실패시킨다. (예전에는 여기서 바로 죽어서 고온
+            # 덱을 --step 없이 돌리면 추출이 통째로 날아갔다.)
+            cand = [k for k in odb.steps.keys()
+                    if k.upper().startswith('TENSION')]
+            if len(cand) == 1:
+                log('[info] step "%s" 없음 -> "%s" 자동 선택'
+                    % (TEN_STEP, cand[0]))
+                TEN_STEP = cand[0]
+            else:
+                log('[error] step "%s" 없음.' % TEN_STEP)
+                if cand:
+                    log('        후보가 여러 개다: %s' % ', '.join(cand))
+                    log('        --step 으로 하나를 지정할 것.')
+                sys.exit(2)
+        log('tension step = %s' % TEN_STEP)
         V = rve_volume(odb, TEN_STEP)
         log('[1/2] tension_stress_strain%s.csv' % tag)
         write_curve(odb, outdir, V, tag)
