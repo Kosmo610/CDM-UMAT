@@ -19,8 +19,10 @@ E:\LTH\
 ├─ Try_C\                        23 C 연장 (완료, 중단)
 │    CSIC_t23_long.odb                   목표 0.006, 속도 동일
 │
-├─ Try_D500\                     ★ DIRECT 500 C
-└─ Try_D1000\                    ★ DIRECT 1000 C
+├─ Try_D500\                     DIRECT 500 C   (실행 중)
+├─ Try_D1000\                    DIRECT 1000 C  (실행 중)
+├─ Try_GFC\                      ★ GF1T 정정 23 C
+└─ Try_GFC25\                    ★ GF1T 정정 + eta 0.25x
 ```
 
 ## 각 폴더에 들어가는 것 — 4개
@@ -43,6 +45,15 @@ E:\LTH\
 | 덱 | `CSIC_PLAIN_WEAVE_RVE_500C_DIRECT_GF.inp` | `CSIC_PLAIN_WEAVE_RVE_1000C_DIRECT_GF.inp` |
 | job | `CSIC_t500_direct` | `CSIC_t1000_direct` |
 | 추출 태그 | `_500D` | `_1000D` |
+
+### GF1T 정정 배치
+
+| 항목 | Try_GFC | Try_GFC25 |
+|---|---|---|
+| 덱 | `CSIC_PLAIN_WEAVE_RVE_23C_GFC.inp` | `CSIC_PLAIN_WEAVE_RVE_23C_GFC25.inp` |
+| job | `CSIC_t23_gfc` | `CSIC_t23_gfc25` |
+| 태그 | `_GFC` | `_GFC25` |
+| 차이 | 23C GF 대비 **GF1T 만** 0.03962→0.022728 | GFC 대비 **eta 만** 0.5x→0.25x |
 | 산출 CSV | `tension_stress_strain_500D.csv` | `tension_stress_strain_1000D.csv` |
 | | `tension_damage_500D.csv` | `tension_damage_1000D.csv` |
 
