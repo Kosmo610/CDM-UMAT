@@ -60,7 +60,8 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 190 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
-| `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·메시지 형식·반영 여부 | 35 |
+| `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
+| `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
 | **합계** | | **1332** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.

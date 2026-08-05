@@ -246,6 +246,7 @@ python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
+python3 postprocess/extract_kbar.py --selftest        # kbar 공극률 판정 산식
 python3 sync/sync_check.py --selftest                 # 두 에이전트 우편함 규약
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```

@@ -58,6 +58,23 @@ GRADES = ("fulltext", "digitized", "abstract", "secondary")
 
 CARD_TABLES = {"matrix": "MATRIX", "yarn": "YARN", "macro": "MACRO"}
 
+#: Editing territory, absorbed from a1's check_branch_sync.py (a1-0004).
+#: This is NOT the same thing as the sync/ ownership table: that one is
+#: absolute and makes the folder merge-proof, this one is advisory.  Both
+#: agents legitimately edit the shared chapters, so crossing a line here is
+#: reported to the other side rather than treated as an error -- the failure
+#: mode being guarded against is a silent edit nobody mentions, not the edit.
+#: Anything not listed is shared and never warned about.
+TERRITORY = {
+    "a1": ("refs/", "data/literature/", "docs/CH1_INTRODUCTION.md",
+           "docs/CH2_LITERATURE_REVIEW.md", "docs/REFS_CANDIDATES.md",
+           "docs/DOWNLOAD_LIST", "docs/KAISER_JUDGMENT.md",
+           "sync/outbox_a1.json", "sync/state_a1.json"),
+    "a2": ("src/", "abaqus/", "postprocess/", "verification/",
+           "sync/sync_check.py", "sync/PROTOCOL.md",
+           "sync/outbox_a2.json", "sync/state_a2.json"),
+}
+
 
 # ==========================================================================
 # small helpers
@@ -285,6 +302,36 @@ def report(me, no_fetch=False, from_ref=None):
     return _report_box(me, them, box, err)
 
 
+def owner_of(path):
+    """Which agent's territory a path falls in, or None for shared."""
+    for who, prefixes in TERRITORY.items():
+        for p in prefixes:
+            if path == p or path.startswith(p):
+                return who
+    return None
+
+
+def territory_report(me):
+    """Files in the OTHER agent's territory that this branch has changed.
+
+    Measured from the merge base, so it answers "what have I done to their
+    files since we last agreed", not "what is different right now" -- the
+    latter would list everything they have done since, which is not this
+    side's business.
+    """
+    them = OTHER[me]
+    ref = "origin/" + AGENTS[them]["branch"]
+    base, rc = git("merge-base", "HEAD", ref)
+    if rc != 0:
+        return None, "공통조상을 못 찾음 (상대 브랜치 없음?)"
+    base = base.strip()
+    out, rc = git("diff", "--name-only", base, "HEAD")
+    if rc != 0:
+        return None, "diff 실패"
+    crossed = [f for f in out.split() if owner_of(f) == them]
+    return crossed, base[:7]
+
+
 def _report_box(me, them, box, err):
     """The part that is the same however the outbox was located."""
     if box is None:
@@ -353,6 +400,15 @@ def _report_box(me, them, box, err):
         for mid, subj, detail in lapsed:
             print("     %-10s %s" % (mid, subj))
             print("                %s" % detail)
+
+    crossed, detail = territory_report(me)
+    if crossed:
+        print("\n  ** 내가 %s 영역 파일을 고쳤다 (공통조상 %s 이후):" % (them, detail))
+        for f in crossed:
+            print("     %s" % f)
+        print("     고친 것이 맞다면 kind:\"changed\" 로 알려 줄 것 — 경고이지")
+        print("     오류가 아니다. 공유 파일(제3~5장, data/properties/, CLAUDE.md)은")
+        print("     여기 나오지 않는다.")
 
     print("\n" + "=" * 74)
     if blocking:
@@ -486,6 +542,30 @@ def selftest():
     applied, detail = band_applied(absent, text)
     ck("a band for a slot that is not audited is seen as NOT applied",
        applied is False, detail)
+
+    # ---- territory, absorbed from a1's check_branch_sync.py (a1-0004) ----
+    ck("territory is declared for both agents", set(TERRITORY) == {"a1", "a2"})
+    ck("a1 owns the references and the literature chapters",
+       owner_of("refs/[28] Part 1.pdf") == "a1"
+       and owner_of("docs/CH2_LITERATURE_REVIEW.md") == "a1"
+       and owner_of("data/literature/csic_2d_offaxis.csv") == "a1")
+    ck("a2 owns the solver, the decks and the checkers",
+       owner_of("src/UMAT_CSIC_THERMSHOCK_V3_0.for") == "a2"
+       and owner_of("abaqus/make_macro_thermalshock.py") == "a2"
+       and owner_of("verification/check_card_ranges.py") == "a2")
+    # The shared files are the point: both agents edit the middle chapters and
+    # the property scripts, and warning about those would train everyone to
+    # ignore the warning.
+    for shared in ("docs/CH4_RVE_HOMOGENISATION.md", "CLAUDE.md",
+                   "data/properties/porosity_stiffness.py",
+                   "docs/THESIS_PLAN.md"):
+        ck("shared, never warned: %s" % shared, owner_of(shared) is None)
+    ck("no path can belong to both agents",
+       not any(owner_of(p) == "a1" for p in TERRITORY["a2"])
+       and not any(owner_of(p) == "a2" for p in TERRITORY["a1"]))
+    ck("the sync ownership table and the territory table agree",
+       owner_of("sync/outbox_a1.json") == "a1"
+       and owner_of("sync/sync_check.py") == "a2")
 
     # ---- our own outbox must itself be legal ----
     box, err = read_outbox(None, "a2")

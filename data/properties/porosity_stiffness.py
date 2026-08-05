@@ -44,6 +44,52 @@ The RVE is missing 19.6 % of its volume: it fills with solid SiC what is
 really pore.  Removing that from the parallel sum takes the M5 stiffness at
 1000 C from 235.2 GPa to 170.0 GPa against Yang's measured 172.7 GPa.
 
+WHICH MATERIAL -- AND WHY 19.6 % IS A LOWER BOUND (2026-08-05, a1-0002)
+-----------------------------------------------------------------------
+The literature agent asked which densification process the density belongs
+to, and the answer changes what the number may be used for.
+
+refs/[10] Yang states both inputs itself, in its own section 2:
+    "plain-weave C/SiC composite fabricated by CVI technique.  The fiber
+     volume fraction is about 40%."
+    "coated with SiC by I-CVI process.  The final density of the coupons is
+     about 2.0 g/cm3."
+So the back-out is CVI's density inverted to CVI's TOTAL porosity.  It is
+not our material.  Ch.2 2.2.1 fixes the reference material as Zhang [5]'s
+PIP 2D plain weave -- the stress-free temperature of 1050 C is a PYROLYSIS
+temperature, which CVI does not have -- and states that PIP leaves a HIGHER
+matrix porosity than CVI.  The repository holds no density measurement for
+that PIP material.
+
+    therefore:   Vp(ours, PIP)  >=  19.6 %   and nothing sharper
+
+That inequality is the whole result.  A matrix-E knockdown built on 19.6 %
+is a knockdown built on the wrong process, and it is wrong in the direction
+that UNDER-corrects.
+
+OPEN VERSUS TOTAL -- the numbers reconcile, they do not conflict
+---------------------------------------------------------------
+Three figures exist for CVI 2D C/SiC and they look contradictory:
+
+    refs/[10]  no porosity stated; its rho and Vf invert to 19.6 %  TOTAL
+    refs/[28]  "porosity contents of 40% and 10-15%"                open?
+    refs/[43]  Table I states 13 %                                  open?
+
+refs/[28] states rho = 2.0 in the SAME SENTENCE as its 10-15 %, and 2.0
+inverts to 19.6 %, so that paper does not agree with itself on a total-
+porosity reading.  It also says the porosity figure is for specimens
+measured "after final deposition of the 50 um SiC matrix ON THE SURFACE",
+and a surface seal coat lowers the OPEN porosity an immersion method can
+reach while leaving the total untouched.  refs/[43]'s 13 % is inconsistent
+with its own rho = 2.0 the same way and sits inside [28]'s band.
+
+Read as open porosity, all three are consistent with 19.6 % total and about
+5-10 %p of closed porosity, which is what CVI is known for.  Read as total
+porosity, two independent papers contradict their own densities.  The
+second reading is not credible, so this file treats 10-15 % as open and
+19.6 % as total -- but neither paper says so, so the reading is an
+INFERENCE and carries no grade.
+
   python3 data/properties/porosity_stiffness.py
   python3 data/properties/porosity_stiffness.py --check
 """
@@ -76,6 +122,17 @@ SNEAD_B = 3.57
 RHO_T300 = 1.76      # g/cm^3, Toray T300 datasheet
 RHO_SIC = 3.21       # g/cm^3, theoretical.  refs/[36] uses the same value
 RHO_SIC_FIBRE = 2.7  # g/cm^3, refs/[36] Table 5, for its own SiC fibre
+
+# --------------------------------------------------- process provenance
+#: Which densification process each figure belongs to.  Kept as data rather
+#: than prose because the whole point is that they are NOT the same material
+#: and the code must not be able to forget it.
+PROCESS_REFERENCE = "PIP"     # Zhang [5], Ch.2 2.2.1 -- our card's material
+PROCESS_DENSITY_SRC = "CVI"   # refs/[10] Yang -- where rho = 2.0 comes from
+
+#: Ch.2 2.2.1: PIP leaves a higher matrix porosity than CVI.  So a CVI-derived
+#: porosity bounds ours from BELOW.  There is no upper bound in the repository.
+POROSITY_IS_LOWER_BOUND = True
 
 # --------------------------------------------------- what M5 actually gave
 M5_E0_1000 = 235.2e3          # MPa, initial tangent of the M5 T1000 tension
@@ -279,8 +336,13 @@ def report():
     print("       17.0 %% to %.2f %%, so the arithmetic is not ours to doubt."
           % (100.0 * abs(shen - 0.170)))
     vp = porosity_from_density(2.0, 0.40, RHO_T300)
-    print("    -> for OUR material the same arithmetic gives %.1f %%."
-          % (100.0 * vp))
+    print("    -> for refs/[10]'s CVI material the same arithmetic gives")
+    print("       %.1f %% TOTAL porosity.  That is NOT our material:" % (100.0 * vp))
+    print("       ours is Zhang [5]'s %s (Ch.2 2.2.1) and refs/[10] is %s,"
+          % (PROCESS_REFERENCE, PROCESS_DENSITY_SRC))
+    print("       and %s leaves MORE matrix porosity than %s.  So %.1f %% is a"
+          % (PROCESS_REFERENCE, PROCESS_DENSITY_SRC, 100.0 * vp))
+    print("       LOWER BOUND on ours, and the repository has no upper one.")
     print("    refs/[36] also settles WHERE it sits: 'porosity only exists in")
     print("    the matrix, and the matrix is dependent on the fibre bundle")
     print("    structure'.  So it comes out of the matrix pocket, not the yarn.")
@@ -378,7 +440,7 @@ def selftest():
     ck("refs/[36] geometric porosity 17.5 % is within 0.5 %p of it",
        abs(0.175 - shen) < 0.006, "17.5 vs %.1f %%" % (100.0 * shen))
     vp = porosity_from_density(2.0, 0.40, RHO_T300)
-    ck("our material's total porosity is about 20 %",
+    ck("refs/[10]'s CVI material has about 20 % TOTAL porosity",
        0.17 < vp < 0.22, "%.1f %%" % (100.0 * vp))
     ck("a denser composite has less porosity (monotonic)",
        porosity_from_density(2.2, 0.40, RHO_T300) < vp)
@@ -394,6 +456,64 @@ def selftest():
            os.path.join(HERE, "porosity_stiffness.py")).read())
     ck("no computation uses the 13 % figure",
        abs(void_penalty(vp, EM_1000) - vp * EM_1000) < 1e-9)
+
+    # ---------------------------------------------------------------- B2
+    # The process question (a1-0002).  These assertions exist so that nobody
+    # -- including a later version of me -- can quietly go back to calling a
+    # CVI number "our material".  That mistake under-corrects the stiffness
+    # and it was already made once.
+    print("\n B2. the density belongs to CVI; our reference material is PIP")
+    src = open(os.path.join(HERE, "porosity_stiffness.py")).read()
+    ch2 = os.path.join(os.path.dirname(os.path.dirname(HERE)),
+                       "docs", "CH2_LITERATURE_REVIEW.md")
+    ch2_text = open(ch2, encoding="utf-8").read() if os.path.exists(ch2) else ""
+    ck("the two processes are recorded as data, not prose",
+       PROCESS_REFERENCE == "PIP" and PROCESS_DENSITY_SRC == "CVI",
+       "%s vs %s" % (PROCESS_REFERENCE, PROCESS_DENSITY_SRC))
+    ck("they are NOT the same process", PROCESS_REFERENCE != PROCESS_DENSITY_SRC)
+    ck("Ch.2 fixes the reference material as PIP",
+       "PIP 2D 평직 C/SiC" in ch2_text,
+       "docs/CH2_LITERATURE_REVIEW.md" if ch2_text else "chapter not found")
+    ck("Ch.2 says PIP leaves more matrix porosity than CVI",
+       "기지 공극률이 높고" in ch2_text)
+    # The phrase is split so that this assertion does not match ITSELF -- the
+    # first version searched the file it lives in and found its own argument.
+    ck("this file no longer calls the CVI figure 'our material'",
+       ("for OUR" + " material") not in src)
+    ck("and states the inequality instead",
+       POROSITY_IS_LOWER_BOUND and "LOWER BOUND on ours" in src)
+    # The direction matters more than the size: a lower bound that is treated
+    # as an equality makes the knockdown too WEAK, so the model stays too
+    # stiff.  Assert the direction so the sign can never be argued about.
+    ck("using the bound as an equality under-corrects, never over-corrects",
+       void_penalty(vp, EM_1000) < void_penalty(vp + 0.05, EM_1000),
+       "%.1f GPa at %.1f %% vs %.1f GPa at %.1f %%"
+       % (void_penalty(vp, EM_1000) / 1e3, 100 * vp,
+          void_penalty(vp + 0.05, EM_1000) / 1e3, 100 * (vp + 0.05)))
+
+    # ---------------------------------------------------------------- B3
+    # Open versus total.  Two papers state a porosity that contradicts their
+    # own density; both become consistent if the stated figure is open.
+    print("\n B3. 10-15 % and 13 % reconcile with 19.6 % only as OPEN porosity")
+    for label, stated in (("refs/[28] low", 0.10), ("refs/[28] high", 0.15),
+                          ("refs/[43]", 0.13)):
+        ck("%s (%.0f %%) is below the density back-out" % (label, 100 * stated),
+           stated < vp, "%.0f %% < %.1f %%" % (100 * stated, 100 * vp))
+    # If the stated figures were TOTAL, the density would have to be higher
+    # than the one the same papers print.  Quantify that, since "inconsistent"
+    # is a claim and this is the number behind it.
+    need_rho = []
+    for stated in (0.10, 0.15):
+        rho = 0.40 * RHO_T300 + (1.0 - 0.40 - stated) * RHO_SIC
+        need_rho.append(rho)
+        ck("a TOTAL porosity of %.0f %% would need rho = %.2f, not 2.0"
+           % (100 * stated, rho), rho > 2.0 * 1.05,
+           "%.0f %% above the stated density" % (100 * (rho / 2.0 - 1.0)))
+    ck("closed porosity implied by the open reading is 5-10 %p",
+       0.04 < vp - 0.15 + 0.01 and vp - 0.10 < 0.11,
+       "%.1f to %.1f %%p" % (100 * (vp - 0.15), 100 * (vp - 0.10)))
+    ck("the open/total reading is labelled an inference, not a graded fact",
+       "carries no grade" in src)
 
     print("\n C. the phase bookkeeping is where the error is")
     a, b = rve_phases(), real_phases()

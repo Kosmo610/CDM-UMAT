@@ -127,6 +127,26 @@ python3 sync/sync_check.py --ack-all       # 전부
 
 ---
 
+## 4-1. 편집 영역 — 넘어가면 경고한다 (a1-0004에서 흡수)
+
+§1의 소유권 표는 **절대 규칙**이고(어기면 병합이 깨진다), 아래 영역표는
+**권고**다. 두 에이전트가 중간 장들을 같이 고치는 것은 정상이므로, 선을 넘는 것
+자체를 막지 않고 **상대에게 알린다.**
+
+| 영역 | 주인 |
+|---|---|
+| `refs/`, `data/literature/`, `docs/CH1`, `docs/CH2`, `docs/REFS_CANDIDATES.md`, `docs/DOWNLOAD_LIST*`, `docs/KAISER_JUDGMENT.md` | **a1** |
+| `src/`, `abaqus/`, `postprocess/`, `verification/` | **a2** |
+| **그 외 전부** (`docs/CH3`~`CH5`, `data/properties/`, `CLAUDE.md`, `docs/THESIS_PLAN.md`) | **공유 — 경고 없음** |
+
+`sync_check.py`가 **공통조상 이후 내가 상대 영역 파일을 고쳤는지**를 보고한다.
+"지금 무엇이 다른가"가 아니라 "마지막으로 합의한 뒤 내가 상대 것에 무엇을 했나"다.
+
+막는 것은 편집이 아니라 **말없는 편집**이다. 고친 게 맞으면 `kind: "changed"`로
+알린다. 영역표가 틀렸다고 생각하면 `kind: "question"`으로 이의를 제기한다.
+
+---
+
 ## 5. 병합할 때
 
 이 폴더는 충돌하지 않지만, 나머지 저장소는 충돌할 수 있다. 병합 전에:
