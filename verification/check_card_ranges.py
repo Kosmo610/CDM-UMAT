@@ -44,10 +44,16 @@ DECK_ZIP = os.path.join(ROOT, "dist", "M4_DRIVERFIX_0730_1623.zip")
 DECK_IN_ZIP = "M4_DRIVERFIX_0730_1623/M4_c26k_RT23.inp"
 GUIDE = os.path.join(ROOT, "verification", "CALIBRATION_GUIDE.md")
 
-#: Pinned verdict counts.  These are a FINDING, not a target: only 8 of the 26
+#: Pinned verdict counts.  These are a FINDING, not a target: only 7 of the 26
 #: audited inputs currently have support from a source other than the one they
 #: came from.  Ch.4 4.9 quotes these three numbers, so they cannot drift.
-EXPECTED_IN, EXPECTED_DEV, EXPECTED_GUESS = 8, 4, 14
+#:
+#: 2026-08-03: 8 -> 7 IN, 4 -> 5 DEV.  Yarn Xt was regraded.  An IN verdict is
+#: only worth what its comparison source is worth, and that row's was a strand
+#: datasheet figure being compared against another strand datasheet figure.
+#: The count went DOWN because the audit got sharper, which is the only
+#: direction this number is allowed to move for a good reason.
+EXPECTED_IN, EXPECTED_DEV, EXPECTED_GUESS = 7, 5, 14
 
 _OK, _BAD = [], []
 
@@ -122,10 +128,25 @@ MATRIX = [
 ]
 
 YARN = [
-    (11, "Xt yarn [MPa]", 2835.0, 2700.0, 2900.0, "IN",
-     "rule of mixtures Vf*3580 with Vf = 0.79194; Toray T300 datasheet "
-     "tensile strength is 3530 MPa, giving 2795",
-     "the card uses Zhang's 3580; the datasheet 3530 gives 2795, 1.4 % away"),
+    # REGRADED 2026-08-03, IN -> DEV.  The old range [2700, 2900] was built
+    # from Toray's 3530 datasheet figure, which is a STRAND value -- the same
+    # kind of number as the card's own 3580.  Agreeing with it demonstrated
+    # nothing except that two strand figures agree.  The first genuinely
+    # independent source is a direct measurement of the filament, and the card
+    # is 1.70x above it.  See data/properties/insitu_yarn_strength.py.
+    (11, "Xt yarn [MPa]", 2835.0, 475.0, 1815.0, "DEV",
+     "refs/[08] Sauder, Lamon & Pailler, Compos. Sci. Technol. 62 (2002) 499 "
+     "Table 1 MEASURED T300 single filaments: sigma_R = 2107 MPa at 24 C and "
+     "2292 MPa at 1000 C on a 50 mm gauge, giving Vf*sigma_R = 1669-1815 MPa. "
+     "The same table's Weibull parameters, evaluated at the RVE's own aligned "
+     "fibre volume of 1.063 mm^3, give 475-745 MPa. refs/[10] Yang, J. Eur. "
+     "Ceram. Soc. 37 (2017) 1281 Table 2 uses those same Weibull values as "
+     "the fibre strength in a 2D C/SiC strength model",
+     "the card is 1.6x the highest independent value and 6.0x the lowest. "
+     "The rule-of-mixtures composite bound it implies is 706 MPa against a "
+     "measured 248-259 MPa, so this is the M6 calibration target, not a "
+     "tolerable deviation. Left in the SHIPPED deck because that deck is the "
+     "audited artefact; M6 replaces it"),
     (12, "Xc yarn [MPa]", 1956.0, None, None, "GUESS",
      "no independent compressive strength for T300 filaments was found",
      "rule of mixtures Vf*2470 from Zhang 2022 Table 1"),
@@ -247,6 +268,15 @@ def main():
                   lo is not None and lo <= val <= hi, "%g" % val)
         elif verdict == "DEV":
             n_dev += 1
+            # A DEV row may leave the range unstated when the independent
+            # source gives a qualitative bound only.  But if it DOES state
+            # one, the value had better be outside it -- otherwise a row can
+            # be moved IN -> DEV to dodge a failing comparison, which is the
+            # same dishonesty as widening a tolerance.
+            if lo is not None and hi is not None:
+                check("%s is really OUTSIDE [%g, %g]" % (name, lo, hi),
+                      not (lo <= val <= hi),
+                      "%g, by %.2fx" % (val, val / hi if val > hi else lo / val))
         else:
             n_guess += 1
 

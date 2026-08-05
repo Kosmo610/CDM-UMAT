@@ -93,7 +93,7 @@ CASES = [
      count_bracketed, 33),
     ("check_card_ranges.py",
      "python3 verification/check_card_ranges.py",
-     count_plain, 92),
+     count_plain, 94),
     ("quench_calibration.py --check",
      "python3 abaqus/quench_calibration.py --check",
      count_bracketed, 12),

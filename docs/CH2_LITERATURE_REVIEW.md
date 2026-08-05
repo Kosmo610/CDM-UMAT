@@ -311,7 +311,7 @@ $$d_{\text{eff}} = \begin{cases} d & \varepsilon_n \ge 0 \\ d\,(1-H_{clo}) & \va
 단조성은 보존된다.
 
 > **★ 이 전단 가정은 동일 재료의 실험과 어긋난다 — 보수 가정으로 명시한다.**
-> Li 등[28]은 **본 연구와 완전히 동일한 재료**(2D 평직 C/SiC, CVI, T300, PyC 계면)의
+> Li 등[28]은 **본 연구와 동일 아키텍처**(2D 평직 C/SiC, T300, PyC 계면)의
 > off-axis 반복 하중에서 *"the **shear damage is also gradually deactivated**"* 를
 > 관측하였다. 즉 전단 강성도 실제로는 회복된다.
 >
@@ -670,7 +670,7 @@ $|\Delta T|$라도 급랭(인장 지배)과 급가열(압축 지배)의 손상 �
 본 연구는 균열 닫힘(§2.5.3)을 이미 구현하고 있으므로 **추가 비용이 거의 없다.**
 
 > **★ C3는 "아무도 보지 않은 것"이 아니라 "단조에서 관측된 것을 반복으로 확장하는 것"이다.**
-> Li 등[28]은 **본 연구와 동일한 재료**(2D 평직 C/SiC, CVI, T300, PyC 계면)의 on/off-axis
+> Li 등[28]은 **본 연구와 동일 아키텍처**(2D 평직 C/SiC, T300, PyC 계면)의 on/off-axis
 > 인장·압축 시험에서 비대칭을 직접 측정하였다 — *"Due to the **damage impediment effect
 > of compression stress**, compression specimens show **higher mechanical properties and
 > lower damage evolution rates** than tension specimens with the same off-axis angle."*

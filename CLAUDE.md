@@ -84,7 +84,20 @@
 - 충돌은 대개 **장부 충돌**이다 — 양쪽이 검증 총량 카운터를 다르게 고친 것.
   내용 충돌이면 그것은 **판정이 갈린 것**이므로 위 표로 해결한다.
 
-상세는 `docs/BRANCH_PROTOCOL.md`.
+### ★ 우편함은 `sync/` 다 (a2가 만들고 소유, 2026-08-05)
+
+`sync/PROTOCOL.md`가 정본이다. **`sync/sync_check.py`·`PROTOCOL.md`·`outbox_a2.json`·
+`state_a2.json`은 a2 소유이므로 a1은 절대 편집하지 않는다.** 고쳐야 하면
+`sync/outbox_a1.json`에 `kind: "question"`으로 요청한다.
+
+```bash
+python3 sync/sync_check.py               # a2가 보낸 것 확인
+python3 sync/sync_check.py --ack a2-0001 # 반영 완료 기록 ("읽음"이 아니라 "반영함")
+```
+
+**a1 소유는 `sync/outbox_a1.json`·`sync/state_a1.json` 둘뿐이다.**
+
+상세는 `docs/BRANCH_PROTOCOL.md`와 `sync/PROTOCOL.md`.
 
 ---
 
@@ -309,10 +322,11 @@ python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직�
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 verification/check_branch_sync.py --selftest   # 에이전트 동기화 장치 자체 검증
+python3 sync/sync_check.py                            # ★ a2 우편함 — blocking 미처리면 실패
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 ```
 
-**커밋 전에 위 32개를 전부 통과시킨다.**
+**커밋 전에 위 33개를 전부 통과시킨다.**
 
 > **★ 위 목록과 별개인 것 하나 — `check_branch_sync.py`(인자 없이).**
 > 이것은 **게이트가 아니라 알림**이다. 처리할 것이 있으면 **일부러 종료코드 1**을

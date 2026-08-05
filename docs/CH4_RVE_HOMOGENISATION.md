@@ -1042,7 +1042,7 @@ C/SiC 모델링 문헌[17]이 쓰는 **25 W/(m·K)** 급을 기지에 넣으면 
 
    > **★ 유효 무응력 온도가 제조온도보다 낮은 데에는 실측된 기구가 있다.**
    > $T_{sf}$를 1050 °C에서 내리는 것은 지금까지 "수치를 맞추기 위한 조정"으로만
-   > 서술되었으나, Li 등[28]은 본 연구와 동일한 재료에서 그 기구를 직접 관측하였다 —
+   > 서술되었으나, Li 등[28]은 본 연구와 동일 아키텍처의 재료에서 그 기구를 직접 관측하였다 —
    > as-received 상태의 2D C/SiC가 *"an array of **non-interacting microcracks** which
    > are able to **relieve the thermal residual stress without affecting the elastic
    > modulus** of the material"* 을 이미 갖고 있다는 것이다.
