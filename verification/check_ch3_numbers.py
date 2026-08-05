@@ -121,6 +121,9 @@ CASES = [
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
      count_plain, 15),
+    ("check_branch_sync.py --selftest",
+     "python3 verification/check_branch_sync.py --selftest",
+     count_plain, 14),
 ]
 
 
