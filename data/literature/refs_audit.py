@@ -500,9 +500,35 @@ def check():
     t("the [S*] triage is written down, not left as 'could not obtain'",
       "미확보 `[S*]`의 처리" in ch2txt)
     for key, verdict in (("S11", "확보 불필요"), ("S12", "확보 권장"),
-                         ("S13", "확보 필요")):
+                         ("S13", "서지·수식은 2026-08-06 확인 완료")):
         t("  [%s] carries a verdict of its own" % key,
-          ("`[%s]`" % key) in ch2txt and verdict in ch2txt, verdict)
+          ("`[%s]`" % key) in ch2txt and verdict in ch2txt, verdict[:24])
+
+    # [S13] is paywalled and stays unheld, so what CAN be verified without it
+    # was verified against independent secondary sources and pinned here.
+    # Doing that turned up an error in 2.4.4 that had nothing to do with
+    # holding the paper: the abscissa.
+    print("\n D2. [S13] Hasselman 1969 -- verified without holding it")
+    t("the bibliography Ch.2 states is the one the record gives",
+      "52 (1969) 600–604" in ch2txt
+      and "10.1111/j.1151-2916.1969.tb15848.x" in ch2txt)
+    t("R_st is quoted in the form the secondary literature gives",
+      r"\gamma_{wof}}{E\,\alpha^2}" in ch2txt
+      or r"\gamma_{wof}/(E\alpha^2)" in ch2txt)
+    # THE CORRECTION.  Hasselman's residual-strength curve runs against the
+    # dT of a SINGLE quench; the classical quench test is a single-cycle
+    # test.  YIN2002's curve runs against CYCLE NUMBER at fixed dT.  The
+    # draft called them the same shape and drew a conclusion from it.
+    t("Ch.2 says the abscissa is a single quench's dT, not cycle count",
+      "가로축은 사이클 수가 아니라 단회 급랭" in ch2txt)
+    t("  and says so as a correction to the draft, not silently",
+      "여기서 정정한다" in ch2txt)
+    t("  and forbids the overlay figure that error would have produced",
+      "겹쳐 그리는 그림은 만들지 않는다" in ch2txt)
+    t("R_st is no longer called a repeated-thermal-shock parameter",
+      "반복 열충격을 직접 겨냥한" not in ch2txt)
+    t("  what survives is the stable-growth precondition, stated as such",
+      "안정 성장" in ch2txt and "전제 점검" in ch2txt)
 
     print("\n E. the [43] entry is a real reference now, not a description")
     txt = open(CH2, encoding="utf-8").read()
