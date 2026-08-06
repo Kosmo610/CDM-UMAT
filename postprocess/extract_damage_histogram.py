@@ -1,0 +1,250 @@
+# -*- coding: utf-8 -*-
+"""
+상.모드별 손상변수 히스토그램 추출  (논문 Fig.A1/A2/A3 대응)
+
+논문 부록 Fig.A1-A3 는 각 하중 단계에서 5개 그룹의 손상변수 "값" 분포
+히스토그램을 준다:
+  기지 손상 / 워프 종방향 / 워프 횡방향 / 위프 종방향 / 위프 횡방향
+각 판에 "sum: XX%" (손상요소율) 이 함께 적혀 있어, 손상요소율(개수)과
+손상변수 크기(심각도)를 분리해서 대조할 수 있는 유일한 데이터다.
+
+지금까지 우리는 손상요소율과 평균값만 뽑았고 분포는 버렸다.
+이 스크립트가 그 공백을 채운다.
+
+사용법
+------
+  abaqus python extract_damage_histogram.py <job>.odb
+      [--step NAME] [--frames a,b,c] [--tag NAME]
+
+  --step   기본: Tension_* 자동 검색, 없으면 냉각 Step
+  --frames 기본: 해당 Step 의 마지막 프레임 1개
+           (논문 단계점 I/II/III 대조는 프레임 번호를 직접 지정)
+
+출력
+----
+  damage_hist<TAG>_f<NN>.csv   프레임당 1개
+    BinLo, BinHi, Matrix, Warp_Long, Warp_Trans, Weft_Long, Weft_Trans
+    (각 칸 = 그 구간 요소수 / 그룹 전체 요소수 * 100 [%])
+  화면에 sum(손상요소율)/평균/p95 를 논문 대조용으로 찍는다.
+
+논문 대조 기준값 (Fig.A1-A3 판독):
+  23C  최대점(III): 기지 sum 100% (d 0.4~0.8), 워프종 60.67%,
+       워프횡 99.77%, 위프종 2.40%, 위프횡 99.29%
+  500C 최대점(IV): 워프종 44.38%, 워프횡 95.83%, 위프종 3.38%,
+       위프횡 99.59%
+  1000C 최대점(IV): 워프종 32.12%, 워프횡 89.06%, 위프종 14.28%,
+       위프횡 99.17%
+"""
+from __future__ import print_function
+from __future__ import division
+
+import sys
+import os
+import csv
+from odbAccess import openOdb
+
+WARP = ('YARN0', 'YARN1')
+WEFT = ('YARN2', 'YARN3')
+DTH = 0.01                    # 손상요소 판정 문턱 (기존 추출과 동일)
+NBIN = 20                     # 0.05 폭 x 20 = 0~1.0
+PY2 = (sys.version_info[0] == 2)
+
+
+def csv_open(p):
+    return open(p, 'wb') if PY2 else open(p, 'w', newline='')
+
+
+def _sc(v):
+    try:
+        return v[0]
+    except (TypeError, IndexError):
+        return v
+
+
+def get_set(container, name):
+    if name in container:
+        return container[name]
+    up = name.upper().replace(' ', '')
+    for k in container.keys():
+        if k.upper().replace(' ', '') == up:
+            return container[k]
+    return None
+
+
+def get_elset(odb, name):
+    ra = odb.rootAssembly
+    s = get_set(ra.elementSets, name)
+    if s is not None:
+        return s
+    for inst in ra.instances.values():
+        s = get_set(inst.elementSets, name)
+        if s is not None:
+            return s
+    return None
+
+
+def resolve_sdv(names, nm):
+    tgt = 'SDV_' + nm
+    for n in names:
+        if n == tgt:
+            return n
+    cand = [n for n in names if n.startswith(tgt)]
+    if cand:
+        cand.sort(key=len)
+        return cand[0]
+    return None
+
+
+def pick_step(odb, want):
+    if want:
+        st = get_set(odb.steps, want)
+        if st is not None:
+            return st.name
+    cand = [k for k in odb.steps.keys() if k.upper().startswith('TENSION')]
+    if len(cand) == 1:
+        return cand[0]
+    for k in odb.steps.keys():
+        if 'COOL' in k.upper():
+            return k
+    return list(odb.steps.keys())[0]
+
+
+def collect(field, elsets):
+    """여러 elset 의 SDV 값을 하나의 리스트로."""
+    out = []
+    for es in elsets:
+        try:
+            vals = field.getSubset(region=es).values
+        except Exception:
+            continue
+        for v in vals:
+            out.append(_sc(v.data))
+    return out
+
+
+def hist_row(vals):
+    """(sum%, mean, p95, bins[NBIN]) - bins 는 전체 요소수 대비 %."""
+    n = len(vals)
+    if n == 0:
+        return (float('nan'), float('nan'), float('nan'), [0.0] * NBIN)
+    dmg = sorted(v for v in vals if v > DTH)
+    bins = [0] * NBIN
+    for v in dmg:
+        i = int(v * NBIN)
+        if i >= NBIN:
+            i = NBIN - 1
+        if i < 0:
+            i = 0
+        bins[i] += 1
+    s = 100.0 * len(dmg) / n
+    mean = sum(dmg) / len(dmg) if dmg else 0.0
+    p95 = dmg[int(0.95 * (len(dmg) - 1))] if dmg else 0.0
+    return (s, mean, p95, [100.0 * b / n for b in bins])
+
+
+def main():
+    args = sys.argv[1:]
+    tag = ''
+    if '--tag' in args:
+        i = args.index('--tag')
+        if i + 1 < len(args):
+            tag = args[i + 1]
+    fr_arg = None
+    if '--frames' in args:
+        i = args.index('--frames')
+        if i + 1 < len(args):
+            fr_arg = args[i + 1]
+    want_step = None
+    if '--step' in args:
+        i = args.index('--step')
+        if i + 1 < len(args):
+            want_step = args[i + 1]
+    paths = [a for a in args if a.lower().endswith('.odb')]
+    if not paths:
+        print('usage: abaqus python extract_damage_histogram.py <job>.odb '
+              '[--step NAME] [--frames a,b,c] [--tag NAME]')
+        return 1
+    path = paths[0]
+    outdir = os.path.dirname(os.path.abspath(path)) or '.'
+
+    print('opening %s ...' % path)
+    odb = openOdb(path=path, readOnly=True)
+    try:
+        sname = pick_step(odb, want_step)
+        st = odb.steps[sname]
+        nfr = len(st.frames)
+        print('step  : %s  (%d frames)' % (sname, nfr))
+        if nfr == 0:
+            print('[error] step has no frames')
+            return 2
+        if fr_arg:
+            frames = [int(x) for x in fr_arg.split(',') if x.strip() != '']
+        else:
+            frames = [nfr - 1]
+        frames = [f for f in frames if 0 <= f < nfr]
+        print('frames: %s' % frames)
+
+        smat = get_elset(odb, 'MATRIX')
+        swarp = [get_elset(odb, p) for p in WARP]
+        sweft = [get_elset(odb, p) for p in WEFT]
+        if smat is None or None in swarp or None in sweft:
+            print('[error] element sets MATRIX/YARN0..3 not all found')
+            return 2
+
+        groups = ['Matrix', 'Warp_Long', 'Warp_Trans',
+                  'Weft_Long', 'Weft_Trans']
+
+        for fi in frames:
+            fr = st.frames[fi]
+            names = list(fr.fieldOutputs.keys())
+            f_dmt = resolve_sdv(names, 'DMT')
+            f_dy1 = resolve_sdv(names, 'DY1T')
+            f_dyt = resolve_sdv(names, 'DYTT')
+            if f_dmt is None or f_dy1 is None or f_dyt is None:
+                print('  frame %d: SDV_DMT/DY1T/DYTT not found - skip' % fi)
+                continue
+            FD = fr.fieldOutputs
+            data = {
+                'Matrix': collect(FD[f_dmt], [smat]),
+                'Warp_Long': collect(FD[f_dy1], swarp),
+                'Warp_Trans': collect(FD[f_dyt], swarp),
+                'Weft_Long': collect(FD[f_dy1], sweft),
+                'Weft_Trans': collect(FD[f_dyt], sweft),
+            }
+            rows = dict((g, hist_row(data[g])) for g in groups)
+
+            print('')
+            print('  frame %d  (step time %.4f)' % (fi, fr.frameValue))
+            print('  %-12s %8s %8s %8s   (paper Fig.A sums: see header)'
+                  % ('group', 'sum%', 'mean d', 'p95 d'))
+            for g in groups:
+                s, m, p, _ = rows[g]
+                print('  %-12s %8.2f %8.3f %8.3f' % (g, s, m, p))
+
+            out = os.path.join(outdir,
+                               'damage_hist%s_f%02d.csv' % (tag, fi))
+            f = csv_open(out)
+            try:
+                w = csv.writer(f)
+                w.writerow(['BinLo', 'BinHi'] + groups)
+                for b in range(NBIN):
+                    w.writerow(['%.2f' % (b / float(NBIN)),
+                                '%.2f' % ((b + 1) / float(NBIN))]
+                               + ['%.4f' % rows[g][3][b] for g in groups])
+                w.writerow([])
+                w.writerow(['sum_pct', ''] + ['%.2f' % rows[g][0]
+                                              for g in groups])
+                w.writerow(['mean_d', ''] + ['%.4f' % rows[g][1]
+                                             for g in groups])
+                w.writerow(['p95_d', ''] + ['%.4f' % rows[g][2]
+                                            for g in groups])
+            finally:
+                f.close()
+            print('  wrote %s' % out)
+    finally:
+        odb.close()
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
