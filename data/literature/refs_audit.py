@@ -69,6 +69,25 @@ What the audit found, and what was done about it
 
 7. refs/[10] answers a2-0003, and had already been transcribed into Ch.4.
 
+8c. FOURTH UPLOAD, 2026-08-06: [57]-[64].  One closes [S8] (Van Paepegem
+   cycle jump); the other seven are new numbered references.  Full review in
+   docs/REFS_57_64_ASSESSMENT.md.  The two that change something today:
+
+   [60] is PART II of refs/[28] -- the constitutive-model companion to the
+   experiment we lean on for C3.  It formalises exactly the mechanism C3
+   invokes: "the biaxial compression stresses yield a faster damage
+   deactivation rate than the uniaxial compression condition."  It also uses
+   a CONTINUOUS deactivation function where our HCLO is a single scalar, so
+   our crack-closure treatment is the simpler of the two and must say so.
+
+   [59] Camus 1996 CORRECTS a1-0012.  Its constituent table gives the CVI SiC
+   matrix as E = 350 GPa, nu = 0.2, alpha = 4.6e-6 -- essentially our card,
+   from an independent 1996 group.  So 350 is NOT an outlier peculiar to
+   Zhang [5].  The real situation is two schools using the same words for
+   different things: the solid SiC phase (350-460 GPa) versus a
+   porosity-degraded effective value (80-143 GPa).  The a1-0012 wording
+   "the card is the outlier" was an overstatement and is retracted.
+
 8. THIRD BATCH, 2026-08-06: [46]-[56], eleven papers in two uploads.  EIGHT
    close an [S*] gap -- S1, S2, S3, S4, S5, S6, S7, S10 -- i.e. every method
    primary source the thesis had been citing without holding, except S8, S9
@@ -184,10 +203,10 @@ MUST_BE_LISTED = {
           "4261-4265",
 }
 
-N_PDF = 56
-N_DISTINCT = 56
-N_NUMBERS = 54   # [01] and [05] each carry two different papers
-NEXT_FREE = 57   # 21 and 39 are retired, never reused
+N_PDF = 64
+N_DISTINCT = 64
+N_NUMBERS = 62   # [01] and [05] each carry two different papers
+NEXT_FREE = 65   # 21 and 39 are retired, never reused
 
 # Third batch, 2026-08-06.  Four of the five close [S*] gaps -- method primary
 # sources the thesis had been citing without holding the originals.
@@ -205,7 +224,27 @@ THIRD_BATCH = {
                "-- SCANNED, no text layer"),
     55: ("S6", "Chamis, NASA TM-83320 (1983)"),
     56: ("S7", "Schapery, J. Compos. Mater. 2(3) (1968) 380-404"),
+    57: ("S8", "Van Paepegem, Degrieck, De Baets, Compos. B 32 (2001) 575"),
+    58: (None, "Cojocaru & Karlsson, Int. J. Fatigue 28 (2006) 1677 -- "
+               "ADAPTIVE cycle jump"),
+    59: (None, "Camus, Guillaumat, Baste, Compos. Sci. Technol. 56 (1996) 1363"),
+    60: (None, "Li et al. Chin. J. Aeronaut. 28(1) (2015) 314 -- PART II of "
+               "refs/[28]"),
+    61: (None, "Mei et al., Carbon 44 (2006) 121"),
+    62: (None, "Baste, Compos. Sci. Technol. 61 (2001) 2285"),
+    63: (None, "Mei et al., Carbon 45 (2007) 2195 -- also Zhang[5] ref [36]"),
+    64: (None, "Wu et al., Materials 19(2) (2026) 307 -- 2.5D, oxidation"),
 }
+
+# refs/[61] Table 1, as-received 2D C/SiC (CVI).  Read off the PDF.
+MEI2006_T1 = dict(rho=2.0, E=70.0, strength=248.0, nu=0.32, porosity=13.0,
+                  cte={600: 4.6, 800: 6.1, 1000: 5.2, 1200: 5.4})
+MEI2006_RETENTION = {"wet oxygen": 88.92, "argon": 98.90,
+                     "dry oxygen": 96.46, "water vapour": 95.82}
+
+# refs/[59] Camus 1996 constituent table -- the correction to a1-0012.
+CAMUS_MATRIX = dict(rho=3.2, E=350.0, nu=0.2, cte=4.6)
+OUR_MATRIX = dict(E=350.0, nu=0.20, cte=4.5)
 
 # Chamis NASA TM-83320 Example 8.1, transcribed from the report.  The
 # equations themselves are figure images and cannot be extracted, but this
@@ -434,7 +473,7 @@ def check():
     for n, (skey, cite) in sorted(THIRD_BATCH.items()):
         t("refs/[%02d] is on the shelf" % n, n in by_n, cite[:44])
     got = [k for _, (k, _) in THIRD_BATCH.items() if k]
-    t("eight of the eleven close an [S*] gap", len(got) == 8,
+    t("nine of the nineteen close an [S*] gap", len(got) == 9,
       ", ".join(sorted(got)))
     ch2 = open(CH2, encoding="utf-8").read()
     for n, (skey, _) in sorted(THIRD_BATCH.items()):
@@ -449,6 +488,30 @@ def check():
         t("[%d] is listed as a numbered reference" % n, "[%d]" % n in ch2)
     t("[54] is flagged as a scan with no text layer",
       "\uc2a4\uce94\ubcf8" in ch2 and "SCANNED pdf with no text layer" in __doc__)
+
+    print("\n G2b. fourth upload -- the two that change something")
+    t("[60] is recorded as Part II of refs/[28]",
+      "PART II of " in THIRD_BATCH[60][1])
+    t("  and Ch.2 now flags [28] as Part I", "Part II는 `[60]`" in ch2)
+    t("[59] Camus matrix E matches our card, not the low school",
+      abs(CAMUS_MATRIX["E"] - OUR_MATRIX["E"]) < 1e-9,
+      "%.0f vs %.0f GPa" % (CAMUS_MATRIX["E"], OUR_MATRIX["E"]))
+    t("  nu matches too", abs(CAMUS_MATRIX["nu"] - OUR_MATRIX["nu"]) < 1e-9)
+    t("  and CTE to within 2.3 %",
+      abs(CAMUS_MATRIX["cte"] / OUR_MATRIX["cte"] - 1.0) < 0.025,
+      "%.1f vs %.1f e-6" % (CAMUS_MATRIX["cte"], OUR_MATRIX["cte"]))
+    t("so the a1-0012 'card is the outlier' wording is retracted here",
+      "was an overstatement and is retracted" in __doc__)
+    t("[61] Table 1 is transcribed with its porosity",
+      abs(MEI2006_T1["porosity"] - 13.0) < 1e-9)
+    t("  and four CTE points for the composite", len(MEI2006_T1["cte"]) == 4)
+    t("  and its 70 GPa modulus is 1.84x below refs/[10]'s 128.7",
+      abs(128.7 / MEI2006_T1["E"] - 1.838) < 0.01,
+      "%.2fx" % (128.7 / MEI2006_T1["E"]))
+    t("  retention in argon is the 98.90 % also quoted from refs/[43]",
+      abs(MEI2006_RETENTION["argon"] - 98.90) < 1e-9)
+    assess = os.path.join(DOCS, "REFS_57_64_ASSESSMENT.md")
+    t("the full review exists", os.path.exists(assess))
 
     print("\n G3. Chamis Example 8.1 validates the FORMULA, not just the card")
     e = CHAMIS_EX81

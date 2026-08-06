@@ -781,14 +781,21 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [33] | Z. Yang, J. Jiao, Y. Guo, *(D-criterion 원전)*, **Theor. Appl. Mech. Lett. 4 (2014) 021007** |
 | [35] | H. Yan, C. Zhang, Y. Qiao, X. Li, D. Han, *(고온 면내 전단)*, **Mater. Des. 32 (2011) 3504** |
 | [01] | Z. Yang, X. Liu, *A continuum fatigue damage model for the cyclic thermal shocked CMC*, **Int. J. Fatigue 134 (2020) 105507**; 및 *A CDM model for 2-D woven oxide/oxide CMC under cyclic thermal shocks*, **Ceram. Int. 46 (2020) 6029–6037** |
-| **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: Part I — Experiment and analysis*, **Chin. J. Aeronaut. 27(6) (2014) 1586–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
+| **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: **Part I** — Experiment and analysis*  ⚠️ **Part II는 `[60]`**, **Chin. J. Aeronaut. 27(6) (2014) 1586–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
+| **[58]** | **D. Cojocaru, A. M. Karlsson**, *A simple numerical method of cycle jumps for cyclically loaded structures*, **Int. J. Fatigue 28 (2006) 1677–1689**, doi:`10.1016/j.ijfatigue.2006.01.010` — **적응형** cycle jump(점프 폭 자동 제어) |
+| **[59]** | **G. Camus, L. Guillaumat, S. Baste**, *Development of damage in a 2D woven C/SiC composite under mechanical loading: I. Mechanical characterisation*, **Compos. Sci. Technol. 56 (1996) 1363–1372** — 열잔류응력이 응력–변형률 원점을 압축 영역으로 미는 것과 압축 시 제조 열균열 닫힘을 **실측** |
+| **[60]** | **J. Li, G. Q. Jiao, B. Wang 등**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: **Part II** — Material model and numerical implementation*, **Chin. J. Aeronaut. 28(1) (2015) 314–326**, doi:`10.1016/j.cja.2014.10.027` — **`[28]`(Part I)의 모델링 짝.** 손상 비활성화를 연속함수로 두고 **이축 압축이 단축보다 빠름**을 정식화 |
+| **[61]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, J. Zhang**, *Behavior of 2D C/SiC composites subjected to thermal cycling in controlled environments*, **Carbon 44 (2006) 121–127**, doi:`10.1016/j.carbon.2005.07.003` — 700↔1200 °C 사이클, 물성표(밀도 2.0 · $E$ 70 GPa · 강도 248 MPa · 공극률 13 % · CTE 4점) |
+| **[62]** | **S. Baste**, *Inelastic behaviour of ceramic-matrix composites*, **Compos. Sci. Technol. 61 (2001) 2285–2297** — 초음파로 이방성 손상을 모드별로 분리 |
+| **[63]** | **H. Mei, L. Cheng, L. Zhang, Y. Xu**, *Modeling the effects of thermal and mechanical load cycling on a C/SiC composite in oxygen/argon mixtures*, **Carbon 45 (2007) 2195–2204**, doi:`10.1016/j.carbon.2007.06.051` — 변형률을 열·기계·**기저(손상)** 로 분해. ⚠️ Zhang [5]가 기지 카드의 출처로 든 세 편(그 논문 참고문헌 36번) 중 하나이기도 함 |
+| **[64]** | **T. Wu, Y. Wang, W. Qi, X. Luo, P. Luo, X. Gao, Y. Song**, *Predictive constitutive modelling of oxidation-induced degradation in 2.5D woven C/SiC composites*, **Materials 19(2) (2026) 307**, doi:`10.3390/ma19020307` — 최신 경쟁 논문. **2.5D · 산화 구동 · 하중–제하**이므로 본 연구(2D · 열충격 · 정진폭)와 겹치지 않음 |
 | **[51]** | **Z. Hashin, A. Rotem**, *A fatigue failure criterion for fiber reinforced materials*, **J. Compos. Mater. 7(4) (1973) 448–464**, doi:`10.1177/002199837300700404` — 사이클 손상 법칙의 고전 기준 |
 | **[54]** | **J.-L. Chaboche, P.-M. Lesne, J.-F. Maire**, *Continuum damage mechanics, anisotropy and damage deactivation for brittle materials like concrete and ceramic composites*, **Int. J. Damage Mech. 4(1) (1995) 5–22**, doi:`10.1177/105678959500400102` — 균열 닫힘(damage deactivation)을 **CMC에 적용한** 편. ⚠️ 스캔본이라 본문 텍스트 추출 불가 |
 | **[47]** | **M. Jirásek, M. Bauer**, *Numerical aspects of the crack band approach*, **Comput. Struct. 110–111 (2012) 60–78**, doi:`10.1016/j.compstruc.2012.06.006` — ⚠️ **요소 체적의 세제곱근으로 균열대 폭을 잡는 방식(Abaqus `CELENT`)이 파괴에너지를 50 % 이상 어긋나게 할 수 있다**고 명시. 제4장 §4.9 균열대 정규화의 한계 근거 |
 | **[43]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, P. Fang, J. Zhang**, *Thermal shock behavior of two-dimensional C/SiC composites in controlled atmospheres*, **J. Mater. Sci. 40 (2005) 4261–4265** — §2.5.4의 산화 대조군. 초록이 아르곤 50회 후 **98.90 %** 유지를 명시한다 |
 
 **기법 원전 — 본 논문이 이름으로 부르는 문헌 (전 장 공통 `[S*]` 목록).**
-제3·4·5장의 `[S*]` 표기가 가리키는 기법 원전 목록이다. **2026-08-06에 `[S1]`~`[S7]`·`[S10]` 원문 8편을 확보하였다**(각 행에 `refs/` 번호 표시). 나머지는 아직 확보 대상이며, 이 표는
+제3·4·5장의 `[S*]` 표기가 가리키는 기법 원전 목록이다. **2026-08-06에 `[S1]`~`[S8]`·`[S10]` 원문 9편을 확보하였다**(각 행에 `refs/` 번호 표시). 나머지는 아직 확보 대상이며, 이 표는
 이 표를 가리킨다. 서지는 Crossref로 대조·확정하였다
 (`data/literature/refs_candidates.csv`, `verification/verify_bibliography.ps1`).
 
@@ -801,7 +808,7 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [S5] | A. Matzenmiller, J. Lubliner, R. L. Taylor, *A constitutive model for anisotropic damage in fiber-composites*, **Mech. Mater. 20(2) (1995) 125–152** | `10.1016/0167-6636(94)00053-0` | | **보유 `refs/[52]`** |
 | **[S6]** | **C. C. Chamis**, *Simplified Composite Micromechanics Equations for Hygral, Thermal and Mechanical Properties*, **NASA TM-83320 (1983)** — NTRS 19830011546, 무료 전문. 병기: *SAMPE Quarterly* **15**(3) (1984) 14–23 | 없음(NTRS ID) | | **보유 `refs/[55]`** |
 | **[S7]** | **R. A. Schapery**, *Thermal expansion coefficients of composite materials based on energy principles*, **J. Compos. Mater. 2(3) (1968) 380–404** | `10.1177/002199836800200308` | | **보유 `refs/[56]`** |
-| [S8] | W. Van Paepegem, J. Degrieck, P. De Baets, *Finite element approach for modelling fatigue damage in fibre-reinforced composite materials*, **Compos. Part B 32(7) (2001) 575–588** — cycle jump | `10.1016/S1359-8368(01)00038-5` | |
+| [S8] | W. Van Paepegem, J. Degrieck, P. De Baets, *Finite element approach for modelling fatigue damage in fibre-reinforced composite materials*, **Compos. Part B 32(7) (2001) 575–588** — cycle jump | `10.1016/S1359-8368(01)00038-5` | | **보유 `refs/[57]`** |
 | [S9] | J.-L. Chaboche, *Development of continuum damage mechanics for elastic solids sustaining anisotropic and unilateral damage*, **Int. J. Damage Mech. 2(4) (1993) 311–329** | `10.1177/105678959300200401` | |
 | [S10] | J.-L. Chaboche, *Damage induced anisotropy: on the difficulties associated with the active/passive unilateral condition*, **Int. J. Damage Mech. 1(2) (1992) 148–171** | `10.1177/105678959200100201` | | **보유 `refs/[53]`** |
 | **[S11]** | **W. D. Kingery**, *Factors affecting thermal stress resistance of ceramic materials*, **J. Am. Ceram. Soc. 38(1) (1955) 3–15** | `10.1111/j.1151-2916.1955.tb14545.x` | |

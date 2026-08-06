@@ -75,9 +75,26 @@ Two things this search turned up that are not about PLS
        demanded by measured density      143 GPa   (a1-0009)
        used by refs/[15] for 3D C/SiC     80 GPa
 
-   The card is the outlier, by 2.4x against one independent route and 4.4x
-   against the other.  refs/[15] is not a light source here: it is the paper
-   the thesis cites for the XRD-measured TRS itself.
+   refs/[15] is not a light source here: it is the paper the thesis cites for
+   the XRD-measured TRS itself.
+
+   RETRACTION (2026-08-06).  This section originally concluded "the card is
+   the outlier".  refs/[59] Camus, Guillaumat & Baste, Compos. Sci. Technol.
+   56 (1996) 1363, arrived later and gives the CVI SiC matrix as
+   E = 350 GPa, nu = 0.2, alpha = 4.6e-6 -- our card on all three, from an
+   independent 1996 group.  So 350 is not peculiar to Zhang [5] and is not an
+   outlier.
+
+   What actually survives is a definitional split, which is the more useful
+   finding anyway:
+
+       solid SiC phase        350-460 GPa   Zhang [5], Camus [59], Snead [06]
+       effective, porosity-degraded  80-143 GPa   refs/[15], density inversion
+
+   Our RVE has NO pore geometry, so on consistency grounds it wants the
+   effective value -- but that breaks the Zhang [5] reproduction the whole
+   verification chain rests on.  That is the real dilemma, and it is a2's to
+   settle.  See docs/REFS_57_64_ASSESSMENT.md section 6.
 
 2. refs/[15] Table 1 also gives PyC INTERPHASE properties:
    Ei = 20.0 GPa, nu_i = 0.23, Xti = 140 MPa, Xci = 200 MPa.
@@ -131,6 +148,7 @@ R15_INTERPHASE = dict(Ei=20.0, nu=0.23, Xt=140.0, Xc=200.0)
 OUR_EM = 350.0           # GPa, Zhang [5] Table 2
 DENSITY_EM = 143.3       # GPa, demanded by the density inversion (a1-0009)
 OUR_YT = 80.0            # MPa, yarn card
+CAMUS_EM = 350.0         # GPa, refs/[59] Camus 1996 -- independent, agrees
 
 QUOTES = [
     ("TRS -> PLS mechanism",
@@ -279,8 +297,14 @@ def check():
       abs(OUR_EM / DENSITY_EM - 2.442) < 0.01, "%.3fx" % (OUR_EM / DENSITY_EM))
     t("and 4.38x what refs/[15] uses",
       abs(OUR_EM / R15_EM - 4.375) < 0.01, "%.3fx" % (OUR_EM / R15_EM))
-    t("both independent values point the SAME way (card too stiff)",
+    t("both effective-value routes sit below the card",
       DENSITY_EM < OUR_EM and R15_EM < OUR_EM)
+    t("but the card is NOT an outlier -- refs/[59] is independent and agrees",
+      abs(CAMUS_EM - OUR_EM) < 1e-9, "%.0f GPa" % CAMUS_EM)
+    t("and the earlier 'card is the outlier' wording is retracted in place",
+      "RETRACTION (2026-08-06)" in __doc__)
+    t("  with the definitional split stated instead",
+      "definitional split" in __doc__)
     t("our yarn Yt is below the interphase tensile strength",
       OUR_YT < R15_INTERPHASE["Xt"],
       "%.0f < %.0f MPa" % (OUR_YT, R15_INTERPHASE["Xt"]))
