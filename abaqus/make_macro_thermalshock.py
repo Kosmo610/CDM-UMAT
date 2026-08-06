@@ -1040,7 +1040,7 @@ def main():
     ap.add_argument("--sev", nargs="+", default=["M"], choices=sorted(SEVERITIES))
     ap.add_argument("--trs", nargs="+", default=list(TRS_CASES), choices=TRS_CASES)
     ap.add_argument("--checkpoints", type=int, nargs="+",
-                    default=[5, 10, 20, 40, 60],
+                    default=None,
                     help="cycle counts at which to probe E and write a restart")
     ap.add_argument("--cycle-jump", type=float, default=5.0,
                     help="real cycles represented by one simulated cycle")
@@ -1068,6 +1068,9 @@ def main():
                          "and rejects every broken one")
     args = ap.parse_args()
 
+    if args.checkpoints is None:
+        args.checkpoints = [5, 10, 20, 40, 60]
+
     if args.list_checks:
         print(CHECKS)
         return 0
@@ -1082,7 +1085,12 @@ def main():
         args.dims = list(sp["dims"])
         args.mesh = list(sp["mesh"])
         args.sev = [sp["sev"]]
-        args.checkpoints = list(sp["checkpoints"])
+        # An explicit --checkpoints wins over the specimen's defaults: the
+        # cycle-jump preflight runs a published specimen but only to the
+        # FIRST checkpoint, and silently forcing 60 cycles onto it would
+        # turn a minutes job into an hour one.
+        if args.checkpoints is None:
+            args.checkpoints = list(sp["checkpoints"])
         print("specimen %s: %.4g x %.4g x %.4g mm, severity %s (Bi = %.4g)"
               % (args.specimen, args.dims[0], args.dims[1], args.dims[2],
                  sp["sev"], SEVERITIES[sp["sev"]]["bi"]))

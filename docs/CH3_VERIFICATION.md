@@ -75,7 +75,9 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
 | `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 (발표 계열 대조 포함) | 35 |
 | `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종·산포·선형분율 | 30 |
-| **합계** | | **1929** |
+| `extract_probe.py --selftest` | E(N) 프로브 판독 산식 (cycle-jump 선행검증의 소비자) | 5 |
+| `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 (1 %/3 % 문턱) | 5 |
+| **합계** | | **1939** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -540,7 +542,7 @@ $E$ = 100 000 MPa, $\nu$ = 0.30, $\alpha$ = 5×10⁻⁶/K, 단위 거시변형 1
   (≤ 3.0×10⁻¹⁵) 이내로 일치**한다. 이는 "모델이 맞다"와 "코드가 맞다"를 분리하여
   둘 다 확인한 것이다.
 - 입력덱은 솔버 없이 정적 검증되며, 카드 가드 상수로 계보 혼용이 차단된다.
-- 총 **1929개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
+- 총 **1939개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
 
 > **따라서 이후 장에서 관측되는 불일치는 코드의 오류가 아니라 모델 가정 또는 물성의
 > 문제로 귀속할 수 있다.** 이것이 이 장의 실질적 산출물이다.
@@ -564,5 +566,7 @@ python3 abaqus/quench_calibration.py --check            # 급랭 h 역산 + Biot
 python3 abaqus/retune_deck.py --check                   # 덱 재튜닝
 python3 verification/celent_census.py                   # le=CELENT의 파괴에너지 오차
 python3 postprocess/extract_pls.py --selftest           # 비례한도(PLS) 추출
+python3 postprocess/extract_probe.py --selftest         # E(N) 프로브 판독 산식
+python3 postprocess/compare_cyclejump.py --selftest     # cycle-jump 오차 판정
 python3 verification/check_ch2_numbers.py               # 제2장 수치 vs 문헌 CSV
 ```

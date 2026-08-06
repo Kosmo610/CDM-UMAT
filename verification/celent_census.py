@@ -110,6 +110,23 @@ is what breaks it.  Switch Gtt on, leave Gtc at zero; Ch.4 4.9-6a already
 found there is no measured transverse compressive fracture energy to put
 there anyway.
 
+THE BAZANT-OH LOWER BOUND IS NOT A SECOND CEILING (a1-0013's open item)
+-----------------------------------------------------------------------
+refs/[46] fixes the physical band width at w_c = 3*d_a and calls that
+"about the minimum admissible from the viewpoint of continuum smoothing".
+That bound is on the MATERIAL's band width w_c, not on the element size:
+for elements finer than w_c -- the normal case -- Bazant & Oh themselves
+adjust the softening slope so the energy over the band is preserved,
+which is precisely what KABAND's A(g0, le, Gf) does.  So there is no
+collision between the snap-back CEILING on le (numerical, active, section
+E) and the w_c FLOOR (physical, absorbed by the A-scaling).  What
+survives is a statement, not a check: at the macro scale d_a is the yarn
+width 1.28 mm, so w_c = 3.84 mm, while the macro elements run 0.68-0.94
+mm -- the model lets damage localise into a band 4-5.6x narrower than
+the material's own process zone.  Energy is right by construction; the
+WIDTH of the localised zone is not a prediction, and Ch.6 must not read
+it as one.
+
     python3 verification/celent_census.py
     python3 verification/celent_census.py --check
 """
