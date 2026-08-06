@@ -63,6 +63,13 @@ PAPER = {23: (128.45, 116.17, 8.78),
          500: (179.42, 160.19, 14.83),
          1000: (199.15, 173.28, 12.94)}
 
+# ---- 논문 Fig.11/13/15 + 부록 Fig.A1~A3 의 최대점 상태 --------------------
+#      온도 : (최대점 변형률[%](그림 판독), 최대점 손상요소율[%]:
+#              matrix, warp long, warp trans, weft long, weft trans)
+PAPER_STAGE = {23: (0.32, 100.0, 60.67, 99.77, 2.40, 99.29),
+               500: (0.26, 100.0, 44.38, 95.83, 3.38, 99.59),
+               1000: (0.31, 100.0, 32.12, 89.06, 14.28, 99.17)}
+
 # ---- 태그 -> (온도, 표시이름) ---------------------------------------------
 TAGMAP = {
     '': (23, '23C base'),
@@ -309,6 +316,81 @@ def fig_damage(dmgruns, outdir):
     return p
 
 
+def _avg2(a, b):
+    n = min(len(a), len(b))
+    return [(a[i] + b[i]) / 2.0 for i in range(n)]
+
+
+def fig11_style(name, T, e, s, pk, dmg, outdir, fname):
+    """논문 Fig.11/13/15 재현: 응력-변형률 + 손상요소율 이중축 1장.
+
+    왼쪽 축 응력(검정), 오른쪽 축 손상요소율. 손상 곡선은 논문과 같은
+    5개: 기지 / 워프·위프 종 / 워프·위프 횡. 논문의 최대점 상태
+    (PAPER_STAGE) 를 속 빈 마커로 같이 찍어 즉석 대조가 되게 한다.
+    """
+    fig, ax = plt.subplots(figsize=(7.4, 5.4))
+    ax2 = ax.twinx()
+
+    ax.plot(e, s, 'k-', lw=2.0, label=L('응력', 'stress'))
+    ax.plot([pk[1]], [pk[0]], 'ko', ms=6,
+            mfc='white' if not pk[2] else 'k', zorder=6)
+
+    # ---- 손상요소율 (기지 / 워프·위프 x 종·횡) --------------------------
+    #      ElementSet 이름은 'Matrix'/'Yarn0' 처럼 원래 대소문자로
+    #      저장되므로 대문자 키로 정규화해서 찾는다.
+    up = dict((k.upper(), v) for k, v in dmg.items())
+    series = {}
+    M = up.get('MATRIX')
+    if M:
+        series['matrix'] = (M[0], M[1], '#8c564b', '-')
+    y0, y1 = up.get('YARN0'), up.get('YARN1')
+    y2, y3 = up.get('YARN2'), up.get('YARN3')
+    if y0 and y1:
+        series['warp long'] = (y0[0], _avg2(y0[2], y1[2]), '#d62728', '-')
+        series['warp trans'] = (y0[0], _avg2(y0[3], y1[3]), '#9467bd', '-')
+    if y2 and y3:
+        series['weft long'] = (y2[0], _avg2(y2[2], y3[2]), '#2ca02c', '-')
+        series['weft trans'] = (y2[0], _avg2(y2[3], y3[3]), '#17becf', '-')
+    for lab, (ex, py, col, ls) in series.items():
+        n = min(len(ex), len(py))
+        ax2.plot(ex[:n], py[:n], color=col, ls=ls, lw=1.5, alpha=0.9,
+                 label=lab)
+
+    # ---- 논문 최대점 상태 (속 빈 마커) ----------------------------------
+    st = PAPER_STAGE.get(T)
+    if st:
+        pe = st[0]
+        for v, col in ((st[1], '#8c564b'), (st[2], '#d62728'),
+                       (st[3], '#9467bd'), (st[4], '#2ca02c'),
+                       (st[5], '#17becf')):
+            ax2.plot([pe], [v], 'o', ms=7, mfc='none', mec=col, mew=1.6,
+                     zorder=5)
+        if T in PAPER:
+            ax.plot([pe], [PAPER[T][0]], '*', ms=14, color='k', mfc='none',
+                    zorder=6)
+            ax.annotate(L('논문 최대점', 'paper peak'),
+                        xy=(pe, PAPER[T][0]), xytext=(6, 6),
+                        textcoords='offset points', fontsize=8)
+
+    ax.set_xlabel(L('변형률', 'strain') + ' [%]')
+    ax.set_ylabel(L('응력', 'stress') + ' [MPa]')
+    ax2.set_ylabel(L('손상 요소 비율', 'damage element percentage') + ' [%]')
+    ax2.set_ylim(-4, 108)
+    ax.set_title('%s -- ' % name
+                 + L('논문 Fig.%d 형식 (속빈 원 = 논문 최대점 상태)',
+                     'paper Fig.%d style (open circles = paper at peak)')
+                 % {23: 11, 500: 13, 1000: 15}.get(T, 11), fontsize=10)
+    ax.grid(alpha=0.25)
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, fontsize=7.5, loc='upper left', ncol=2)
+    fig.tight_layout()
+    p = os.path.join(outdir, fname)
+    fig.savefig(p, dpi=160)
+    plt.close(fig)
+    return p
+
+
 def main():
     args = [a for a in sys.argv[1:]]
     outdir = None
@@ -332,7 +414,7 @@ def main():
         print('        먼저 extract_tension.py 를 돌려야 한다.')
         return 2
 
-    runs, dmgruns = [], []
+    runs, dmgruns, combi = [], [], []
     print('폴더 %d 개, 찾은 런 %d 개' % (len(folders), len(found)))
     for tag, key, ssp, dmp in found:
         T, name = tag_info(tag)
@@ -351,6 +433,7 @@ def main():
             d = read_damage(dmp)
             if d:
                 dmgruns.append((name, T, d))
+                combi.append((key, name, T, e, s, pk, d))
 
     if not runs:
         print('[error] 유효한 곡선이 없다.')
@@ -359,6 +442,13 @@ def main():
     p1 = fig_ss(runs, outdir)
     p2, best = fig_table3(runs, outdir)
     p3 = fig_damage(dmgruns, outdir)
+
+    # ---- 논문 Fig.11/13/15 형식 (런당 1장) -------------------------------
+    p11 = []
+    for key, name, T, e, s, pk, d in combi:
+        safe = re.sub(r'[^A-Za-z0-9_-]', '_', key) or 'base'
+        p11.append(fig11_style(name, T, e, s, pk, d, outdir,
+                               'fig11_style_%s.png' % safe))
 
     sp = os.path.join(outdir, 'summary_vs_paper.csv')
     with open(sp, 'w') as f:
@@ -394,7 +484,7 @@ def main():
             print(' %-6d %10.2f %10s %9s %10s %8s'
                   % (T, pk[0], '-', '-', '-', 'Y' if pk[2] else 'N'))
     print()
-    for p in (p1, p2, p3, sp):
+    for p in [p1, p2, p3, sp] + p11:
         if p:
             print(' wrote %s' % p)
     if any(not r[5][2] for r in runs):

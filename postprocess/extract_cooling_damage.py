@@ -1,28 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-냉각 Step 의 손상요소율 이력 추출  (논문 Fig.4 대응)
+냉각/승온 Step 의 손상요소율 이력 추출  (논문 Fig.4 / Fig.6 대응)
 
 논문 Fig.4 는 냉각(1050 -> 23 C) 중 온도별 손상요소율 곡선이다:
   기지        ~1000 C 개시, 845 C 에서 100%
   얀 횡방향    530 C 개시, 23 C 에서 88%
   얀 종방향    ~0%
-
-지금까지는 냉각 '종료 시점' 한 장(tension_damage 첫 줄)만 봤다.
-이 스크립트는 냉각 Step 의 모든 프레임을 읽어 같은 곡선을 만든다.
-PAPERFAITH 배치(P0/P1/P2)의 판정 기준이 바로 이 곡선이다.
+논문 Fig.6 은 승온(23 -> 시험온도) 중 같은 곡선이며, 논문에서는
+승온 중 손상요소율이 "거의 변하지 않는다" (기지 100 유지, 얀 횡
+88~89, 얀 종 ~0).
 
 사용법
 ------
-  abaqus python extract_cooling_damage.py <job>.odb [--tag NAME] [--stride N]
+  abaqus python extract_cooling_damage.py <job>.odb
+      [--tag NAME] [--stride N] [--step NAME] [--trange A,B]
+
+  기본은 냉각 Step 자동 검색 (기존 동작 그대로).
+  Fig.6 용 승온은:  --step Heating_500C   (온도구간은 이름에서 자동)
+  직행(DIRECT) 덱 냉각은 1050->500/1000 이므로 --trange 1050,500 지정.
 
 출력
 ----
-  cooling_damage<TAG>.csv
+  cooling_damage<TAG>.csv    (냉각)  /  heating_damage<TAG>.csv (승온)
     Frame, StepTime, Temp_degC,
     Matrix_PctDamaged, Warp_PctTrans, Weft_PctTrans,
     Warp_PctLong, Weft_PctLong, (상세: set 별 Pct/Long/Trans)
 
-  화면에 논문 Fig.4 목표치와의 대조표를 찍는다.
+  화면에 논문 Fig.4 (냉각) 또는 Fig.6 (승온) 목표치 대조표를 찍는다.
 """
 from __future__ import print_function
 from __future__ import division
@@ -45,6 +49,21 @@ T0, T1 = 1050.0, 23.0
 # 논문 Fig.4 의 목표치
 PAPER = {'m_onset': 1000.0, 'm_100_at': 845.0,
          'y_onset': 530.0, 'y_final': 88.0}
+
+
+def step_trange(name):
+    """Step 이름 -> (시작온도, 끝온도). 모르면 None.
+    make_odb_images.py 와 같은 규칙."""
+    import re as _re
+    u = name.upper()
+    if 'COOL' in u:
+        return (1050.0, 23.0)
+    if 'HEAT' in u:
+        m = _re.search(r'(\d{3,4})', u)
+        if m:
+            return (23.0, float(m.group(1)))
+        return None
+    return None
 
 PY2 = (sys.version_info[0] == 2)
 _LOG = []
@@ -131,27 +150,46 @@ def main():
     args = sys.argv[1:]
     tag = ''
     stride = 1
-    if '--tag' in args:
-        i = args.index('--tag')
-        if i + 1 < len(args):
-            tag = args[i + 1]
-    if '--stride' in args:
-        i = args.index('--stride')
-        if i + 1 < len(args):
-            stride = max(1, int(args[i + 1]))
-    paths = [a for a in args if not a.startswith('--')
-             and a != tag and not a.isdigit()]
+    want_step = None
+    tr_arg = None
+    used = set()
+    for k, setter in (('--tag', 'tag'), ('--stride', 'stride'),
+                      ('--step', 'step'), ('--trange', 'trange')):
+        if k in args:
+            i = args.index(k)
+            used.add(i)
+            if i + 1 < len(args):
+                used.add(i + 1)
+                v = args[i + 1]
+                if setter == 'tag':
+                    tag = v
+                elif setter == 'stride':
+                    stride = max(1, int(v))
+                elif setter == 'step':
+                    want_step = v
+                elif setter == 'trange':
+                    tr_arg = v
+    paths = [a for i, a in enumerate(args)
+             if i not in used and not a.startswith('--')]
     if not paths:
         print('usage: abaqus python extract_cooling_damage.py <odb> '
-              '[--tag NAME] [--stride N]')
+              '[--tag NAME] [--stride N] [--step NAME] [--trange A,B]')
         return 1
     path = paths[0]
     outdir = os.path.dirname(os.path.abspath(path)) or '.'
 
     log('opening %s ...' % path)
+    heating = False
     odb = openOdb(path=path, readOnly=True)
     try:
-        st = get_set(odb.steps, COOL_STEP)
+        if want_step:
+            st = get_set(odb.steps, want_step)
+            if st is None:
+                log('[error] step %s not in odb. steps: %s'
+                    % (want_step, ', '.join(odb.steps.keys())))
+                return 2
+        else:
+            st = get_set(odb.steps, COOL_STEP)
         if st is None:
             cand = [k for k in odb.steps.keys() if 'COOL' in k.upper()]
             if len(cand) == 1:
@@ -160,6 +198,21 @@ def main():
             else:
                 log('[error] no cooling step found')
                 return 2
+        # ---- 온도 구간: --trange > 이름 자동 > 기존 냉각 기본 ------------
+        if tr_arg:
+            p2 = tr_arg.split(',')
+            TA, TB = float(p2[0]), float(p2[1])
+        else:
+            tr = step_trange(st.name)
+            if tr is None:
+                log('[error] cannot infer temperature range of step %s.'
+                    % st.name)
+                log('        give --trange A,B (e.g. --trange 23,500)')
+                return 2
+            TA, TB = tr
+        heating = TB > TA
+        log('step  : %s  (%.0f -> %.0f C, %s)'
+            % (st.name, TA, TB, 'heating' if heating else 'cooling'))
         sets = {}
         for ph in PHASES:
             es = get_elset(odb, ph)
@@ -183,7 +236,7 @@ def main():
             f_dyt = resolve_sdv(names, 3, 'DYTT')
             if f_dmt is None or f_dyt is None:
                 continue
-            temp = T0 - (T0 - T1) * fr.frameValue
+            temp = TA + (TB - TA) * fr.frameValue
             row = {'Frame': fi, 'StepTime': fr.frameValue,
                    'Temp_degC': temp}
             FD = fr.fieldOutputs
@@ -213,7 +266,8 @@ def main():
                 'Weft_PctLong']
                + [p + s for p in PHASES[1:]
                   for s in ('_PctTrans', '_PctLong')])
-        out = os.path.join(outdir, 'cooling_damage%s.csv' % tag)
+        base = 'heating_damage' if heating else 'cooling_damage'
+        out = os.path.join(outdir, '%s%s.csv' % (base, tag))
         f = csv_open(out)
         try:
             w = csv.writer(f)
@@ -224,8 +278,8 @@ def main():
             f.close()
         log('wrote %s' % out)
 
-        # ---- 논문 Fig.4 대조 -------------------------------------------
-        if rows:
+        # ---- 논문 대조: 냉각 Fig.4 / 승온 Fig.6 -------------------------
+        if rows and not heating:
             last = rows[-1]
             mo = onset_temp(rows, 'Matrix_PctDamaged')
             yo_w = onset_temp(rows, 'Warp_PctTrans')
@@ -252,11 +306,33 @@ def main():
                 (last['Warp_PctTrans'] + last['Weft_PctTrans']) / 2.0))
             log('    %-28s %10s %9.1f%%' % ('matrix at 23C', '100%',
                 last['Matrix_PctDamaged']))
+        elif rows and heating:
+            # 논문 Fig.6: 승온 중 손상요소율은 "거의 변하지 않는다".
+            # 우리의 판정 기준은 절대값이 아니라 시작->끝 변화량이다.
+            first, last = rows[0], rows[-1]
+            log('')
+            log('  === paper Fig.6 comparison (heating %.0f->%.0fC) ==='
+                % (TA, TB))
+            log('    %-16s %10s %10s %10s   paper' % ('', 'start', 'end',
+                                                      'change'))
+            for lab, key, ptxt in (
+                    ('matrix', 'Matrix_PctDamaged', '100 -> 100'),
+                    ('warp trans', 'Warp_PctTrans', '~88 -> ~89'),
+                    ('weft trans', 'Weft_PctTrans', '~88 -> ~89'),
+                    ('warp long', 'Warp_PctLong', '~0 (tiny rise)'),
+                    ('weft long', 'Weft_PctLong', '~0 (tiny rise)')):
+                a, b = first[key], last[key]
+                if a == a and b == b:
+                    log('    %-16s %9.1f%% %9.1f%% %+9.2f%%   %s'
+                        % (lab, a, b, b - a, ptxt))
+            log('    (paper: no distinct damage extension during'
+                ' heating)')
     finally:
         odb.close()
         try:
-            fh = open(os.path.join(outdir,
-                                   'diagnostics_cooling%s.txt' % tag), 'w')
+            fh = open(os.path.join(outdir, 'diagnostics_%s%s.txt'
+                                   % ('heating' if heating else 'cooling',
+                                      tag)), 'w')
             fh.write('\n'.join(_LOG))
             fh.close()
         except Exception:

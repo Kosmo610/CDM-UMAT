@@ -108,8 +108,11 @@ def fnum(s):
     return v
 
 
-def read_cooling(path):
-    """cooling_damage<TAG>.csv -> {열이름: [값...]}. 온도 내림차순 정렬."""
+def read_cooling(path, ascending=False):
+    """cooling/heating_damage<TAG>.csv -> {열이름: [값...]}. 시간순 정렬.
+
+    냉각은 온도 내림차순 = 시간순, 승온은 오름차순 = 시간순이다.
+    """
     with open(path, 'r') as f:
         rd = csv.DictReader(f)
         raw = [r for r in rd]
@@ -123,8 +126,9 @@ def read_cooling(path):
     T = cols.get('Temp_degC')
     if not T or all(t is None for t in T):
         return None
-    # 냉각은 1050 -> 23 이므로 온도 내림차순이 곧 시간순이다.
-    idx = sorted(range(len(T)), key=lambda i: (-1e9 if T[i] is None else -T[i]))
+    sgn = 1.0 if ascending else -1.0
+    idx = sorted(range(len(T)),
+                 key=lambda i: (-1e9 if T[i] is None else sgn * T[i]))
     return dict((k, [v[i] for i in idx]) for k, v in cols.items())
 
 
@@ -170,13 +174,13 @@ def final(y):
     return None
 
 
-def discover(folders):
-    """폴더들에서 cooling_damage*.csv 를 찾아 (tag, folder, path) 목록으로."""
+def discover(folders, stem='cooling_damage'):
+    """폴더들에서 <stem>*.csv 를 찾아 (tag, folder, path) 목록으로."""
     found = []
     seen = set()
     for fo in folders:
-        pats = [os.path.join(fo, 'cooling_damage*.csv'),
-                os.path.join(fo, '*', 'cooling_damage*.csv')]
+        pats = [os.path.join(fo, stem + '*.csv'),
+                os.path.join(fo, '*', stem + '*.csv')]
         for p in pats:
             for path in sorted(glob.glob(p)):
                 rp = os.path.abspath(path)
@@ -184,7 +188,7 @@ def discover(folders):
                     continue
                 seen.add(rp)
                 base = os.path.basename(path)
-                m = re.match(r'cooling_damage(.*)\.csv$', base, re.I)
+                m = re.match(stem + r'(.*)\.csv$', base, re.I)
                 tag = m.group(1) if m else ''
                 found.append((tag, os.path.dirname(rp), rp))
     # 태그 중복이면 폴더명을 라벨에 붙인다
@@ -259,6 +263,64 @@ def fig_cooling(runs, outdir):
     return out
 
 
+def fig_heating(runs, outdir):
+    """논문 Fig.6 대응 3패널: 승온 중 손상요소율 (변화 없음이 목표)."""
+    fig, axes = plt.subplots(1, 3, figsize=(15.0, 4.8))
+    panels = [(L('기지 (matrix)', 'matrix'), 'matrix', 100.0),
+              (L('얀 횡방향 (yarn transverse)', 'yarn transverse'),
+               'ytrans', 88.0),
+              (L('얀 종방향 (yarn longitudinal)', 'yarn longitudinal'),
+               'ylong', 0.0)]
+    for ax, (title, key, ptarget) in zip(axes, panels):
+        for i, r in enumerate(runs):
+            y = r[key]
+            if not y:
+                continue
+            xy = [(t, v) for t, v in zip(r['T'], y)
+                  if t is not None and v is not None]
+            if not xy:
+                continue
+            ax.plot([p[0] for p in xy], [p[1] for p in xy], '-',
+                    color=COLORS[i % len(COLORS)], lw=1.8, label=r['label'])
+        ax.axhline(ptarget, color='k', ls='--', lw=1.2, alpha=0.7,
+                   label=L('논문 Fig.6', 'paper Fig.6'))
+        ax.set_title(title, fontsize=11)
+        ax.set_xlabel(L('온도 [C]', 'temperature [C]'))
+        ax.set_xlim(0, 1060)              # 승온 방향 = 왼쪽에서 오른쪽
+        ax.set_ylim(-3, 105)
+        ax.grid(alpha=0.3)
+        ax.legend(fontsize=8, loc='center right')
+    axes[0].set_ylabel(L('손상 요소 비율 [%]', 'damaged elements [%]'))
+    fig.suptitle(L('승온 중 손상 이력 -- 논문 Fig.6 대조 (논문: 변화 없음)',
+                   'heating damage history vs paper Fig.6 '
+                   '(paper: no change)'), fontsize=12)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    out = os.path.join(outdir, 'fig6_heating_damage.png')
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    return out
+
+
+def load_runs(found, ascending):
+    runs = []
+    for tag, folder, path, dup in found:
+        d = read_cooling(path, ascending=ascending)
+        if d is None:
+            print('  [skip] %s (빈 파일)' % os.path.basename(path))
+            continue
+        ytr = avg_cols(d, ['Warp_PctTrans', 'Weft_PctTrans'])
+        ylo = avg_cols(d, ['Warp_PctLong', 'Weft_PctLong'])
+        runs.append({'tag': tag, 'label': label_of(tag, folder, dup),
+                     'path': path,
+                     'T': d['Temp_degC'],
+                     'matrix': d.get('Matrix_PctDamaged'),
+                     'ytrans': ytr, 'ylong': ylo})
+        print('read %-28s  %3d frames  %s'
+              % (runs[-1]['label'], len(d['Temp_degC']),
+                 os.path.basename(folder)))
+    return runs
+
+
 def main():
     args = sys.argv[1:]
     outdir = None
@@ -273,29 +335,39 @@ def main():
         outdir = '.'
 
     found = discover(folders)
-    if not found:
-        print('cooling_damage*.csv not found in: %s' % ', '.join(folders))
+    hfound = discover(folders, 'heating_damage')
+    if not found and not hfound:
+        print('cooling_damage*.csv / heating_damage*.csv not found in: %s'
+              % ', '.join(folders))
         print('먼저 각 폴더에서:')
         print('  abaqus python ..\\extract_cooling_damage.py <job>.odb '
               '--stride 2 --tag _P0')
+        print('  (승온은 --step Heating_500C 등을 추가)')
         return 1
 
-    runs = []
-    for tag, folder, path, dup in found:
-        d = read_cooling(path)
-        if d is None:
-            print('  [skip] %s (빈 파일)' % os.path.basename(path))
-            continue
-        ytr = avg_cols(d, ['Warp_PctTrans', 'Weft_PctTrans'])
-        ylo = avg_cols(d, ['Warp_PctLong', 'Weft_PctLong'])
-        runs.append({'tag': tag, 'label': label_of(tag, folder, dup),
-                     'path': path,
-                     'T': d['Temp_degC'],
-                     'matrix': d.get('Matrix_PctDamaged'),
-                     'ytrans': ytr, 'ylong': ylo})
-        print('read %-28s  %3d frames  %s'
-              % (runs[-1]['label'], len(d['Temp_degC']),
-                 os.path.basename(folder)))
+    # ---- 승온 (논문 Fig.6) ----------------------------------------------
+    if hfound:
+        hruns = load_runs(hfound, ascending=True)
+        if hruns:
+            png6 = fig_heating(hruns, outdir)
+            print('')
+            print('  === paper Fig.6 (heating: start -> end, change) ===')
+            for r in hruns:
+                def se(y):
+                    v = [x for x in (y or []) if x is not None]
+                    return (v[0], v[-1]) if v else (None, None)
+                m0, m1 = se(r['matrix'])
+                t0, t1 = se(r['ytrans'])
+                print('    %-28s m %5.1f->%5.1f (%+.2f) | yT %5.1f->%5.1f'
+                      ' (%+.2f)'
+                      % (r['label'], m0 or 0, m1 or 0, (m1 or 0) - (m0 or 0),
+                         t0 or 0, t1 or 0, (t1 or 0) - (t0 or 0)))
+            print('    paper: matrix 100->100, yarnT ~88->~89 (no change)')
+            print('wrote %s' % png6)
+    if not found:
+        return 0
+
+    runs = load_runs(found, ascending=False)
     if not runs:
         return 1
 
