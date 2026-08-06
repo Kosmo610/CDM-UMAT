@@ -110,9 +110,18 @@ Where our number sits
 ---------------------
     aligned hexahedra, any size          1.0000    no error
     2 triangles per square (refs/[47])   1.4142    published
-    5-tet split, perfect                 1.6922    a2
+    5-tet split, perfect                 1.6922    a2, = sum f_i^(2/3)
     Kuhn 6-tet split, perfect            1.8171    a2, = 6^(1/3)
     OUR RVE, measured                    1.92      a2, 1.06x the perfect mesh
+
+The 5-tet row carries a correction this file used to get wrong.  It once said
+a2's 1.6922 was "close but not the closed form" because it misses 5^(1/3) =
+1.70998 by 1 %.  But N^(1/3) is the EQUAL-VOLUME case, and the 5-tet split of
+a cube is not equal-volume: four corner tetrahedra at V/6 and one centre at
+V/3.  The general form is the volume-weighted mean, sum_i f_i^(1-1/d), which
+gives 4(1/6)^(2/3) + (1/3)^(2/3) = 1.692164 -- a2's measurement to six
+decimals.  So every row in the table above is a closed form, and the whole
+family is one rule, not two.
 
 So 1.82 of the 1.92 is the price of using C3D4 at all, and only the remaining
 6 % is our mesh's own quality.  That reading is a2's; this file checks the
@@ -168,6 +177,26 @@ QUOTES = [
 
 def factor(n, d):
     return n ** (1.0 / d)
+
+
+def factor_uneven(fracs):
+    """kappa for a split into simplices of UNEQUAL volume.
+
+    N^(1/d) is not the general rule -- it is the equal-volume special case.
+    kappa is the volume-weighted mean of each simplex's own correction
+    (V_cell / v_i)^(1/d), so with f_i = v_i / V_cell:
+
+        kappa = sum_i f_i * (1/f_i)^(1/d) = sum_i f_i^(1 - 1/d)
+
+    In 3D that is sum f_i^(2/3), and putting f_i = 1/N for all i recovers
+    N * (1/N)^(2/3) = N^(1/3) exactly.  This matters for the 5-tet split of a
+    cube, whose pieces are NOT equal: four corner tetrahedra at V/6 and one
+    central tetrahedron at V/3."""
+    return sum(f ** (2.0 / 3.0) for f in fracs)
+
+
+# The 5-tet split of a cube: 4 corners at V/6, 1 centre at V/3.
+FIVE_TET_FRACTIONS = (1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0, 1.0 / 3.0)
 
 
 def r47_text():
@@ -253,12 +282,28 @@ def check():
       abs(factor(6, 3) - 1.81712) < 1e-5, "%.5f" % factor(6, 3))
     t("and a2 measured 1.8171", abs(factor(6, 3) - A2_KUHN) < 0.0002,
       "%.5f vs %.4f" % (factor(6, 3), A2_KUHN))
-    t("5 tetrahedra per cube gives 1.70998",
+    # RETRACTION (a2-0019, 2026-08-06).  This block used to assert that a2's
+    # 1.6922 was "close but NOT the closed form", on the strength of it
+    # missing 5^(1/3) = 1.70998 by 1 %.  That was wrong, and wrong in an
+    # instructive way: 5^(1/3) assumes the five tetrahedra have equal volume,
+    # and the standard 5-tet split of a cube does not -- four corners at V/6
+    # and one centre at V/3.  With the unequal-volume form the agreement is
+    # exact to six decimals, so a2's measurement is a closed form after all.
+    t("5 EQUAL tetrahedra would give 1.70998",
       abs(factor(5, 3) - 1.70998) < 1e-5, "%.5f" % factor(5, 3))
-    t("a2's 5-tet number is close but NOT the closed form",
-      abs(factor(5, 3) - A2_FIVE) > 0.005,
-      "%.5f vs %.4f -- their split is not one cube into 5 equal tets"
-      % (factor(5, 3), A2_FIVE))
+    t("but the real 5-tet split is 4 x V/6 + 1 x V/3",
+      abs(sum(FIVE_TET_FRACTIONS) - 1.0) < 1e-12,
+      "volume fractions sum to 1")
+    five = factor_uneven(FIVE_TET_FRACTIONS)
+    t("and its closed form reproduces a2's 1.692164 exactly",
+      abs(five - 1.692164) < 1e-6, "%.6f vs 1.692164" % five)
+    t("  so the 1 % gap was our equal-volume assumption, not their rounding",
+      abs(five - A2_FIVE) < 0.0001 and abs(factor(5, 3) - A2_FIVE) > 0.005,
+      "%.6f vs %.4f" % (five, A2_FIVE))
+    t("  and the uneven form still reduces to N^(1/3) when volumes are equal",
+      all(abs(factor_uneven([1.0 / n] * n) - factor(n, 3)) < 1e-12
+          for n in (2, 5, 6, 12)),
+      "checked for N = 2, 5, 6, 12")
     t("aligned hexahedra give exactly 1", abs(factor(1, 3) - 1.0) < 1e-12)
 
     print("\n C. the direction agrees with what a2 measured")

@@ -23,6 +23,7 @@ from __future__ import print_function
 
 import csv
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -139,6 +140,64 @@ def main():
           abs(lim - 0.22) < 0.01, "%.4f mm" % lim)
     check("model matrix TRS (268 MPa) is >2x the XRD 114.7 MPa",
           268.08 / 114.7 > 2.0, "%.2fx" % (268.08 / 114.7))
+
+    # ---- 2.4.2-a / 2.4.2-b: numbers imported from the cycling dataset --
+    # These two subsections were written from thermal_cycling_dataset.py
+    # rather than from the CSVs, so they are re-derived from that module and
+    # matched against the prose.  Same discipline, different source of truth.
+    print("\n §2.4.2-a/-b -- the severity paradox and the atmosphere spread")
+    text = open(CHAPTER).read() if os.path.exists(CHAPTER) else ""
+    sys.path.insert(0, LIT)
+    import thermal_cycling_dataset as tcd
+
+    def rate(ref, what, n):
+        for r in tcd.DATA:
+            if r[0] == ref and r[7] == what and r[5] == n:
+                return (100.0 - r[6]) / r[5] / (r[3] - r[2])
+        return None
+
+    ry = rate("[02]", "flexural strength", 100)
+    rz = rate("[03]", "tensile strength", 60)
+    check("Yin rate re-derives to 1.70e-4 %/cycle/K and is quoted",
+          ry is not None and abs(ry - 1.70e-4) < 1e-6 and "1.70" in text,
+          "%.2e" % ry if ry else "not in dataset")
+    check("Zhang rate re-derives to 1.03e-3 %/cycle/K and is quoted",
+          rz is not None and abs(rz - 1.03e-3) < 1e-5 and "1.03" in text,
+          "%.2e" % rz if rz else "not in dataset")
+    check("the 6.0x ratio the prose states is the derived ratio",
+          ry and abs(rz / ry - 6.05) < 0.1 and "6.0배" in text,
+          "%.2fx" % (rz / ry) if ry else "")
+    atm = {r[4]: r[6] for r in tcd.DATA if r[0] == "[43]"}
+    check("all four [43] atmospheres are quoted with dataset values",
+          len(atm) == 4 and all(("%.2f" % v) in text for v in atm.values()))
+    spread = max(atm.values()) - min(atm.values()) if atm else 0
+    check("the 9.98 %p spread is max minus min, not a typed number",
+          abs(spread - 9.98) < 0.005 and "9.98" in text, "%.2f %%p" % spread)
+
+    # The architecture attribution was a real error in this chapter: 2.4.2
+    # blamed 3D-vs-2D for the sign split while 2.5.4 blamed peak temperature.
+    # Pinned so the two subsections cannot drift apart again.
+    print("\n §2.4.2 must not re-blame architecture for the sign split")
+    # Anchor on the heading at line start: the "#### 2.4.2-a" subheadings
+    # contain "### 2.4.2" as a substring, so a plain split lands inside them.
+    m = re.search(r"(?ms)^### 2\.4\.2 .*?(?=^### 2\.4\.3 )", text)
+    seg = m.group(0) if m else ""
+    check("2.4.2 says the split is NOT architecture",
+          "아키텍처(3D 대 2D)에 귀속해서는 안 된다" in seg)
+    check("  and points at peak temperature instead",
+          "사이클 최고 온도" in seg)
+    check("2.4.2 admits the 900-1200 C data hole",
+          "900–1200 °C 사이에는 데이터가 없다" in seg)
+
+    # ---- 2.3.4: TRS reversibility, used as mechanism only -------------
+    print("\n §2.3.4 -- TRS reversibility is mechanism-only")
+    tr = text.split("## 2.4")[0].split("### 2.3.4")[-1]
+    check("2.3.4 exists and cites both in-situ measurements",
+          "[71]" in tr and "[72]" in tr)
+    check("  it concludes the stress-free temperature is a constant",
+          "사이클 수와 무관한\n> 상수" in tr or "사이클 수와 무관한 상수" in tr)
+    check("  and refuses the numbers because MI SiC/SiC differs",
+          "수치는 옮기지 않는다" in tr)
 
     # ---- The chapter must not cite anything marked secondary ----------
     print("\n citation hygiene")
