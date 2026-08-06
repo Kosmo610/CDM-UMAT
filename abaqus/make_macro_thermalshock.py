@@ -292,7 +292,17 @@ def mech_steps(sev, trs, ncycle, checkpoints, t_quench, t_dwell, heatjob,
             continue
         # cycles actually simulated in this block
         nsim = max(1, int(round(nblk / float(cyclejump))))
-        rate = nblk / float(nsim) / (t_quench + t_dwell)
+        # ALL of a block's cycles are counted on the QUENCH halves, none on
+        # the reheats.  A quench step BEGINS at T_hi, so the severity window
+        # (SDV 29) equals the cycle's peak temperature from its very first
+        # increment and the fC column is exact -- while the failure-index
+        # drive still sweeps the full T_hi -> T_lo stress excursion, which
+        # contains the same states as the reheat in reverse.  Spreading the
+        # rate over the reheat instead would let the window fill from T_lo
+        # and weight a non-monotonic fC peak during every rise (a1-0018,
+        # the severity paradox).  The reheat still runs -- it restores the
+        # stress state -- it just counts no cycles.
+        rate = nblk / float(nsim) / t_quench
         for c in range(nsim):
             for half, tper, Tref in (("Quench", t_quench, s["T_lo"]),
                                      ("Reheat", t_dwell, s["T_hi"])):
@@ -316,7 +326,7 @@ def mech_steps(sev, trs, ncycle, checkpoints, t_quench, t_dwell, heatjob,
                 hs = 1 if half == "Quench" else 2
                 L.append("*Temperature, file=%s.odb, bstep=%d, estep=%d"
                          % (heatjob, hs, hs))
-                L.append(_mech_field(rate))
+                L.append(_mech_field(rate if half == "Quench" else 0.0))
                 L.append(_mech_output(restart=False))
                 L.append("*End Step")
         done = cp
@@ -363,8 +373,11 @@ def _mech_output(restart):
            # SDV9/10 damage, 17 d_cyc, 18 N, 19 Hashin, 23 Tsai-Wu,
            # 24 D-criterion, 25 latch flag -- the failure-criterion
            # comparison needs all three indices at every history frame.
+           # SDV29 TWMAX: the audit that a cycling block really sat at
+           # its Tmax -- the fC column is evaluated there (a1-0018).
            "*Element Output, elset=ALL\n"
-           "SDV9, SDV10, SDV17, SDV18, SDV19, SDV23, SDV24, SDV25\n")
+           "SDV9, SDV10, SDV17, SDV18, SDV19, SDV23, SDV24, SDV25, "
+           "SDV29\n")
     if restart:
         out += "*Restart, write, overlay\n"
     return out
@@ -583,8 +596,9 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
         idmode = int(round(p[50 + 8 * nt]))
         dcs = p[51 + 8 * nt:54 + 8 * nt]
         if icrit > 0:
-            if ndep is None or ndep < 28:
-                raise SystemExit("macro card%s: ICRIT>0 needs *Depvar >= 28, "
+            if ndep is None or ndep < 29:
+                raise SystemExit("macro card%s: ICRIT>0 needs *Depvar >= 29 "
+                                 "(28 before the TWMAX window, 2026-08-06), "
                                  "got %s" % (tag, ndep))
             if idmode not in (1, 2):
                 raise SystemExit("macro card%s: IDMODE must be 1 or 2, got %d"
@@ -597,9 +611,11 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
                 raise SystemExit("macro card%s: Tsai-Wu %s = %g gives an OPEN "
                                  "failure surface (|F*| < 1 required)"
                                  % (tag, name, p[k]))
-    elif ndep is not None and ndep < 22:
-        raise SystemExit("macro card%s: *Depvar >= 22 required, got %d"
-                         % (tag, ndep))
+    elif ndep is not None and ndep < 29:
+        raise SystemExit("macro card%s: *Depvar >= 29 required (V3_0 writes "
+                         "TWMAX, the cycle-severity window, to SDV 29 on "
+                         "every macro card -- 22 was the pre-window layout), "
+                         "got %d" % (tag, ndep))
 
     gf = gf_audit(p, nt, le)
     stale = [g for g in gf if g["sign"] == "total"]
@@ -728,13 +744,20 @@ def selftest():
 
     c = PLACEHOLDER_CARD
     expect_ok("placeholder card, criteria on", c)
-    expect_ok("criteria off (47 slots, Depvar 22)",
-              _mangle(c, depvar=22, drop=9))
+    expect_ok("criteria off (47 slots, Depvar 29)",
+              _mangle(c, depvar=29, drop=9))
 
     expect_reject("wrong card key PROPS(36)", _mangle(c, slot=36, value=30.0))
     expect_reject("missing block guard PROPS(56)",
                   _mangle(c, slot=56, value=0.0))
     expect_reject("ICRIT on but *Depvar still 22", _mangle(c, depvar=22))
+    # 28 was VALID until the TWMAX window (2026-08-06).  A deck built by an
+    # old generator is exactly the mistake that will happen, so the stale
+    # layout is rejected by name, not merely by arithmetic.
+    expect_reject("pre-window *Depvar 28 (stale layout)",
+                  _mangle(c, depvar=28))
+    expect_reject("criteria off but *Depvar 22 (stale layout)",
+                  _mangle(c, depvar=22, drop=9))
     expect_reject("truncated card (55 slots)", _mangle(c, drop=1))
     expect_reject("NT says 2 but no table rows", _mangle(c, slot=47, value=2.0))
     expect_reject("IDMODE = 3", _mangle(c, slot=51, value=3.0))
@@ -895,6 +918,35 @@ def selftest():
                                 "%.3f" % s["A"]
                                 for s in info["gf"][0]["states"]))
 
+    # ---- the severity window's deck-side half (a1-0018) -----------------
+    # V3_0 evaluates fC at the step's running-max temperature (SDV 29).
+    # That is exact only if cycle counting happens in steps that BEGIN at
+    # the cycle's peak temperature, which is the quench halves.  The deck
+    # writer must therefore put the whole block's rate on the quenches and
+    # zero on the reheats -- checked on the emitted text, not trusted.
+    body, _ = mech_steps("Z", "C", 60, (20, 40, 60), 15.0, 45.0,
+                         "HEATJOB", 5.0, 12.5)
+    steps = body.split("*Step, Name=")[1:]
+    q = [st for st in steps if st.startswith("Quench")]
+    r = [st for st in steps if st.startswith("Reheat")]
+    expect_true("cycling emits Quench and Reheat halves",
+                len(q) == 12 and len(r) == 12,
+                "%d + %d steps" % (len(q), len(r)))
+    def _rate(st):
+        m = re.search(r"\*Field, variable=1\nALLNODES, ([0-9.eE+-]+)", st)
+        return float(m.group(1)) if m else None
+    expect_true("every Quench half carries the block's cycle rate",
+                all((_rate(st) or 0.0) > 0.0 for st in q),
+                "rate = %.6g" % _rate(q[0]))
+    expect_true("every Reheat half carries rate 0 (counts no cycles)",
+                all(_rate(st) == 0.0 for st in r))
+    # tolerance is the %.10g text round-trip's, not the arithmetic's
+    expect_true("the quench rate absorbs the reheat's share "
+                "(dN per block conserved)",
+                abs(_rate(q[0]) * 15.0 * 4 - 20.0) < 1e-4,
+                "%.6g cycles/s x 15 s x 4 steps = %.6g cycles"
+                % (_rate(q[0]), _rate(q[0]) * 15.0 * 4))
+
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
         return 1
@@ -948,13 +1000,14 @@ PLACEHOLDER_CARD = """** PLACEHOLDER macro card -- replace with the RVE output
 ** Running with these numbers produces a WORKING deck but MEANINGLESS results.
 *Material, Name=CSIC_MACRO_CDM
 *Depvar
-28,
+29,
 23, FITW, FITW
 24, FIDC, FIDC
 25, NFLAG, NFLAG
 26, NFHA, NFHA
 27, NFTW, NFTW
 28, NFDC, NFDC
+29, TWMAX, TWMAX
 *User Material, constants=56
 3., 105000., 105000., 52000., 0.10, 0.25, 0.25, 36000.
 22000., 22000., 220., 480., 220., 480., 110., 90.

@@ -33,18 +33,18 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 |---|---|---|
 | `verify_constitutive.py` | V1_0 구성식 커널 vs 논문 폐형식 | 7 |
 | `micromech_check.py` | 얀 물성 vs Chamis/Schapery 마이크로역학 | 12 |
-| `verify_thermshock.py` | V3_0 신규 기능 8종 (T1–T8) | 52 |
+| `verify_thermshock.py` | V3_0 신규 기능 9종 (T1–T9, T9 = 사이클 심각도 창) | 60 |
 | `cross_check_fortran.py` | **컴파일된 Fortran** vs 검증된 Python | **114 재료점 상태** |
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 | 17 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
-| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 15종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계) | 43 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트) | 49 |
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
 | `trs_configuration.py --check` | CONFIG_V / CONFIG_P 결정과 두 관문 | 33 |
-| `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 (저장소만으로 재현되는 값. M5 T1000 곡선은 해석 산출물이라 저장소에 없으며, 그것을 곁에 두면 3항목이 더 붙어 27이 된다) | 24 |
+| `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 (M5 T1000 곡선은 2026-08-06부터 저장소에 커밋되어 27이 어디서나 재현된다) | 27 |
 | `insitu_yarn_strength.py --check` | 얀 $X_t$의 in-situ 출처·Weibull 구간·온도형상 | 51 |
 | `porosity_stiffness.py --check` | 공극률 결정(CVI 하한)·강성 정합·공정 귀속 | 56 |
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
@@ -62,20 +62,20 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `crack_band_simplex.py --check` | refs/[47]의 2D $\sqrt2$와 a2의 3D $6^{1/3}$ 대조 + refs/[69] published 공식 | 36 |
 | `thermal_cycling_dataset.py --check` | 반복 열충격 전 데이터·심각도 역설·임계온도 공백 | 31 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
-| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조) | 119 |
+| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부) | 131 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
 | `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 | 27 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 195 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
-| `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
+| `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 | 22 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
-| `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 | 26 |
-| `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종과 그 산포 | 25 |
-| **합계** | | **1812** |
+| `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 (발표 계열 대조 포함) | 35 |
+| `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종·산포·선형분율 | 30 |
+| **합계** | | **1929** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -345,13 +345,13 @@ Python 시험을 전부 통과하고도 Abaqus에서 틀린 답이 나온다. �
 
 | 대조 케이스 | 상태 수 | 최대 상대편차 |
 |---|---|---|
-| MACRO (온도 테이블 + 균열닫힘 + 사이클손상) | 24/24 | 1.05×10⁻¹⁵ |
-| YARN (온도 테이블 + 균열닫힘) | 24/24 | 2.10×10⁻¹⁵ |
-| YARN — 38슬롯 V1_0 카드 → V1_0 답 | 16/16 | 3.00×10⁻¹⁵ |
-| MATRIX — 22슬롯·25슬롯 카드 → V1_0 답 | 28/28 | 1.58×10⁻¹⁵ |
-| MATRIX — $H_{smo}>0$ 혼합 | 20/20 | 2.78×10⁻¹⁵ |
+| MACRO (온도 테이블 + 균열닫힘 + 사이클손상 + $T_{max}$ 창) | 24/24 | 2.03×10⁻¹⁵ |
+| YARN (온도 테이블 + 균열닫힘) | 24/24 | 1.29×10⁻¹⁵ |
+| YARN — 38슬롯 V1_0 카드 → V1_0 답 | 16/16 | 2.86×10⁻¹⁵ |
+| MATRIX — 22슬롯·25슬롯 카드 → V1_0 답 | 28/28 | 0.89×10⁻¹⁵ |
+| MATRIX — $H_{smo}>0$ 혼합 | 20/20 | 5.02×10⁻¹⁵ |
 | MATRIX — $I_1=0$ 연속성 (§3.4.3) | 2/2 | — |
-| **합계** | **114/114** | **≤ 3.0×10⁻¹⁵** |
+| **합계** | **114/114** | **≤ 5.1×10⁻¹⁵** |
 
 편차가 배정밀도 기계오차 수준이므로 **두 구현은 같은 계산을 하고 있다.**
 
@@ -534,13 +534,13 @@ $E$ = 100 000 MPa, $\nu$ = 0.30, $\alpha$ = 5×10⁻⁶/K, 단위 거시변형 1
 ## 3.9 소결
 
 - 물성(얀 12개 상수, 최대오차 0.142 %)과 구성식(7개 커널)이 논문과 일치함을 확인하였다.
-- V3_0의 신규 기능 8종이 52개 항목으로 검증되며, V1_0 카드에 대해 **비트 단위 회귀**가
+- V3_0의 신규 기능 9종이 60개 항목으로 검증되며, V1_0 카드에 대해 **비트 단위 회귀**가
   강제된다.
 - **컴파일된 Fortran이 검증된 Python 모델과 114개 재료점 상태에서 기계오차
   (≤ 3.0×10⁻¹⁵) 이내로 일치**한다. 이는 "모델이 맞다"와 "코드가 맞다"를 분리하여
   둘 다 확인한 것이다.
 - 입력덱은 솔버 없이 정적 검증되며, 카드 가드 상수로 계보 혼용이 차단된다.
-- 총 **1450개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
+- 총 **1929개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
 
 > **따라서 이후 장에서 관측되는 불일치는 코드의 오류가 아니라 모델 가정 또는 물성의
 > 문제로 귀속할 수 있다.** 이것이 이 장의 실질적 산출물이다.

@@ -45,19 +45,40 @@ AND WHERE IT COMES FROM -- THIS IS THE PART THAT DECIDES THE FIX
 It is not the distorted elements.  They carry 0.31 % of the volume and
 contribute 0.65 % of the sum in (*).  Deleting them changes nothing.
 
-It is the tetrahedra.  A FLAWLESS mesh of identical tets has the same
-problem, and the size is closed-form: N tets per cube, aligned cut through
-all N, gives exactly N^(1/3).
+It is the tetrahedra.  A FLAWLESS mesh has the same problem, and the size
+is closed-form: an aligned cut through a layer of cubes each split into
+tets of volumes {V_i} gives sum V_i^(2/3) / h^2 -- which reduces to
+N^(1/3) when the N tets are EQUAL (Kuhn), and to
+4*(1/6)^(2/3) + (1/3)^(2/3) = 1.69216 for the 5-split, whose central tet
+is twice the corner ones (a1-0015 noticed the 1 % gap to 5^(1/3); it is
+not error, the split is just not equal-volume).
 
     Kuhn 6-tet subdivision, perfect   1.817 = 6^(1/3)   (measured, exact)
-    5-tet subdivision, perfect        1.692
+    5-tet subdivision, perfect        1.6923 = the unequal-volume form
     our RVE                           1.92
     any hexahedral mesh, aligned      1.000
+
+AND THE FAMILY IS PUBLISHED, WHICH SETTLES THE FORM
+---------------------------------------------------
+refs/[47] section 5.3.1 gives the 2D member: triangles from diagonal
+splitting need hb = sqrt(2*A) = 1.414*sqrt(A) -- N^(1/d) with N=2, d=2 --
+and fixes them with a CONSTANT MULTIPLIER, which is exactly what kappa
+is.  refs/[69] eq. (23) (citing Kurumatani 2016) tabulates the whole
+family: sqrt(2A) triangles, sqrt(A) quads, (12*Ve)^(1/3) = 2.2894*Ve^(1/3)
+tetrahedra, Ve^(1/3) hexes.  So the correction is not an invention of this
+work; the only open question was ever WHICH N our mesh behaves as, and the
+published default (N = 12, 2.2894) would over-correct this mesh by 19 %.
+Measured beats default: kappa = 1.92 stays (a1-0016 concurs), and the
+thesis cites the family as the reason the form is right.
 
 So of our 1.92, about 1.8 is the price of C3D4 itself and only the
 remainder is mesh quality.  Remeshing cannot fix it.  Aligning the mesh
 cannot fix it -- a woven RVE has no alignment to offer, and the perfect
-mesh above is aligned and still gives 1.817.
+mesh above is aligned and still gives 1.817.  refs/[47]'s own final
+recommendation, principal-strain-axis projection at the element centre,
+removes the scatter as well and is the eventual answer; it is NOT
+implemented here, and the thesis must say so (refs/[70]'s smooth
+Lagrangian band is the other published alternative).
 
 WHAT WE DO ABOUT IT
 -------------------
@@ -407,16 +428,28 @@ def report():
 
     # ------------------------------------------------------------------ C
     print("\n C. control -- a PERFECT tet mesh has the same disease")
-    for name, scheme, closed in (("Kuhn 6-tet", KUHN, 6.0),
-                                 ("5-tet     ", FIVE, None)):
+    five_exact = 4.0 * (1.0 / 6.0) ** (2.0 / 3.0) + (1.0 / 3.0) ** (2.0 / 3.0)
+    for name, scheme, closed in (("Kuhn 6-tet", KUHN, 6.0 ** (1.0 / 3.0)),
+                                 ("5-tet     ", FIVE, five_exact)):
         ipts, ivols, ilo, ihi = ideal_mesh(scheme)
         rs = scan(ipts, ivols, ilo, ihi, (1.0, 0.0, 0.0), nsteps=20)
         print("      %s, flawless, aligned cut   %.4f .. %.4f"
               % (name, min(rs), max(rs)))
-        if closed:
-            ck("Kuhn matches the closed form N^(1/3) exactly",
-               abs(pct(rs, 0.5) - closed ** (1.0 / 3.0)) < 1e-6,
-               "%.6f vs %.6f" % (pct(rs, 0.5), closed ** (1.0 / 3.0)))
+        ck("%s matches its closed form exactly" % name.strip(),
+           abs(pct(rs, 0.5) - closed) < 1e-6,
+           "%.6f vs %.6f" % (pct(rs, 0.5), closed))
+    # a1-0015 flagged the 1 % gap between the 5-tet measurement and
+    # 5^(1/3) = 1.70998.  The gap is the unequal volumes: four corner tets
+    # of h^3/6 and one central of h^3/3, so the aligned-cut sum is
+    # 4*(1/6)^(2/3) + (1/3)^(2/3), not N^(1/3).  N^(1/3) is the EQUAL-
+    # volume special case, which Kuhn is and the 5-split is not.
+    ck("the 5-tet 'discrepancy' is the unequal-volume closed form",
+       abs(five_exact - 1.692164) < 5e-6, "%.6f" % five_exact)
+    ck("refs/[69]'s published tet rule is the N=12 member of the family",
+       abs(12.0 ** (1.0 / 3.0) - 2.2894) < 5e-5,
+       "12^(1/3) = %.4f" % 12.0 ** (1.0 / 3.0))
+    ck("refs/[47]'s 2D triangle rule is the N=2, d=2 member",
+       abs(2.0 ** 0.5 - 1.414) < 5e-4, "sqrt(2) = %.4f" % 2.0 ** 0.5)
     ipts, ivols, ilo, ihi = ideal_mesh(KUHN)
     kuhn = pct(scan(ipts, ivols, ilo, ihi, (1.0, 0.0, 0.0), nsteps=20), 0.5)
     ck("a flawless tet mesh is already above 1.8", kuhn > 1.8,
@@ -530,6 +563,45 @@ def report():
     print("      -> switch Gtt on, leave Gtc off.  Ch.4 4.9-6a already says")
     print("         there is no measured transverse COMPRESSIVE fracture")
     print("         energy anyway, so nothing is lost by leaving it at 0.")
+
+    # published default vs measured: the family says the FORM is right,
+    # the measurement says which member.  2.2894 would over-correct.
+    pub = 12.0 ** (1.0 / 3.0)
+    ck("the published (12V)^(1/3) sits ABOVE the measured range",
+       pub > max(max(v) for v in scans.values()),
+       "%.4f vs measured max %.4f" % (pub, max(max(v)
+                                               for v in scans.values())))
+    ck("using it would over-correct this mesh by ~19 %",
+       0.15 < pub / kappa - 1.0 < 0.25, "%.1f %%" % (100 * (pub / kappa - 1)))
+
+    # The M6 lineage knocks the matrix modulus to 213110 (porosity), which
+    # raises g0 by 1.64x and eats the margin the deck rows above show.
+    # kappa on TOP of the knockdown pushes the ceiling to 0.0702 mm --
+    # under 1624 of the matrix's own elements.  retune_deck.py refuses
+    # that combination; this is the measurement its refusal quotes.
+    # retune_deck.py applies the two-digit constant, so the exposure is
+    # counted at THAT value -- 1662 at the raw median 1.9226 vs 1624 at
+    # 1.92 is exactly the kind of gap that turns into two documents
+    # quoting two facts.
+    kap_applied = 1.92
+    ck("the applied constant is the measurement to two digits",
+       abs(kappa - kap_applied) < 0.01, "%.4f -> %.2f" % (kappa, kap_applied))
+    mat = set(elset.get("Matrix", []))
+    celm = [cel[i] for i in range(len(ids)) if ids[i] in mat]
+    g0k = 310.0 ** 2 / (2.0 * 213110.0)
+    limk = 0.031 / (GUARD * g0k)
+    over1 = sum(1 for c in celm if c > limk)
+    overk = sum(1 for c in celm if c > limk / kap_applied)
+    print("      knocked matrix card (E = 213110, M6 lineage):")
+    print("      ceiling %.4f mm; /kappa -> %.4f mm over %d matrix elements"
+          % (limk, limk / kap_applied, len(celm)))
+    ck("at kappa = 1 the knocked card clamps nothing", over1 == 0,
+       "%d over %.4f mm" % (over1, limk))
+    ck("at kappa = 1.92 it clamps 1624 matrix elements (10.6 %)",
+       overk == 1624 and abs(100.0 * overk / len(celm) - 10.6) < 0.2,
+       "%d = %.1f %%" % (overk, 100.0 * overk / len(celm)))
+    print("      -> kappa stays OFF by default in retune_deck.py; turning")
+    print("         it on is coupled to mesh refinement, not a flag flip.")
 
     # ----------------------------------------------------------------- E2
     print("\n E2. scope -- the macro model does NOT have this problem")

@@ -66,7 +66,7 @@ CASES = [
      lambda t: len(re.findall(r"\bMATCH\b", t)), 12),
     ("verify_thermshock.py",
      "python3 verification/verify_thermshock.py",
-     lambda t: len(re.findall(r"\bPASS\b", t)) - 1, 52),
+     lambda t: len(re.findall(r"\bPASS\b", t)) - 1, 60),
     ("eval_correlations.py --check",
      "python3 data/properties/eval_correlations.py --check",
      count_bracketed, 17),
@@ -75,7 +75,7 @@ CASES = [
      count_bracketed, 5),
     ("make_macro_thermalshock.py --selftest",
      "python3 abaqus/make_macro_thermalshock.py --selftest",
-     count_bracketed, 43),
+     count_bracketed, 49),
     ("conductivity_bounds.py --check",
      "python3 data/properties/conductivity_bounds.py --check",
      count_bracketed, 34),
@@ -93,7 +93,7 @@ CASES = [
      count_bracketed, 33),
     ("m6_calibration.py --check",
      "python3 data/properties/m6_calibration.py --check",
-     count_bracketed, 24),
+     count_bracketed, 27),
     ("insitu_yarn_strength.py --check",
      "python3 data/properties/insitu_yarn_strength.py --check",
      count_bracketed, 51),
@@ -120,7 +120,7 @@ CASES = [
      count_bracketed, 12),
     ("retune_deck.py --check",
      "python3 abaqus/retune_deck.py --check",
-     count_plain, 119),
+     count_plain, 131),
     ("check_ch1_numbers.py",
      "python3 verification/check_ch1_numbers.py",
      count_plain, 50),
@@ -168,7 +168,7 @@ CASES = [
      count_plain, 81),
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
-     count_plain, 15),
+     count_plain, 22),
     ("md_to_pdf.py --selftest",
      "python3 postprocess/md_to_pdf.py --selftest",
      lambda s: len(__import__("re").findall(
@@ -181,10 +181,10 @@ CASES = [
      count_bracketed, 46),
     ("celent_census.py",
      "python3 verification/celent_census.py",
-     count_bracketed, 26),
+     count_bracketed, 35),
     ("extract_pls.py --selftest",
      "python3 postprocess/extract_pls.py --selftest",
-     count_bracketed, 25),
+     count_bracketed, 30),
 ]
 
 
@@ -216,7 +216,10 @@ def main():
     check("compile_check.sh                        2", n == 2,
           "" if n == 2 else "-> actually %d" % n)
 
-    # cross-check: 114 states, worst deviation <= 3.0e-15
+    # cross-check: 114 states, worst deviation <= 5.1e-15.  The per-case
+    # deviations moved on 2026-08-06: the TWMAX window added rng draws to
+    # case_macro, which shifts every later case's random state.  Same seed,
+    # new sequence, still machine noise.
     print("\n cross_check_fortran.py -- the chapter's headline")
     out, _ = run("python3 verification/cross_check_fortran.py")
     if "SKIPPED" in out:
@@ -230,10 +233,10 @@ def main():
               got == 114 and tot == 114, "%d/%d" % (got, tot))
         devs = [float(d) for d in
                 re.findall(r"worst rel\. dev\. ([0-9.]+e[+-][0-9]+)", out)]
-        check("worst relative deviation <= 3.0e-15",
-              bool(devs) and max(devs) <= 3.0e-15,
+        check("worst relative deviation <= 5.1e-15",
+              bool(devs) and max(devs) <= 5.1e-15,
               "max %.2e" % max(devs) if devs else "none found")
-        for tag in ("1.05e-15", "2.10e-15", "3.00e-15", "1.58e-15", "2.78e-15"):
+        for tag in ("2.03e-15", "1.29e-15", "2.86e-15", "8.93e-16", "5.02e-15"):
             check("Ch.3 quotes deviation %s" % tag, tag in out)
         check("I1=0 jump is 78.0x without smoothing", "78.0x" in out)
         check("I1=0 jump is 2.3x with HSMO=0.1", " 2.3x" in out)

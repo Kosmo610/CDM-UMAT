@@ -22,6 +22,36 @@ PLS is a COMPOSITE measurement, so under the card rule in CLAUDE.md it can
 never be a card input.  It is a validation target only.  This file extracts
 it; it does not calibrate to it.
 
+SCOPE, NARROWED TWICE (2026-08-06)
+----------------------------------
+a1-0018: for CYCLE damage the modulus is the first-rank metric, not PLS --
+refs/[03] measured both on one specimen (modulus 45 % vs strength 63 %
+after 60 cycles) and says so.  PLS belongs to TRS relaxation only.
+And there, only as a COMPARATOR between TRS treatments: the definition
+spread on our curve exceeds Yang's whole temperature effect (section 4 of
+the selftest), so an absolute PLS-vs-Yang verdict would be decided by the
+threshold, not the physics.
+
+THE LINEAR FRACTION (a1-0015's proposal, implemented here)
+----------------------------------------------------------
+A target that survives the threshold problem better: divide the PLS by the
+initial modulus to get the proportional-limit STRAIN, then by the failure
+strain --
+
+    linear fraction = (PLS / E0) / eps_fail
+
+Two things cancel.  Any CONVENTION error in the stress scale (tangent vs
+secant, machine compliance) multiplies PLS and E0 alike and drops out
+exactly -- the selftest proves invariance under a pure stress rescale.
+What remains is the threshold choice inside PLS itself, which is why the
+fraction is reported per definition, like PLS.  On Yang's own numbers the
+fraction rises monotonically 4.2 % -> 23.7 % from 300 to 1473 K while his
+modulus KINKS at 1273 K -- it is the cleanest dimensionless signature of
+TRS relaxation the dataset offers, and refs/[30] (same group as Zhang [5])
+prints a 51.47 % model error on the absolute matrix-cracking stress while
+holding modulus and strength to 5 %, which is the same lesson from the
+other side.
+
 WHY THREE DEFINITIONS AND NOT ONE
 ---------------------------------
 "Where the curve stops being straight" is not a measurement until someone
@@ -219,6 +249,9 @@ def analyse(pts):
         vals["tangent %d %%" % round(100 * f)] = pls_tangent(pts, e0, f)
     vals["deviation 2 %"] = pls_deviation(pts, e0, b, DEVIATION_TOL)
     out["pls"] = vals
+    out["linfrac"] = dict(
+        (k, linear_fraction(v, e0, out["eps_max"]))
+        for k, v in vals.items())
     got = [v for v in vals.values() if v is not None]
     out["spread"] = (min(got), max(got)) if got else None
     return out
@@ -258,19 +291,32 @@ def show(path, res):
         print("        a limit the curve actually has.")
     for k in sorted(res["pls"]):
         v = res["pls"][k]
-        print("     PLS  %-16s %s"
-              % (k, "%8.2f MPa" % v if v is not None else "   not reached"))
+        lf = res["linfrac"].get(k)
+        print("     PLS  %-16s %s%s"
+              % (k, "%8.2f MPa" % v if v is not None else "   not reached",
+                 "   lin.frac %5.1f %%" % (100.0 * lf)
+                 if lf is not None else ""))
     if res["spread"]:
         lo, hi = res["spread"]
         print("     spread %.2f .. %.2f MPa  (%.0f %% of the low value)"
               % (lo, hi, 100.0 * (hi - lo) / lo if lo > 0 else float("nan")))
 
 
+def linear_fraction(pls, e0, eps_fail):
+    """(PLS/E0)/eps_fail -- dimensionless, stress-rescale invariant."""
+    if pls is None or e0 <= 0.0 or eps_fail <= 0.0:
+        return None
+    return (pls / e0) / eps_fail
+
+
 def yang_table():
     print("\n  refs/[10] Table 1 -- what the model has to be compared with")
-    print("     %8s %8s %8s %8s" % ("T (K)", "PLS", "E (GPa)", "UTS"))
-    for t, pls, e, uts, _ in YANG_TABLE1:
-        print("     %8.0f %8.0f %8.1f %8.1f" % (t, pls, e, uts))
+    print("     %8s %8s %8s %8s %10s" % ("T (K)", "PLS", "E (GPa)", "UTS",
+                                         "lin.frac"))
+    for t, pls, e, uts, ef in YANG_TABLE1:
+        lf = linear_fraction(pls, e * 1e3, ef / 100.0)
+        print("     %8.0f %8.0f %8.1f %8.1f %9.1f %%"
+              % (t, pls, e, uts, 100.0 * lf))
     p0, e0 = YANG_TABLE1[0][1], YANG_TABLE1[0][2]
     for t, pls, e, _, _ in YANG_TABLE1[1:]:
         dp = 100.0 * (pls / p0 - 1.0)
@@ -400,7 +446,40 @@ def selftest():
     else:
         ck("M5 curve committed", False, m5)
 
-    print("\n 5. the scale rule is not quietly broken")
+    print("\n 5. the linear fraction (a1-0015)")
+    # Yang's own published columns, computed the same way we compute ours.
+    lf = [100.0 * linear_fraction(pls, e * 1e3, ef / 100.0)
+          for _, pls, e, _, ef in YANG_TABLE1]
+    ck("Yang 300 K linear fraction is 4.2 %", abs(lf[0] - 4.24) < 0.05,
+       "%.2f %%" % lf[0])
+    ck("Yang 1473 K linear fraction is 23.7 %", abs(lf[3] - 23.65) < 0.1,
+       "%.2f %%" % lf[3])
+    ck("the fraction rises monotonically with T, unlike E which kinks",
+       all(b > a for a, b in zip(lf, lf[1:])),
+       " -> ".join("%.1f" % v for v in lf))
+    # The invariance that makes it worth having: rescale every stress by a
+    # constant (a convention error, a compliance error) and the fraction
+    # must not move, because PLS and E0 scale together.
+    if os.path.exists(m5):
+        pts = load_curve(m5)
+        r1 = analyse(pts)
+        r2x = analyse([(e, 0.61 * s) for e, s in pts])
+        pairs = [(r1["linfrac"][k], r2x["linfrac"][k])
+                 for k in r1["linfrac"] if r1["linfrac"][k] is not None]
+        worst = max(abs(a / b - 1.0) for a, b in pairs if b)
+        ck("a pure stress rescale (x0.61) leaves every fraction unchanged",
+           worst < 1e-9, "worst drift %.2e" % worst)
+        ck("M5's fractions land below Yang's 1273 K value of 14.5 %",
+           all(100.0 * v < 14.5 for v in r1["linfrac"].values()
+               if v is not None),
+           ", ".join("%.1f" % (100 * v)
+                     for v in sorted(vv for vv in r1["linfrac"].values()
+                                     if vv is not None)))
+        print("      -> same reading as the PLS itself: the model begins")
+        print("         softening earlier than the measurement, now in a")
+        print("         number a stress-convention error cannot fake.")
+
+    print("\n 6. the scale rule is not quietly broken")
     src = open(os.path.join(HERE, "extract_pls.py")).read()
     ck("the file says PLS is validation-only, never a card input",
        "never be a card input" in src)
