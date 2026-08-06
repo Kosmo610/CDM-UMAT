@@ -57,11 +57,10 @@ What the audit found, and what was done about it
      [05]  Q. Zhang et al., Ceram. Int. 48 (2022) 3109   <- OUR base paper
      [05]  Skinner & Chattopadhyay, Compos. Struct. 268 (2021) 114006
 
-   [05] is handled: the thesis writes [5] and [5b] and lists both separately.
-   [01] is NOT: the reference list has a single [01] row covering both papers
-   joined by "및".  A citation of [01] in the text cannot be resolved to one
-   of them.  Flagged, not silently repaired -- splitting it into [01a]/[01b]
-   changes citation keys and is the author's call.
+   Both are handled now.  [05] writes [5] and [5b]; [01] was split into
+   [01a] (Ceram. Int.) and [01b] (Int. J. Fatigue) on 2026-08-06, following
+   the keys refs/README.md had already assigned.  Every citation in the
+   chapters resolves to exactly one paper.
 
    So: 45 files, 43 distinct numbers, 45 distinct papers.
 
@@ -115,8 +114,17 @@ What the audit found, and what was done about it
    our own implementation of Chamis; this checks the implementation against
    Chamis.
 
-   [54] is a SCANNED pdf with no text layer (1.3 kB extracts).  It is recorded
-   and cannot be quote-verified; anything taken from it must be read by eye.
+   [54] is a SCANNED pdf with no text layer (1.3 kB extracts).  On 2026-08-06
+   it was OCR-READ in full (tesseract, 18 pages) and turned out to be exactly
+   the paper the closure model needed: Chaboche's unilateral condition
+   modifies ONLY the diagonal stiffness term of the normal strain that
+   changes sign (their eq. 16), with a weighting coefficient eta "with values
+   between 0 and 1" -- the published ancestor of our HCLO slot, including its
+   full [0,1] range.  It also closes cracks at a NONZERO strain tied to the
+   residual strain "observable in C/SiC", where our model closes at exactly
+   eps_n = 0; that difference is a recorded limitation, not an error.  OCR
+   text is not quote-grade: any verbatim quotation must still be read by eye
+   against the page image.
 
 8b. THIRD BATCH, first upload: [46]-[50].  Four are the [S1]-[S4] method primary
    sources the thesis had been citing without holding -- Bazant & Oh, Hashin,
@@ -274,11 +282,13 @@ CHAMIS_EX81 = dict(kf=0.60, Em=0.272, Ef22=2.0, E122=0.822)   # 1e6 psi
 
 # Numbers that legitimately hold two DIFFERENT papers, and whether the thesis
 # can tell them apart.  "resolved" means the reference list separates them.
+# number -> (what the two papers are, (key_a, key_b) the reference list uses
+# to separate them, or None while unresolved)
 COLLISIONS = {
     1: ("Yang & Liu x2 (Ceram. Int. 46 (2020) 6029 and Int. J. Fatigue 134 "
-        "(2020) 105507)", False),
+        "(2020) 105507)", ("01a", "01b")),
     5: ("Q. Zhang et al. Ceram. Int. 48 (2022) 3109 [5] and Skinner & "
-        "Chattopadhyay Compos. Struct. 268 (2021) 114006 [5b]", True),
+        "Chattopadhyay Compos. Struct. 268 (2021) 114006 [5b]", ("5", "5b")),
 }
 
 
@@ -422,16 +432,17 @@ def check():
 
     print("\n B3. two papers under one number -- known, and is it resolvable")
     _, _, listed0 = citations()
-    for n, (what, resolved) in sorted(COLLISIONS.items()):
+    for n, (what, keys) in sorted(COLLISIONS.items()):
         t("refs/[%02d] holds two different papers" % n,
           sorted(x[0] for x in inv).count(n) == 2, what[:46])
-        if resolved:
-            t("  and the reference list separates them ([5] vs [5b])",
-              "5" in listed0 and "5b" in listed0)
+        if keys:
+            ka, kb = keys
+            t("  and the reference list separates them ([%s] vs [%s])"
+              % (ka, kb), ka in listed0 and kb in listed0)
         else:
             t("  and the reference list does NOT separate them -- flagged",
-              "1" in listed0 or "01" in listed0,
-              "single [01] row covers both; splitting is the author's call")
+              str(n) in listed0 or "%02d" % n in listed0,
+              "single row covers both; splitting is the author's call")
 
     print("\n C. nothing points at a retired number")
     cited, filed, listed = citations()
@@ -507,8 +518,10 @@ def check():
       "CELENT" in ch2)
     for n in (51, 54):
         t("[%d] is listed as a numbered reference" % n, "[%d]" % n in ch2)
-    t("[54] is flagged as a scan with no text layer",
-      "\uc2a4\uce94\ubcf8" in ch2 and "SCANNED pdf with no text layer" in __doc__)
+    t("[54] scan was OCR-read and the row records what it holds",
+      "OCR" in ch2 and "OCR-READ" in __doc__)
+    t("  the eta-in-[0,1] closure coefficient is recorded from it",
+      "between 0 and 1" in __doc__ and "η ∈ [0,1]" in ch2)
 
     print("\n G2b. fourth upload -- the two that change something")
     t("[60] is recorded as Part II of refs/[28]",

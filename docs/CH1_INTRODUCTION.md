@@ -265,7 +265,7 @@ Hashin만이 구동하므로 **기준을 추가해도 응력과 강성이 비트
 입력 데이터 탓인지를 구분해 말할 수 있게 하기 때문**이다. L1을 건너뛰면 그 구분이
 영원히 불가능해진다.
 
-L1은 자동화되어 있으며, 현재 **1784개 항목**이 매 커밋 전에 전수 통과를 강제받는다
+L1은 자동화되어 있으며, 현재 **1812개 항목**이 매 커밋 전에 전수 통과를 강제받는다
 (제3장 §3.9). L2는 다음 두 축으로 수행한다.
 
 - **Zhang 등[5]의 상온/500 °C/1000 °C 인장강도 재현** (제4장 §4.4)
@@ -349,7 +349,7 @@ RVE 구성은 다음과 같다(제4장 §4.2).
 |---|---|---|
 | **제1장** | 서론 — 배경, 문제 제기, 목적, 기여, 범위 | 본 장 |
 | **제2장** | 문헌고찰 — 준취성 거동, TRS, 열충격 vs 열싸이클, CDM, 파손기준, 균질화, 연구 공백 | 기여 C1–C4의 근거 |
-| **제3장** | 미시 구성모델과 코드 검증 — 정식화, 8개 신규 기능, 1784개 자동 검증 항목 | **L1** |
+| **제3장** | 미시 구성모델과 코드 검증 — 정식화, 8개 신규 기능, 1812개 자동 검증 항목 | **L1** |
 | **제4장** | RVE 균질화와 가상시험 — 주기경계조건, TRS 실측 대조, 유효물성, 가상시험 배치 | **L2** |
 | **제5장** | 거시 반복 열충격 해석 모델 — 급랭 경계조건, Biot 수 사다리, TRS 3케이스 | 모델 구성 |
 | **제6장** | 결과 및 고찰 — TRS 처리 방식의 영향, 파손기준 비교, 무응력 온도 | **L3** |
@@ -377,7 +377,7 @@ RVE 구성은 다음과 같다(제4장 §4.2).
 | [27] | Z. Yang, J. Jiao, J. Wang, W. Huang, Y. Guo, **Compos. Part A 77 (2015) 181** |
 | [30] | Q. Zhang, J. Ge, B. Li, S. Zhao, Z. Liu, J. Liang, *Investigation of mechanical behavior and damage process of 2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. Part B 313 (2026) 113395** |
 | [33] | Z. Yang, J. Jiao, Y. Guo, *(D-criterion 원전)*, **Theor. Appl. Mech. Lett. 4 (2014) 021007** |
-| **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: Part I — Experiment and analysis*, **Chin. J. Aeronaut. 27(6) (2014) 1784–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
+| **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: Part I — Experiment and analysis*, **Chin. J. Aeronaut. 27(6) (2014) 1586–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
 | [S2] | Z. Hashin, *Failure criteria for unidirectional fiber composites*, **J. Appl. Mech. 47(2) (1980) 329–334** — 확보 대상 |
 | [S3] | S. W. Tsai, E. M. Wu, *A general theory of strength for anisotropic materials*, **J. Compos. Mater. 5(1) (1971) 58–80** — 확보 대상 |
 | [S4] | K.-S. Liu, S. W. Tsai, *A progressive quadratic failure criterion for a laminate*, **Compos. Sci. Technol. 58(7) (1998) 1023–1032** — 확보 대상 |
