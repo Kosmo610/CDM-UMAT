@@ -469,6 +469,41 @@ def gf_audit(p, nt, le=None):
     return rows
 
 
+def gf_temperature_drift(rows):
+    """How far A wanders across the temperature table, per mode.
+
+    Holding Gf fixed while E and X move is an ASSUMPTION, and until
+    2026-08-06 it was an unstated one.  a1-0011 sourced its direction:
+    Snead refs/[06] Fig. 14 and section 2.7.3 report that SiC's fracture
+    resistance is constant or RISING to 1000 C, never falling.  Our card
+    holds Gf fixed, so at temperature the card understates |Gf|, which
+    overstates A = 2*g0*le/|Gf|, which softens faster and predicts MORE
+    damage.  The error is therefore conservative for life prediction --
+    the one direction we can afford.
+
+    The size is small because E and X move together: A scales as
+    g0 = X^2/(2E), and refs/[10]'s four measured temperatures move g0 by
+    at most 5.1 % to 1273 K, while our own f(T) table moves it by 5.9 %.
+    Returns {mode: (A_min, A_max, drift)} with drift = A_max/A_min - 1,
+    at a single le so the length cancels.
+    """
+    out = {}
+    for rec in rows:
+        per_le = {}
+        for st in rec["states"]:
+            per_le.setdefault(st["le"], []).append(st["A"])
+        best = None
+        for le, As in per_le.items():
+            if len(As) < 2:
+                continue
+            d = max(As) / min(As) - 1.0
+            if best is None or d > best[2]:
+                best = (min(As), max(As), d)
+        if best is not None:
+            out[rec["mode"]] = best
+    return out
+
+
 def _t_factors(p, nt, xslot, eslot):
     """(T, strength multiplier, modulus multiplier) for every table row.
 
@@ -774,6 +809,43 @@ def selftest():
     expect_true("audit walks every (temperature, le) state",
                 nstate == max(info["nt"], 1) * 2,
                 "%d states from NT=%d x 2 lengths" % (nstate, info["nt"]))
+
+    # a1-0011: holding Gf fixed while E and X move with temperature is an
+    # assumption, and its size is now bounded rather than merely admitted.
+    # The bound is anchored on measurement, not on a test fixture:
+    # refs/[10] Yang Table 1 gives E and the ultimate strength at four
+    # temperatures on ONE material, so g0 = X^2/(2E) -- which is all A
+    # depends on once Gf and le are fixed -- can be evaluated directly.
+    YANG = ((300.0, 128.7e3, 225.8), (973.0, 152.3e3, 240.5),
+            (1273.0, 172.7e3, 268.2), (1473.0, 169.1e3, 240.9))
+    gfy, ley = 0.12, LE
+    A_of = dict((T, _kaband(X * X / (2.0 * E) * ley, -gfy, 2.0))
+                for T, E, X in YANG)
+    in_range = [A_of[T] for T, _, _ in YANG if T <= 1273.0]
+    dev_rt = max(abs(a / A_of[300.0] - 1.0) for a in in_range)
+    expect_true("A stays within 5.2 % of its RT value out to 1273 K",
+                dev_rt < 0.052, "%.1f %%" % (100.0 * dev_rt))
+    expect_true("and it is not monotonic -- 973 K dips before 1273 K rises",
+                A_of[973.0] < A_of[300.0] < A_of[1273.0],
+                "%.4f < %.4f < %.4f"
+                % (A_of[973.0], A_of[300.0], A_of[1273.0]))
+    expect_true("beyond our 1000 C ceiling it does move, so the bound is"
+                " scoped", abs(A_of[1473.0] / A_of[300.0] - 1.0) > 0.10,
+                "%.1f %% at 1473 K" % (100.0 * (A_of[1473.0] / A_of[300.0]
+                                                - 1.0)))
+    # The reporter itself, on a hand-built two-temperature mode.
+    rows = [dict(mode="1t", states=[dict(T=300.0, le=LE, g0=0.2, A=2.0),
+                                    dict(T=1273.0, le=LE, g0=0.21, A=2.1)])]
+    d = gf_temperature_drift(rows)
+    expect_true("gf_temperature_drift reports max/min per mode",
+                abs(d["1t"][2] - 0.05) < 1e-12, "%.4f" % d["1t"][2])
+    # And the direction: real |Gf| rises with temperature (Snead refs/[06]
+    # Fig. 14), the card does not, so the card over-predicts A and therefore
+    # over-predicts damage.  Conservative.  Stated so it cannot be re-derived
+    # backwards later.
+    expect_true("the sign of that error is written down where A is computed",
+                "conservative for life prediction" in gf_temperature_drift
+                .__doc__)
 
     # Cross-module: the card that postprocess/homogenize.py will actually
     # emit after the RVE virtual tests must pass this validator.  Without

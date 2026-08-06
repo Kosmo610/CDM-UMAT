@@ -980,6 +980,28 @@ def check():
     except ValueError:
         t("a negative yarn Gf is refused", True)
 
+    # ------------------------------------------------------------------
+    # The guide is a transcription of the constants above.  a1-0005 found
+    # it holding dmax 0.99 and eta 0.02 -- the pre-retune values -- with
+    # nothing in the repository able to notice.  Transcriptions drift; the
+    # fix is not to be careful, it is to check.
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    guide = os.path.join(root, "verification", "CALIBRATION_GUIDE.md")
+    if os.path.exists(guide):
+        g = open(guide, encoding="utf-8").read()
+        t("CALIBRATION_GUIDE quotes the live dmax %g" % D_DMAX,
+          ("**%g**" % D_DMAX) in g or ("dmax = %g" % D_DMAX) in g)
+        t("CALIBRATION_GUIDE quotes the live eta %g" % D_ETA,
+          ("**%g**" % D_ETA) in g)
+        t("the guide says which file is authoritative",
+          "retune_deck.py" in g and "D_DMAX" in g and "D_ETA" in g)
+        t("the guide no longer tells anyone to keep dmax at 0.99",
+          "dmax=0.99:" not in g)
+        t("dmax and eta are declared knobs there, not 'fixed'",
+          g.count("선언된 knob") >= 4)
+    else:
+        t("CALIBRATION_GUIDE.md present", False, guide)
+
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
 

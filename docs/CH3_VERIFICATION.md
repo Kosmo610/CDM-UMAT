@@ -38,7 +38,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 | 17 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
-| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 15종 거부 + $\bar G_f$ 규약 감사) | 38 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 15종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계) | 43 |
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
@@ -53,7 +53,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 94 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
-| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성) | 114 |
+| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조) | 119 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
@@ -62,8 +62,10 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
-| `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 40 |
-| **합계** | | **1383** |
+| `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
+| `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 | 26 |
+| `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종과 그 산포 | 25 |
+| **합계** | | **1450** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -502,7 +504,7 @@ $E$ = 100 000 MPa, $\nu$ = 0.30, $\alpha$ = 5×10⁻⁶/K, 단위 거시변형 1
   (≤ 3.0×10⁻¹⁵) 이내로 일치**한다. 이는 "모델이 맞다"와 "코드가 맞다"를 분리하여
   둘 다 확인한 것이다.
 - 입력덱은 솔버 없이 정적 검증되며, 카드 가드 상수로 계보 혼용이 차단된다.
-- 총 **1383개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
+- 총 **1450개 항목**이 자동으로 검증되고, 커밋 전 전수 통과가 강제된다.
 
 > **따라서 이후 장에서 관측되는 불일치는 코드의 오류가 아니라 모델 가정 또는 물성의
 > 문제로 귀속할 수 있다.** 이것이 이 장의 실질적 산출물이다.
@@ -524,5 +526,7 @@ python3 data/properties/conductivity_bounds.py --check  # 열전도 경계·민�
 python3 data/literature/digitize.py --check             # 그림 디지타이즈 재현
 python3 abaqus/quench_calibration.py --check            # 급랭 h 역산 + Biot
 python3 abaqus/retune_deck.py --check                   # 덱 재튜닝
+python3 verification/celent_census.py                   # le=CELENT의 파괴에너지 오차
+python3 postprocess/extract_pls.py --selftest           # 비례한도(PLS) 추출
 python3 verification/check_ch2_numbers.py               # 제2장 수치 vs 문헌 CSV
 ```

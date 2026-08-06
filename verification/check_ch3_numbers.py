@@ -75,7 +75,7 @@ CASES = [
      count_bracketed, 5),
     ("make_macro_thermalshock.py --selftest",
      "python3 abaqus/make_macro_thermalshock.py --selftest",
-     count_bracketed, 38),
+     count_bracketed, 43),
     ("conductivity_bounds.py --check",
      "python3 data/properties/conductivity_bounds.py --check",
      count_bracketed, 34),
@@ -117,7 +117,7 @@ CASES = [
      count_bracketed, 12),
     ("retune_deck.py --check",
      "python3 abaqus/retune_deck.py --check",
-     count_plain, 114),
+     count_plain, 119),
     ("check_ch1_numbers.py",
      "python3 verification/check_ch1_numbers.py",
      count_plain, 50),
@@ -148,7 +148,13 @@ CASES = [
      count_bracketed, 12),
     ("sync_check.py --selftest",
      "python3 sync/sync_check.py --selftest",
-     count_bracketed, 40),
+     count_bracketed, 46),
+    ("celent_census.py",
+     "python3 verification/celent_census.py",
+     count_bracketed, 26),
+    ("extract_pls.py --selftest",
+     "python3 postprocess/extract_pls.py --selftest",
+     count_bracketed, 25),
 ]
 
 

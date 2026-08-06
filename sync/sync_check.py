@@ -52,8 +52,22 @@ AGENTS = {
 }
 OTHER = {"a1": "a2", "a2": "a1"}
 
-KINDS_FROM_A1 = ("band", "value", "ref", "verdict", "question")
-KINDS_FROM_A2 = ("need", "finding", "changed", "question")
+#: Kinds that only one side can send, because they assert something only
+#: that side has the authority to assert: a1 rules on where a number came
+#: from and whether it may enter a card, a2 rules on what the code does
+#: with it.  Everything else is bidirectional.
+#:
+#: `finding` and `changed` used to be a2-only, which was wrong and a1 hit
+#: it on their first real batch -- seven messages flagged as malformed for
+#: reporting findings, which is exactly what a literature agent does when
+#: it reads a paper and the paper contradicts us.  The restriction encoded
+#: an assumption about who discovers things, and that assumption was not
+#: true in either direction.
+KINDS_ONLY_A1 = ("band", "value", "ref", "verdict")
+KINDS_ONLY_A2 = ("need",)
+KINDS_BOTH = ("finding", "changed", "question")
+KINDS_FROM_A1 = KINDS_ONLY_A1 + KINDS_BOTH
+KINDS_FROM_A2 = KINDS_ONLY_A2 + KINDS_BOTH
 GRADES = ("fulltext", "digitized", "abstract", "secondary")
 
 CARD_TABLES = {"matrix": "MATRIX", "yarn": "YARN", "macro": "MACRO"}
@@ -507,8 +521,8 @@ def selftest():
             ("id in the wrong namespace", mangled(id="a2-0001"), "a1"),
             ("id not zero-padded", mangled(id="a1-1"), "a1"),
             ("date not ISO", mangled(date="8/4/2026"), "a1"),
-            ("a2 kind sent by a1", mangled(kind="finding"), "a1"),
-            ("a1 kind sent by a2", mangled(kind="band"), "a2"),
+            ("a2-only kind sent by a1", mangled(kind="need"), "a1"),
+            ("a1-only kind sent by a2", mangled(kind="band"), "a2"),
             ("band with no grade", mangled(grade=None), "a1"),
             ("band with an invented grade", mangled(grade="probably"), "a1"),
             ("band with no source", mangled(source=""), "a1"),
@@ -523,6 +537,16 @@ def selftest():
     ):
         ck("rejects: %s" % name, validate(msg, sender) != [],
            "; ".join(validate(msg, sender))[:44])
+
+    # The relaxation itself, asserted rather than assumed: a literature
+    # agent reporting a finding is the normal case, not a malformed one.
+    for kind in KINDS_BOTH:
+        for sender in ("a1", "a2"):
+            m = mangled(kind=kind, id="%s-0001" % sender)
+            m.pop("lo", None)
+            m.pop("hi", None)
+            ck("accepts: %-8s from %s" % (kind, sender),
+               validate(m, sender) == [], "; ".join(validate(m, sender))[:40])
 
     # ---- the applied-band lookup has to read the real audit table ----
     text = io.open(os.path.join(ROOT, "verification", "check_card_ranges.py"),
