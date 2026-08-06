@@ -314,6 +314,9 @@ python3 data/literature/zhang5_provenance.py --check   # Zhang[5] 밀도·공극
 python3 data/literature/refs_audit.py --check          # refs/ 전수 점검 (중복·고분자기지·인용누락)
 python3 data/literature/gf_temperature.py --check      # Gf(T) 방향 출처 + A 표류 한계
 python3 data/literature/pls_validation.py --check      # 비례한도를 TRS 검증 지표로
+python3 data/literature/cte_composite_targets.py --check # 복합재 CTE 절대 표적 4점
+python3 data/literature/modulus_definition.py --check  # 대조 모듈러스 정의 (접선 vs 할선)
+python3 data/literature/crack_band_simplex.py --check   # refs/[47]의 2D 사면체 배수 (a2 kappa 검증)
 python3 data/literature/digitize_ref28_fig17.py --check # refs/[28] Fig.17 TRS (Table 1로 검산)
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
@@ -337,7 +340,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 45개를 전부 통과시킨다.**
+**커밋 전에 위 48개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

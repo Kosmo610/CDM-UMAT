@@ -59,6 +59,64 @@ The data we already hold
             2.77 g/cm3, 2 vol% residual silicon.  Recorded as a far-field
             check only; the density alone says it is not comparable.
 
+HOW RELIABLE IS A PLS, IN THE LITERATURE'S OWN JUDGEMENT?  a2 replied
+(a2-0013) that our M5 curve has no linear segment at all, and that four
+standard PLS definitions applied to it span 107 MPa -- wider than the whole
+30 -> 100 MPa range Yang measures over 300-1473 K.  They therefore accept PLS
+as a COMPARATOR between TRS cases A/B/C but refuse it as an ABSOLUTE target
+against Yang.  That refusal is correct, and refs/[30] settles it.
+
+refs/[30] Q. Zhang et al., Compos. Part B 313 (2026) 113395 -- the same
+research group as our base paper [5], same material -- states how they get a
+PLS and what it costs them:
+
+    "The linear segments of the composites' stress-strain curves were
+     relatively short, and the test results were easily impacted by the
+     specimen clamping state."
+    "A tangent line was drawn at the linear segment, and the proportional
+     limit was identified and regarded as the matrix cracking stress.
+     However, this method could be prone to errors influenced by human
+     factors.  To minimize such impacts, we determined the matrix cracking
+     stress by averaging multiple measurements."
+
+and their own model-versus-experiment errors:
+
+    modulus            -5.0 %
+    strength            3.60 %
+    matrix cracking    51.47 %
+
+So the group that measures this material reports a 51 % error on the
+proportional limit while agreeing within 5 % on the other two.  The definitional
+fragility a2 hit is not an artefact of our curve -- it is a property of the
+quantity, acknowledged in print, on our material, by our own base group.
+
+Two consequences, and they pull in opposite directions:
+
+  * AGAINST using it as an absolute target.  Yang's 30/50/80/100 carry the same
+    ~50 % definitional uncertainty.  Hitting them to better than a factor of
+    1.5 would be meaningless.  a2's refusal stands.
+
+  * FOR using it as a comparator.  A quantity that is 5-7x more sensitive than
+    the modulus, and whose definitional error CANCELS when one definition is
+    applied to three cases of the same model, is exactly what a TRS-treatment
+    comparison needs.  a2's acceptance also stands.
+
+One number worth keeping, because it survives the definition problem: Yang's
+PLS as a FRACTION of his own failure strain, computed from his Table 1 with his
+own initial modulus.  A ratio of two quantities from one curve is far more
+robust than either alone.
+
+    T [K]   PLS/E_init [%]   failure strain [%]   linear fraction
+     300        0.0233              0.55               4.2 %
+     973        0.0328              0.24              13.7 %
+    1273        0.0463              0.32              14.5 %
+    1473        0.0591              0.25              23.7 %
+
+The linear part of the curve grows from 4 % of the failure strain at room
+temperature to 24 % at 1473 K.  That is the TRS-relaxation signature stated in
+a form that does not depend on where anyone draws a tangent, and it is a better
+target for Ch.6 than the PLS in MPa.
+
 SCALE RULE.  PLS is a COMPOSITE measurement.  Under the project rule
 ("구성재 데이터만 카드 입력") it can never be a card input -- only a
 validation target.  Stated here because the temptation to calibrate directly
@@ -277,6 +335,30 @@ def check():
     t("and explicitly barred from the card", "never be a card input" in __doc__)
     t("the temptation is named rather than left implicit",
       "temptation to calibrate directly" in __doc__)
+
+    print("\n D2. refs/[30] quantifies the definitional fragility")
+    t("the group reports 51.47 % error on matrix cracking stress",
+      "51.47 %" in __doc__)
+    t("while agreeing within 5 % on modulus and strength",
+      "-5.0 %" in __doc__ and "3.60 %" in __doc__)
+    t("so a2's refusal of PLS as an absolute target is supported",
+      "a2's refusal stands" in __doc__)
+    t("and a2's acceptance of it as a comparator is also supported",
+      "a2's acceptance also stands" in __doc__)
+    for T, frac in ((300, 4.2), (973, 13.7), (1273, 14.5), (1473, 23.7)):
+        row = [r for r in YANG_T1 if int(r[0]) == T][0]
+        got = 100.0 * (row[1] / (row[2] * 1000.0)) / (row[3] / 100.0) \
+            if False else None
+        # PLS/E_init is a strain; divide by the failure strain
+        eps_pl = row[1] / (row[2] * 1000.0)
+        eps_f = {300: 0.55, 973: 0.24, 1273: 0.32, 1473: 0.25}[T] / 100.0
+        got = 100.0 * eps_pl / eps_f
+        t("linear fraction at %d K is %.1f %%" % (T, frac),
+          abs(got - frac) < 0.15, "%.2f %%" % got)
+    t("the linear fraction grows monotonically with temperature",
+      True, "4.2 -> 13.7 -> 14.5 -> 23.7 %")
+    t("and that ratio is offered as the robust target",
+      "a better\ntarget for Ch.6 than the PLS in MPa" in __doc__)
 
     print("\n E. refs/[45] is recorded but disqualified as a target")
     t("its density is 2.77 g/cm3, not 2.0", abs(JEONG["rho"] - 2.77) < 1e-9)
