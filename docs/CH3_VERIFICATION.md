@@ -54,12 +54,12 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `card_gap_triage.py --check` | GUESS 14개의 knob/도출/공백 분류와 얀 물성 독립대조 | 69 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
-| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 | 95 |
+| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 | 103 |
 | `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 | 30 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도·정의 취약성·선형구간 비 | 43 |
 | `cte_composite_targets.py --check` | refs/[61]의 복합재 CTE 4점과 그 한계 | 32 |
 | `modulus_definition.py --check` | 대조 모듈러스 — 한 곡선이 3.13배를 걸친다 | 25 |
-| `crack_band_simplex.py --check` | refs/[47]의 2D $\sqrt2$와 a2의 3D $6^{1/3}$ 대조 | 26 |
+| `crack_band_simplex.py --check` | refs/[47]의 2D $\sqrt2$와 a2의 3D $6^{1/3}$ 대조 + refs/[69] published 공식 | 36 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
 | `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성) | 114 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
@@ -71,7 +71,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 40 |
-| **합계** | | **1735** |
+| **합계** | | **1753** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -170,7 +170,7 @@ UMAT이 `PNEWDT`로 **증분을 선제적으로 줄이도록** 요청한다. 이
 |---|---|---|---|
 | $E_1$ | 254 967.23 | 254 967.228042 | 0.000 % |
 | $E_2 = E_3$ | 44 321.74 | 44 321.737572 | 0.000 % |
-| $\nu_{12}=\nu_{13}$ | 0.247516 | 0.247517356 | 0.000 % |
+| $\nu_{12}=\nu_{13}$ | 0.247516 | 0.247517536 | 0.000 % |
 | $\nu_{23}$ | 0.395833 | 0.395813581 | 0.005 % |
 | $G_{12}=G_{13}$ | 26 430.91 | 26 431.515264 | 0.002 % |
 | $G_{23}$ | 15 876.45 | 15 876.667974 | 0.001 % |

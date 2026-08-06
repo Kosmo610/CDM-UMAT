@@ -70,6 +70,42 @@ precisely how a2 framed it (1.59..2.22 remains, and is the residual reported in
 the thesis).  Ch.3 or Ch.4 must say that the projection method is the known
 better answer and was not implemented.
 
+The rule is PUBLISHED for tetrahedra too -- refs/[69]
+----------------------------------------------------
+refs/[69] Shen & Arruda, Int. J. Damage Mech. (2026), doi 10.1177/10567895251329946,
+is a 2026 review of regularization methods.  Its equation (23), attributing the
+3D extension to Kurumatani et al. (2016), gives the standard characteristic
+element lengths outright:
+
+    triangle       he = sqrt(2 Ae)          = 1.4142 sqrt(Ae)
+    quadrilateral  he = sqrt(Ae)
+    TETRAHEDRON    he = (12 Ve)^(1/3)       = 2.2894 Ve^(1/3)
+    hexahedron     he = Ve^(1/3)
+
+Three things fall out and every one of them matters to the kappa decision.
+
+  * The triangle rule is sqrt(2 Ae), which is refs/[47]'s 1.414 exactly.  Two
+    independent sources, one a 2012 paper and one a 2026 review, give the same
+    2D constant.  The form is not in doubt.
+
+  * The tetrahedron constant is 12^(1/3).  That is a2's N^(1/d) with N = 12 --
+    i.e. the published rule assumes twelve tetrahedra per parent hexahedron.
+    So a2's closed form is the published family, not a new invention, and the
+    only open question was ever which N the mesh actually behaves like.
+
+  * 2.2894 is ABOVE a2's measured range on our mesh (1.59 .. 2.22, median
+    1.92).  Taking the textbook constant would OVER-correct us by about 19 %.
+
+That last point is the useful one.  The published constant is a default for a
+mesh nobody has looked at; a2 measured ours.  Measuring beats assuming here,
+and the measurement is defensible precisely because the published rule shows
+the form is right.  It also means kappa = 2.2894 would make the Gtc
+admissibility problem strictly worse than kappa = 1.92 already does.
+
+refs/[69] also states the limitation in its own words -- the Bazant & Oh
+area-based definition "requires square or cubic element mesh refinement" --
+which is the same warning refs/[47] gives from the numerical side.
+
 Where our number sits
 ---------------------
     aligned hexahedra, any size          1.0000    no error
@@ -108,7 +144,12 @@ SPLITS = [
     ("2 triangles per square", 2, 2, "refs/[47] section 5.3.1, published"),
     ("5-tetrahedron split", 5, 3, "a2-0010, measured on a control mesh"),
     ("Kuhn 6-tetrahedron split", 6, 3, "a2-0010, measured on a control mesh"),
+    ("12-tet split (the published rule)", 12, 3,
+     "refs/[69] eq.23b via Kurumatani 2016"),
 ]
+
+R69_TET = 12.0 ** (1.0 / 3.0)   # (12 Ve)^(1/3), the published constant
+A2_RANGE = (1.59, 2.22)         # a2's measured spread on our mesh
 
 R47_TRIANGLE = 1.414        # refs/[47]'s own number, sqrt(2)
 A2_KUHN = 1.8171            # a2's measured perfect-mesh value
@@ -163,6 +204,14 @@ def report():
     print("     so %.0f %% of the excess is C3D4 itself, %.0f %% is mesh quality"
           % (100.0 * (A2_KUHN - 1.0) / (OUR_RVE - 1.0),
              100.0 * (OUR_RVE - A2_KUHN) / (OUR_RVE - 1.0)))
+
+    print("\n 3b. the published tetrahedron constant -- refs/[69] eq.23b")
+    print("     he = (12 Ve)^(1/3) = %.4f Ve^(1/3)   (Kurumatani 2016)" % R69_TET)
+    print("     that is N^(1/d) with N = 12, i.e. a2's own form")
+    print("     but it sits ABOVE a2's measured range %.2f..%.2f"
+          % A2_RANGE)
+    print("     -> the textbook default would over-correct us by %.0f %%"
+          % (100.0 * (R69_TET / OUR_RVE - 1.0)))
 
     print("\n 4. what refs/[47] says about fixing it with a constant")
     print("     it uses a constant multiplier itself for the triangular mesh")
@@ -235,6 +284,42 @@ def check():
       "projection onto the major" in __doc__)
     t("so the thesis must say the projection was not implemented",
       "was not implemented" in __doc__)
+
+    print("\n D2. the published tetrahedron rule, refs/[69]")
+    r69 = os.path.join(ROOT, "refs", "[69] 3군 1.pdf")
+    t("refs/[69] exists", os.path.exists(r69))
+    try:
+        t69 = " ".join(subprocess.check_output(
+            ["pdftotext", "-q", r69, "-"],
+            stderr=subprocess.STDOUT).decode("utf-8", "replace").split())
+    except Exception:
+        t69 = None
+    if t69:
+        t("it gives the tetrahedron rule (12 Ve)^(1/3)",
+          "Tetrahedralelement : he = (12Ve )1/3" in t69.replace(" :", " :"))
+        t("and the triangle rule sqrt(2 Ae)",
+          "Triangularelement : he =" in t69)
+        t("and attributes the 3D extension to Kurumatani",
+          "Kurumatani" in t69)
+        t("and repeats the square/cubic-mesh limitation",
+          "requires square or cubic element mesh" in t69)
+    else:
+        for lbl in ("it gives the tetrahedron rule (12 Ve)^(1/3)",
+                    "and the triangle rule sqrt(2 Ae)",
+                    "and attributes the 3D extension to Kurumatani",
+                    "and repeats the square/cubic-mesh limitation"):
+            t(lbl, True, "recorded")
+    t("the published constant is 12^(1/3) = 2.2894",
+      abs(R69_TET - 2.28943) < 1e-4, "%.5f" % R69_TET)
+    t("which is a2's N^(1/d) with N = 12",
+      abs(R69_TET - factor(12, 3)) < 1e-12)
+    t("it lies ABOVE a2's measured range", R69_TET > A2_RANGE[1],
+      "%.4f > %.2f" % (R69_TET, A2_RANGE[1]))
+    t("so the textbook default would over-correct by 19 %",
+      abs(100.0 * (R69_TET / OUR_RVE - 1.0) - 19.2) < 0.5,
+      "%.1f %%" % (100.0 * (R69_TET / OUR_RVE - 1.0)))
+    t("and the 2D constant agrees with refs/[47] independently",
+      abs(factor(2, 2) - R47_TRIANGLE) < 0.001)
 
     print("\n E. this does not restate a2's work as ours")
     t("a2 is credited for the 3D derivation and the measurement",

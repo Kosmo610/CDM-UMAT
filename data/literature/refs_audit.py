@@ -69,6 +69,16 @@ What the audit found, and what was done about it
 
 7. refs/[10] answers a2-0003, and had already been transcribed into Ch.4.
 
+8d. FIFTH UPLOAD, 2026-08-06: [65]-[72].  None closes an [S*] gap; all eight
+   are new numbered references.  The one that acts immediately is [69], a 2026
+   review whose equation (23) gives the PUBLISHED characteristic element length
+   for tetrahedra, he = (12 Ve)^(1/3) = 2.2894 Ve^(1/3), attributed to
+   Kurumatani et al. (2016).  That is a2's N^(1/d) with N = 12, and it sits
+   above a2's measured range on our mesh -- see crack_band_simplex.py.
+   [71] and [72] measure TRS EVOLUTION through heat treatment, which is the
+   relaxation our C1 needs and has never had; both are SiC/SiC, not C/SiC.
+   A full review of these eight has not been written yet.
+
 8c. FOURTH UPLOAD, 2026-08-06: [57]-[64].  One closes [S8] (Van Paepegem
    cycle jump); the other seven are new numbered references.  Full review in
    docs/REFS_57_64_ASSESSMENT.md.  The two that change something today:
@@ -203,10 +213,10 @@ MUST_BE_LISTED = {
           "4261-4265",
 }
 
-N_PDF = 64
-N_DISTINCT = 64
-N_NUMBERS = 62   # [01] and [05] each carry two different papers
-NEXT_FREE = 65   # 21 and 39 are retired, never reused
+N_PDF = 72
+N_DISTINCT = 72
+N_NUMBERS = 70   # [01] and [05] each carry two different papers
+NEXT_FREE = 73   # 21 and 39 are retired, never reused
 
 # Third batch, 2026-08-06.  Four of the five close [S*] gaps -- method primary
 # sources the thesis had been citing without holding the originals.
@@ -234,6 +244,17 @@ THIRD_BATCH = {
     62: (None, "Baste, Compos. Sci. Technol. 61 (2001) 2285"),
     63: (None, "Mei et al., Carbon 45 (2007) 2195 -- also Zhang[5] ref [36]"),
     64: (None, "Wu et al., Materials 19(2) (2026) 307 -- 2.5D, oxidation"),
+    65: (None, "Wei et al., Ceram. Int. 50 (2024) 34442 -- SiC/SiC"),
+    66: (None, "Hamza, Schichtel, Chattopadhyay, JECS 45 (2025) 117335 -- "
+               "same group as [5b]"),
+    67: (None, "Mei & Cheng, Mater. Sci. Technol. (2008) -- thermal+mechanical"),
+    68: (None, "Mei, Cheng, Zhang, JACS 89(7) (2006) 2330 -- DISPLACEMENT "
+               "CONSTRAINT"),
+    69: (None, "Shen & Arruda, Int. J. Damage Mech. (2026) -- regularization "
+               "review; gives the published tetrahedron he = (12 Ve)^(1/3)"),
+    70: (None, "smooth Lagrangian crack band model, IJNLM 186 (2026) 105340"),
+    71: (None, "synchrotron XRD residual stress, JACS (2020)"),
+    72: (None, "Raman residual stress vs heat treatment, JACS (2019)"),
 }
 
 # refs/[61] Table 1, as-received 2D C/SiC (CVI).  Read off the PDF.
