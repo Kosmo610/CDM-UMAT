@@ -1,47 +1,68 @@
 # -*- coding: utf-8 -*-
 """
-논문 Fig.3/5/7/9/12/14/16 형식의 그림 자동 생성
+논문 Fig.3/5/7/8/9/10 형식의 그림 자동 생성  (온도 지정 지원)
 
-논문 그림은 전부 "기지만" 과 "얀만" 을 따로 그린 것이다. Abaqus 에서는
-Display Group 으로 상(phase)을 갈라서 보여준다. 이 스크립트는 그 작업을
-GUI 없이 자동으로 돌려 PNG 로 저장한다.
+논문 그림은 전부 "기지만" 과 "얀만" 을 따로, 그리고 **정해진 온도**에서
+그린 것이다:
+  Fig.3/5   냉각      1050 / 750 / 500 / 250 / 23 C
+  Fig.7/8   승온(500)   23 / 125 / 250 / 375 / 500 C
+  Fig.9/10  승온(1000) 500 / 625 / 750 / 875 / 1000 C
+Fig.3/7/9 는 S11 잔류응력, Fig.5/8/10 은 손상 3행(기지/종/횡)이다.
 
 실행 (GUI 없이):
     abaqus viewer noGUI=make_odb_images.py -- <job>.odb [옵션]
 
 옵션:
+    --fig stress    S11 을 기지/얀으로 (논문 Fig.3/7/9). 범례 논문값 고정
+    --fig damage    손상 3행: 기지 DMT / 얀 DY1T / 얀 DYTT (Fig.5/8/10).
+                    범례 0~1 고정 (논문과 동일)
+    --var NAME      프리셋 대신 단일 변수 (S11/MISES/SDV_DMT ...)
     --step NAME     기본: 냉각 Step 자동 검색
-    --frames a,b,c  프레임 번호. 기본: 0,25%,50%,75%,100% 5장
-    --var S11       기본 S11 (논문 Fig.3/7/9 와 동일). MISES / SDV_DMT 등도 가능
+    --temps a,b,c   **온도[C]로 프레임 선택** (논문 방식). 예: 1050,750,500,250,23
+    --trange A,B    Step 의 시작/끝 온도 수동 지정. 자동 인식:
+                      *Cool*          -> 1050 -> 23
+                      Heating_*500C*  -> 23 -> 500   (이름의 숫자)
+                      Tension_*       -> 온도 일정 (temps 사용 불가)
+                    직행(DIRECT) 덱의 냉각은 1050->500/1000 이므로
+                    반드시 --trange 1050,500 처럼 지정할 것.
+    --frames a,b,c  프레임 번호 직접 (기존 방식)
+    --list          스텝/프레임/온도 대응표만 출력하고 종료 (odb 확인용)
     --out DIR       기본: odb 폴더
+    --auto          범례 자동 스케일 (고정 해제)
 
-산출:
-    <out>/img_<var>_matrix_f<NN>.png
-    <out>/img_<var>_yarn_f<NN>.png
+산출 (temps 모드):
+    <out>/img_<변수>_<그룹>_T####C.png    예: img_S11_matrix_T0750C.png
+(frames 모드는 기존처럼 _f## 이름)
 
-논문 범례 고정값 (Fig.3/7/9 에서 읽음):
-    기지 S11   -160 ~ +310 MPa
-    얀   S11   -600 ~ +270 MPa
-범례를 고정해야 프레임끼리 색이 비교된다. --auto 를 주면 자동 범위.
+논문 범례 고정값: 기지 S11 -160~+310 / 얀 S11 -600~+270 / 손상 0~1.
+범례를 고정해야 온도끼리 색이 비교된다.
 
-주의: 이 스크립트는 Abaqus Viewer 커널에서만 돈다 (여기서는 문법만
-검증했고 실제 렌더링은 워크스테이션에서 확인해야 한다).
+주의: 렌더링은 Abaqus Viewer 커널에서만 돈다. 여기서는 프레임 선택
+로직만 검증했고 실제 그림은 워크스테이션에서 확인해야 한다.
 """
 from __future__ import print_function
 
 import sys
 import os
-
-from abaqus import session
-from abaqusConstants import (CONTOURS_ON_DEF, INTEGRATION_POINT, COMPONENT,
-                             INVARIANT, OFF, ON, PNG, LARGE)
-import displayGroupOdbToolset as dgo
+import re
 
 MATRIX_SETS = ('MATRIX',)
 YARN_SETS = ('YARN0', 'YARN1', 'YARN2', 'YARN3')
-# 논문 Fig.3 / Fig.7 / Fig.9 범례
+
+# 논문 범례 고정값 (Fig.3/7/9 판독; 손상은 전 그림 0~1)
 LIMITS = {'S11': {'matrix': (-160.0, 310.0), 'yarn': (-600.0, 270.0)}}
-T0, T1 = 1050.0, 23.0
+DMG_LIM = (0.0, 1.0)
+
+# 프리셋: (그룹이름, set 종류 M/Y, 변수 별칭 후보[우선순위], 파일태그)
+#   덱이 *Depvar 이름을 정의했으면 SDV_DMT 형태, 아니면 SDVn 만 있다.
+#   우리 UMAT 번호: 기지 SV1=DMT / 얀 SV1=DY1T, SV3=DYTT. 같은 SDV1 이라도
+#   기지 요소 위에서는 DMT, 얀 요소 위에서는 DY1T 이므로 그룹만 갈라
+#   그리면 안전하다.
+FIG_STRESS = [('matrix', 'M', ['S11'], 'S11'),
+              ('yarn', 'Y', ['S11'], 'S11')]
+FIG_DAMAGE = [('matrix', 'M', ['SDV_DMT', 'SDV1'], 'DMT'),
+              ('yarnL', 'Y', ['SDV_DY1T', 'SDV1'], 'DY1T'),
+              ('yarnT', 'Y', ['SDV_DYTT', 'SDV3'], 'DYTT')]
 
 
 def argval(args, key, default=None):
@@ -52,40 +73,60 @@ def argval(args, key, default=None):
     return default
 
 
-def full_setnames(odb, wanted):
-    """odb 의 실제 elementSet 이름을 찾아준다.
+def step_trange(name):
+    """Step 이름에서 (시작온도, 끝온도) 를 추정한다. 모르면 None."""
+    u = name.upper()
+    if 'COOL' in u:
+        return (1050.0, 23.0)
+    if 'HEAT' in u:
+        m = re.search(r'(\d{3,4})', u)
+        if m:
+            return (23.0, float(m.group(1)))
+        return None
+    if 'TENSION' in u:
+        m = re.search(r'(\d{1,4})\s*C', u)
+        if m:
+            t = float(m.group(1))
+            return (t, t)
+        return None
+    return None
 
-    어셈블리 레벨이면 이름 그대로, 인스턴스 레벨이면 'INST.SET' 형태가
-    필요하다. 대소문자도 odb 가 대문자로 저장하므로 맞춰준다.
-    """
-    ra = odb.rootAssembly
+
+def frames_from_temps(temps, trange, fvals):
+    """온도 목록 -> [(프레임번호, 실제온도)]. fvals = frameValue 목록."""
+    A, B = trange
+    if A == B:
+        return None
     out = []
-    have_asm = dict((k.upper(), k) for k in ra.elementSets.keys())
-    for w in wanted:
-        u = w.upper()
-        if u in have_asm:
-            out.append(have_asm[u])
-            continue
-        found = None
-        for iname, inst in ra.instances.items():
-            have = dict((k.upper(), k) for k in inst.elementSets.keys())
-            if u in have:
-                found = '%s.%s' % (iname, have[u])
-                break
-        if found:
-            out.append(found)
-        else:
-            print('  [warn] elementSet %s not found' % w)
-    return tuple(out)
+    for T in temps:
+        ft = (T - A) / (B - A)
+        best, bd = 0, 1.0e30
+        for i in range(len(fvals)):
+            d = abs(fvals[i] - ft)
+            if d < bd:
+                best, bd = i, d
+        out.append((best, A + (B - A) * fvals[best]))
+    return out
 
 
-def pick_step(odb, want):
-    if want and want in odb.steps:
-        return want
-    for k in odb.steps.keys():
-        if 'COOL' in k.upper():
-            return k
-    return list(odb.steps.keys())[0]
+def build_renders(fig, var):
+    if fig == 'stress':
+        return FIG_STRESS
+    if fig == 'damage':
+        return FIG_DAMAGE
+    v = (var or 'S11')
+    return [('matrix', 'M', [v], v.upper()),
+            ('yarn', 'Y', [v], v.upper())]
+
+
+def limits_for(tagvar, gname, fig, auto):
+    if auto:
+        return None
+    u = tagvar.upper()
+    if fig == 'damage' or u.startswith(('DMT', 'DMC', 'DY', 'SDV')):
+        return DMG_LIM
+    base = 'matrix' if gname == 'matrix' else 'yarn'
+    return LIMITS.get(u, {}).get(base)
 
 
 def main():
@@ -95,98 +136,240 @@ def main():
     paths = [a for a in args if a.lower().endswith('.odb')]
     if not paths:
         print('usage: abaqus viewer noGUI=make_odb_images.py -- <job>.odb '
-              '[--step NAME] [--frames 0,25,50] [--var S11] [--out DIR]')
+              '[--fig stress|damage] [--step NAME] '
+              '[--temps 1050,750,500,250,23] [--trange A,B] '
+              '[--frames 0,25] [--var S11] [--out DIR] [--list] [--auto]')
         return 1
     path = paths[0]
-    var = argval(args, '--var', 'S11')
+    fig = argval(args, '--fig')
+    if fig and fig not in ('stress', 'damage'):
+        print('[error] --fig must be stress or damage')
+        return 1
+    var = argval(args, '--var')
     outdir = argval(args, '--out') or (os.path.dirname(os.path.abspath(path))
                                        or '.')
     auto = '--auto' in args
+    listonly = '--list' in args
+
+    from abaqus import session
+    from abaqusConstants import (CONTOURS_ON_DEF, INTEGRATION_POINT,
+                                 COMPONENT, INVARIANT, OFF, ON, PNG)
+    import displayGroupOdbToolset as dgo
 
     odb = session.openOdb(path=path, readOnly=True)
-    step = pick_step(odb, argval(args, '--step'))
-    nfr = len(odb.steps[step].frames)
     print('odb   : %s' % os.path.basename(path))
-    print('step  : %s  (%d frames)' % (step, nfr))
 
-    fr_arg = argval(args, '--frames')
-    if fr_arg:
-        frames = [int(x) for x in fr_arg.split(',')]
+    # ---- Step 선택 -------------------------------------------------------
+    want = argval(args, '--step')
+    sname = None
+    if want:
+        for k in odb.steps.keys():
+            if k.upper() == want.upper():
+                sname = k
+                break
+        if sname is None:
+            print('[error] step %s not in odb. steps: %s'
+                  % (want, ', '.join(odb.steps.keys())))
+            return 2
     else:
-        frames = sorted(set(int(round(f * (nfr - 1)))
-                            for f in (0.0, 0.25, 0.5, 0.75, 1.0)))
-    print('frames: %s' % frames)
+        for k in odb.steps.keys():
+            if 'COOL' in k.upper():
+                sname = k
+                break
+        if sname is None:
+            sname = list(odb.steps.keys())[0]
+    st = odb.steps[sname]
+    nfr = len(st.frames)
+    fvals = [st.frames[i].frameValue for i in range(nfr)]
+    print('step  : %s  (%d frames)' % (sname, nfr))
+    if nfr == 0:
+        print('[error] step has no frames (never ran?)')
+        return 2
 
-    groups = [('matrix', full_setnames(odb, MATRIX_SETS)),
-              ('yarn', full_setnames(odb, YARN_SETS))]
+    # ---- 온도 구간 -------------------------------------------------------
+    tr_arg = argval(args, '--trange')
+    if tr_arg:
+        p = tr_arg.split(',')
+        trange = (float(p[0]), float(p[1]))
+    else:
+        trange = step_trange(sname)
+    if trange:
+        print('trange: %.0f -> %.0f C  %s'
+              % (trange[0], trange[1],
+                 '(--trange)' if tr_arg else '(step name auto)'))
+    else:
+        print('trange: unknown (give --trange A,B for temperature mode)')
+
+    # ---- --list: 대응표만 찍고 끝 ---------------------------------------
+    if listonly:
+        print('')
+        print('  %-6s %-10s %-10s' % ('frame', 'stepTime', 'T [C]'))
+        stride = max(1, nfr // 25)
+        idx = list(range(0, nfr, stride))
+        if idx[-1] != nfr - 1:
+            idx.append(nfr - 1)
+        for i in idx:
+            if trange and trange[0] != trange[1]:
+                t = '%8.1f' % (trange[0]
+                               + (trange[1] - trange[0]) * fvals[i])
+            else:
+                t = '     - '
+            print('  %-6d %-10.4f %s' % (i, fvals[i], t))
+        print('')
+        print('all steps: %s' % ', '.join(odb.steps.keys()))
+        odb.close()
+        return 0
+
+    # ---- 프레임 선택: temps > frames > 기본 5장 --------------------------
+    temps_arg = argval(args, '--temps')
+    fr_arg = argval(args, '--frames')
+    sel = []                          # (frame, 실제온도 or None, 파일라벨)
+    if temps_arg:
+        if not trange or trange[0] == trange[1]:
+            print('[error] this step has no temperature ramp (or unknown).'
+                  ' Give --trange A,B, or use --frames.')
+            return 2
+        temps = [float(x) for x in temps_arg.split(',') if x.strip() != '']
+        got = frames_from_temps(temps, trange, fvals)
+        for (fi, Tact), Twant in zip(got, temps):
+            if abs(Tact - Twant) > 25.0:
+                print('  [warn] requested %.0fC -> nearest frame %d is '
+                      'only %.1fC (off %.0fK)'
+                      % (Twant, fi, Tact, abs(Tact - Twant)))
+            sel.append((fi, Tact, 'T%04dC' % int(round(Twant))))
+    elif fr_arg:
+        for x in fr_arg.split(','):
+            fi = int(x)
+            if 0 <= fi < nfr:
+                T = None
+                if trange:
+                    T = trange[0] + (trange[1] - trange[0]) * fvals[fi]
+                sel.append((fi, T, 'f%02d' % fi))
+    else:
+        for fi in sorted(set(int(round(f * (nfr - 1)))
+                             for f in (0.0, 0.25, 0.5, 0.75, 1.0))):
+            T = None
+            if trange:
+                T = trange[0] + (trange[1] - trange[0]) * fvals[fi]
+            sel.append((fi, T, 'f%02d' % fi))
+    if not sel:
+        print('[error] no valid frames selected')
+        return 2
+    print('frames: %s' % [s[0] for s in sel])
+
+    # ---- set 이름 해석 (어셈블리 -> 인스턴스 순) -------------------------
+    def full_setnames(wanted):
+        ra = odb.rootAssembly
+        out = []
+        have_asm = dict((k.upper(), k) for k in ra.elementSets.keys())
+        for w in wanted:
+            u = w.upper()
+            if u in have_asm:
+                out.append(have_asm[u])
+                continue
+            found = None
+            for iname, inst in ra.instances.items():
+                have = dict((k.upper(), k)
+                            for k in inst.elementSets.keys())
+                if u in have:
+                    found = '%s.%s' % (iname, have[u])
+                    break
+            if found:
+                out.append(found)
+            else:
+                print('  [warn] elementSet %s not found' % w)
+        return tuple(out)
+
+    msets = full_setnames(MATRIX_SETS)
+    ysets = full_setnames(YARN_SETS)
+
+    # ---- 변수 이름 해석 (SDV_DMT 가 없으면 SDV1 로) ----------------------
+    fo_names = list(st.frames[sel[0][0]].fieldOutputs.keys())
+
+    def resolve_var(cands):
+        for c in cands:
+            cu = c.upper()
+            if cu in ('S11', 'S22', 'S33', 'MISES'):
+                return cu
+            for n in fo_names:
+                if n.upper() == cu:
+                    return n
+        return None
+
+    renders = build_renders(fig, var)
 
     vp = session.viewports[session.viewports.keys()[0]]
     vp.setValues(displayedObject=odb)
     vp.makeCurrent()
     vp.maximize()
     vp.odbDisplay.display.setValues(plotState=(CONTOURS_ON_DEF,))
-
-    # 논문 그림처럼 등각 시점. 회전값이 마음에 안 들면 GUI 에서 맞춘 뒤
-    # View > Save 로 저장한 이름을 여기에 넣으면 된다.
+    # 논문 그림과 같은 등각 시점. 마음에 안 들면 GUI 에서 맞춘 뒤
+    # View > Save 로 저장한 이름을 여기 넣으면 된다.
     try:
         vp.view.setValues(session.views['Iso'])
         vp.view.fitView()
     except Exception:
         pass
-
-    # 변수 지정: 성분(S11)이면 COMPONENT, MISES 면 INVARIANT
-    label = 'S'
-    if var.upper().startswith('SDV'):
-        label = var
-        try:
-            vp.odbDisplay.setPrimaryVariable(
-                variableLabel=label, outputPosition=INTEGRATION_POINT)
-        except Exception as e:
-            print('  [error] variable %s: %s' % (var, e))
-            return 2
-    elif var.upper() == 'MISES':
-        vp.odbDisplay.setPrimaryVariable(
-            variableLabel='S', outputPosition=INTEGRATION_POINT,
-            refinement=(INVARIANT, 'Mises'))
-    else:
-        vp.odbDisplay.setPrimaryVariable(
-            variableLabel='S', outputPosition=INTEGRATION_POINT,
-            refinement=(COMPONENT, var))
-
     session.printOptions.setValues(vpDecorations=OFF, reduceColors=False)
     session.pngOptions.setValues(imageSize=(1600, 1200))
+    # 논문 범례와 같은 12구간
+    vp.odbDisplay.contourOptions.setValues(numIntervals=12)
 
-    made = []
-    for gname, sets in groups:
+    made = 0
+    for gname, kind, cands, tagvar in renders:
+        sets = msets if kind == 'M' else ysets
         if not sets:
             continue
+        vname = resolve_var(cands)
+        if vname is None:
+            print('  [error] none of %s in odb fields. have: %s ...'
+                  % (cands, ', '.join(fo_names[:10])))
+            continue
+        if vname == 'MISES':
+            vp.odbDisplay.setPrimaryVariable(
+                variableLabel='S', outputPosition=INTEGRATION_POINT,
+                refinement=(INVARIANT, 'Mises'))
+        elif vname in ('S11', 'S22', 'S33'):
+            vp.odbDisplay.setPrimaryVariable(
+                variableLabel='S', outputPosition=INTEGRATION_POINT,
+                refinement=(COMPONENT, vname))
+        else:
+            try:
+                vp.odbDisplay.setPrimaryVariable(
+                    variableLabel=vname,
+                    outputPosition=INTEGRATION_POINT)
+            except Exception as e:
+                print('  [error] variable %s: %s' % (vname, e))
+                continue
         vp.odbDisplay.displayGroup.replace(
             leaf=dgo.LeafFromElementSets(elementSets=sets))
-        lim = LIMITS.get(var.upper(), {}).get(gname)
-        if lim and not auto:
+        lim = limits_for(tagvar, gname, fig, auto)
+        if lim:
             vp.odbDisplay.contourOptions.setValues(
                 minAutoCompute=OFF, minValue=lim[0],
                 maxAutoCompute=OFF, maxValue=lim[1])
         else:
             vp.odbDisplay.contourOptions.setValues(
                 minAutoCompute=ON, maxAutoCompute=ON)
-        for fi in frames:
-            if fi >= nfr:
-                continue
-            vp.odbDisplay.setFrame(step=step, frame=fi)
-            temp = T0 - (T0 - T1) * odb.steps[step].frames[fi].frameValue
-            fn = os.path.join(outdir, 'img_%s_%s_f%02d'
-                              % (var.upper(), gname, fi))
+        for fi, Tact, lab in sel:
+            vp.odbDisplay.setFrame(step=sname, frame=fi)
+            fn = os.path.join(outdir,
+                              'img_%s_%s_%s' % (tagvar, gname, lab))
             session.printToFile(fileName=fn, format=PNG,
                                 canvasObjects=(vp,))
-            made.append((gname, fi, temp, fn + '.png'))
-            print('  %-6s frame %3d  T~%7.1f C  -> %s.png'
-                  % (gname, fi, temp, os.path.basename(fn)))
+            made += 1
+            print('  %-7s %-5s frame %3d  %s -> %s.png'
+                  % (gname, tagvar, fi,
+                     ('T=%7.1fC' % Tact) if Tact is not None else '',
+                     os.path.basename(fn)))
 
     odb.close()
     print('')
-    print('wrote %d images in %s' % (len(made), outdir))
-    print('paper Fig.3/5/7 style: top row = matrix, bottom row = yarns')
+    print('wrote %d images in %s' % (made, outdir))
+    if fig == 'damage':
+        print('paper Fig.5/8/10 rows: matrix / longitudinal / transverse')
+    else:
+        print('paper Fig.3/7/9 style: top row = matrix, bottom = yarns')
     return 0
 
 
