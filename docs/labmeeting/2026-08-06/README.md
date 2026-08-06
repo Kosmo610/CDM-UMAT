@@ -1,29 +1,64 @@
 # 랩미팅 2026-08-06 — RVE 구축과 주기경계조건 검증
 
-## 발표용 (이걸 쓸 것): `CSiC_PBC_RVE_4slides.pptx` — 4장
+## 발표용 (이걸 쓸 것): `CSiC_RVE_PBC_UMAT_visual.pptx` — 4장 + 부록 2장
 
-TexGen 슬라이드는 발표자가 직접 만든 것을 쓰므로 여기 없다. 발표자의
-TexGen 슬라이드 **뒤에** 이 4장을 이어 붙이는 구성이다.
+발표자가 만든 **TexGen 슬라이드 뒤에** 이어 붙이는 구성이다.
 
-| # | 슬라이드 | 내용 |
+| # | 슬라이드 | 시각 요소 |
 |---|---|---|
-| 1 | RVE → 해석 모델 | 요소 174,405개 전부에 상(相)·섬유방향·재료카드를 넣는 조립 (`assemble_inp.py`) + 해석 3+6스텝 |
-| 2 | PBC 적용 | `*Equation` 57식 · 드라이버 절점 6개 · 코너 고정 · σ = RF/V — 게이지부 ≈119셀 축소 정당화 포함 |
-| 3 | 검증 ① 정적 감사 | `check_pbc.py` 7종 검사 · 6개 덱 통과 · 결함 11종 주입 전부 검출 |
-| 4 | 검증 ② 본해석 증거 | 드라이버 반력 0 · 잔차 4.0e−8 · 횡응력 0.000 · 강성 대칭성 위반 0.0000 % + 미실행 항목 명시 |
+| 1 | RVE | `fig_rve.png` — 실제 메쉬에서 뽑은 얀 4개 + 전체 RVE |
+| 2 | PBC 코드 | 덱(.inp)의 `*NSet` / `*Node` / `*Equation` **원문 발췌** + 항별 해설 4개 |
+| 3 | UMAT 코드 | V2_7 Fortran **원문 발췌** 5덩어리 (상 판별 → 손상변수 → 크랙밴드 → 비가역·점성 → 강성저하) |
+| 4 | **작동 증명** | `fig_tile.png` — 변형된 셀을 3×3 으로 깔면 이음매가 **4.4e−16 mm** 로 맞는다 |
+| A | 부록 | `fig_pair.png` — 마주보는 면의 절점 패턴 일치 / 58쌍 변위 점프 |
+| B | 부록 | `fig_patch.png` — 26,452개 요소 응력 분포 |
 
-전체 서사가 필요하면 **`CSiC_RVE_labmeeting_0806.pptx`** (19장, 참고용 보관)
-— 위 4장은 이 풀버전의 9·12·14·15·17·18장을 압축한 것이다.
+다른 버전:
+- `CSiC_PBC_RVE_4slides.pptx` — 그림 없는 텍스트 4장 (이전 버전)
+- `CSiC_RVE_labmeeting_0806.pptx` — 전체 서사 19장 (참고용 보관)
+
+## 새 결과 — 패치 테스트를 Python 으로 독립 재현했다
+
+`verification/pbc_patch_python.py` 는 **실제 덱**(`abaqus/meshes/CSiC_RVE_0135.inp`,
+브랜치 `claude/easypbc-plugin-guide-mj0xi5`)의 절점·C3D4 요소·`*NSet`·`*Boundary`·
+`*Equation` 을 그대로 읽어, 셀 전체를 등방 재료(E = 350 GPa, ν = 0.2) 하나로 채우고
+드라이버 절점으로 거시 변형률을 건 뒤 닫힌 해와 비교한다. Abaqus 도
+`check_pbc.py` 도 쓰지 않는 **독립 구현**이다.
+
+| 판정 항목 | 기준 | 인장 ε_x | 전단 ε_xy |
+|---|---|---|---|
+| 응력장 균일성 | < 1e−6 | **2.10e−12** | **4.51e−12** |
+| 변형률 균일성 | < 1e−6 | **3.39e−12** | **4.24e−12** |
+| 주기 요동 `u − H·x` 퍼짐 | < 1e−6 | **7.34e−14** | **6.64e−14** |
+| 균질화 강성 C 열 오차 | < 1e−6 | **5.41e−15** | **6.04e−15** |
+| 부피 충전율 | 1 ± 1e−3 | **100.0000 %** | **100.0000 %** |
+
+부수적으로 얻은 값:
+
+- 마주보는 z 면(각 925 절점)의 **절점 패턴 차이 0.0 mm** — 메쉬 자체가 주기적
+- x 면 58쌍의 변위 점프가 전부 ε·Lx 위에 정확히 — **최대 편차 0.0 mm**
+- 변형된 셀의 **3×3 타일 이음매 어긋남 4.4e−16 mm**
+- 파싱 결과가 `check_pbc.py` 와 일치: V = 5.390000 mm³, 충전율 100.0000 %,
+  57 카드 → 3,645 스칼라 식, 소거 DOF 중복 0
+
+**한계 — 발표에서 반드시 밝힐 것**: 이것은 구속식·메쉬가 옳다는 증명이지
+**Abaqus 실행 검증이 아니다.** `PBC_VALIDATION_GUIDE.md` 의 1단계
+(`PBC_PATCH.inp` + Abaqus)는 여전히 남아 있다.
 
 ## 재생성
 
 ```bash
-npm install pptxgenjs
-node build_pbc4.js          # -> CSiC_PBC_RVE_4slides.pptx      (발표용 4장)
-node build_deck.js          # -> CSiC_RVE_labmeeting_0806.pptx  (풀버전 19장)
-```
+# 그림 — mesh.inp(=CSiC_RVE_0135.inp)와 pbc_patch_python.py 가 같은 폴더에 필요
+python3 pbc_patch_python.py mesh.inp exx
+python3 pbc_patch_python.py mesh.inp exy
+python3 make_figs.py                     # -> figs/fig_*.png
 
-`figs/` 는 스크립트와 같은 폴더에 있어야 한다 (풀버전만 사용).
+# 덱
+npm install pptxgenjs
+node build_visual.js        # -> CSiC_RVE_PBC_UMAT_visual.pptx   (발표용)
+node build_pbc4.js          # -> CSiC_PBC_RVE_4slides.pptx
+node build_deck.js          # -> CSiC_RVE_labmeeting_0806.pptx
+```
 
 ## 풀버전(19장) 슬라이드 구성
 

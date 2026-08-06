@@ -1,0 +1,18 @@
+{
+  "exx": {
+    "stress_uniformity_ptp_over_scale": 2.0963528056307485e-12,
+    "strain_uniformity_ptp_over_eps": 3.3920980923685373e-12,
+    "fluctuation_spread_over_HL": 7.335402126987641e-14,
+    "C_col1_rel_err": 5.408245280185449e-15,
+    "volume_fill_percent": 100.0
+  },
+  "exy": {
+    "stress_uniformity_ptp_over_scale": 4.511886108405644e-12,
+    "strain_uniformity_ptp_over_eps": 4.237581696657339e-12,
+    "fluctuation_spread_over_HL": 6.635317295611287e-14,
+    "C_col1_rel_err": 6.041643376063023e-15,
+    "volume_fill_percent": 100.0
+  },
+  "face_pattern_offset_mm": 0.0,
+  "pair_jump_max_dev_mm": 0.0
+}
