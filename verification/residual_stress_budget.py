@@ -193,6 +193,50 @@ def main():
     print('      CVI SiC 공정온도(1000~1100 degC)를 크게 넘으므로 기각.')
     print()
 
+    # ---- (5) 얀 횡방향 강성 -------------------------------------------------
+    #      PAPERFAITH 배치(P0/P1/P2)가 강도 손잡이로 실패한 뒤 남은
+    #      마지막 물성 후보. [3] 에서 "얀이 물러서 기지를 못 붙잡는다"
+    #      고 진단했으니, 얀을 단단하게 만들면 되는지 직접 쓸어본다.
+    line()
+    print(' [5] 얀 횡방향 강성 E2 를 올리면? (강성 배분 진단의 직접 검증)')
+    line()
+    print('   %-22s %14s %14s' % ('E2 [GPa]', 'Voigt [MPa/K]', '목표 대비'))
+    sweep = [(YE2, '현재 카드 (Chamis)'),
+             (1.5 * YE2, '1.5배'),
+             (98.75e3, '혼합률 상한'),
+             (Em, '기지와 동일'),
+             (10.0 * Em, '기지의 10배'),
+             (1.0e12, '무한대 (극한)')]
+    for E2, tag in sweep:
+        r, _ = voigt_rate(am, build_phases(YA1, YA2, E2))
+        print('   %-22s %14.3f %13.1f%%   %s'
+              % ('%.0f' % (E2 / 1e3) if E2 < 1e11 else 'inf',
+                 r, 100 * r / NEED_RATE, tag))
+    r_inf, _ = voigt_rate(am, build_phases(YA1, YA2, 1.0e12))
+    r_now, _ = voigt_rate(am, build_phases(YA1, YA2))
+    print()
+    print('   -> 얀이 무한히 단단해도 %.3f MPa/K. 목표의 %.1f%% 다.'
+          % (r_inf, 100 * r_inf / NEED_RATE))
+    print('      현재값 %.3f 에서 겨우 %.1f%% 오를 뿐이다.'
+          % (r_now, 100 * (r_inf / r_now - 1.0)))
+    print()
+    print('   왜 막히나: E2 -> inf 이면 등변형률 평균 CTE 가 얀 횡방향')
+    print('   CTE(%.3e)로 수렴한다. 기지(%.3e)와의 차가 %.3e 뿐이라'
+          % (YA2, am, am - YA2))
+    print('   Em 을 곱해도 %.3f MPa/K 가 천장이다.' % (Em * (am - YA2)))
+    print()
+    print('   절대 상한 (얀 두 방향 모두 축방향 CTE + 무한강성):')
+    print('     Em*(am-a1)            = %.3f MPa/K' % (Em * (am - YA1)))
+    print('     등2축 /(1-nu)         = %.3f MPa/K'
+          % (Em * (am - YA1) / (1.0 - num)))
+    print('     논문 요구             = %.3f MPa/K' % NEED_RATE)
+    print()
+    print('   즉 논문 Fig.4 는 기지가 "강체 위 박막" 처럼 완전히 갇혀')
+    print('   있어야만 나온다. 기지가 체적의 %.0f%% 를 차지하는 3D RVE'
+          % (100 * (1.0 - VF_TOTAL / yarn_vf())))
+    print('   에서는 어떤 얀 물성으로도 불가능하다.')
+    print()
+
     # ---- 결론 ---------------------------------------------------------------
     line('=')
     print(' 결론')
