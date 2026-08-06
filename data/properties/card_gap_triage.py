@@ -78,9 +78,20 @@ observations are the same observation.
 The physical reason it stays open, stated so the thesis can say it once:
 transverse tow strength in C/SiC is controlled by the pyrocarbon interphase,
 which is engineered WEAK so the composite can debond and stay tough.  So Yt,
-Yc, S12, S23 are interface properties, not matrix properties, and no
+Yc, S12, S23 are interface properties, not matrix properties.
+
+CORRECTION (2026-08-05).  This paragraph originally continued "and no
 interfacial normal or shear strength for our material exists anywhere in the
-repository.  That is the gap, precisely located.
+repository".  That was wrong.  refs/[15] Table 1 carries PyC interphase
+properties -- Ei = 20.0 GPa, nu = 0.23, Xti = 140 MPa, Xci = 200 MPa -- and
+that paper was already on the shelf; it is the one the thesis cites for the
+XRD-measured TRS.  It had not been opened for this purpose.
+
+What survives the correction is narrower and still true: what refs/[15] gives
+is the interphase LAYER's own strength, not a fibre/matrix debond stress, so
+it does not by itself fix Yt.  It does bound it, and our Yt = 80 MPa sits
+below Xti = 140 MPa, which is at least consistent.  See
+data/literature/pls_validation.py.
 
 The one thing that IS corroborated
 ----------------------------------
@@ -119,9 +130,12 @@ exists before the question is asked.
 
 Two filing defects found while doing this
 -----------------------------------------
-  * refs/[20] and refs/[21] are THE SAME PAPER -- Yang, Wang, Yang, Jiao,
+  * refs/[20] and refs/[21] were THE SAME PAPER -- Yang, Wang, Yang, Jiao,
     Int. J. Solids Struct. 300 (2024) 112927, doi:10.1016/j.ijsolstr.2024.112927.
-    Identical extracted text (md5 match).  47 PDFs, 46 distinct papers.
+    Identical extracted text (md5 match).  Reported here first; the full sweep
+    in data/literature/refs_audit.py then found a SECOND pair ([32]=[39]) and
+    both were consolidated -- [21] and [39] are retired.  Note the count given
+    here originally ("46 distinct papers") was wrong for that reason.
   * refs/[25] is a carbon/EPOXY paper filed under a C-SiC name (above).
 
 Run:  python3 data/properties/card_gap_triage.py --check
@@ -433,13 +447,19 @@ def check():
     t("refs/ is present", have)
     if have:
         names = os.listdir(refs)
-        t("refs/[20] and refs/[21] both exist (the duplicate pair)",
+        t("refs/[21] is retired -- the duplicate was consolidated into [20]",
           any(n.startswith("[20]") for n in names) and
-          any(n.startswith("[21]") for n in names))
+          not any(n.startswith("[21]") for n in names))
         t("refs/[25] exists and is the mis-filed epoxy paper",
           any(n.startswith("[25]") for n in names))
     t("the duplicate is named in this file so it is not re-cited twice",
       "112927" in __doc__ and "SAME PAPER" in __doc__)
+    t("and the stale count in this file is corrected, not quietly dropped",
+      "was wrong for that reason" in __doc__)
+    t("the 'no interfacial strength exists' overclaim is retracted in place",
+      "CORRECTION (2026-08-05)" in __doc__ and "That was wrong" in __doc__)
+    t("  and what survives the retraction is stated, not just deleted",
+      "What survives the correction is narrower" in __doc__)
     t("the mis-filing is named in this file",
       "carbon/EPOXY paper filed under a C-SiC name" in __doc__)
 

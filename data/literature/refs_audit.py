@@ -14,19 +14,26 @@ that a script cannot read, so nothing checked the index against the PDFs.
 
 This does.  Everything below is re-derived from the PDFs on every run.
 
-What the audit found
---------------------
-1. TWO duplicate pairs, not one.
+What the audit found, and what was done about it
+------------------------------------------------
+1. TWO duplicate pairs, not one.  Both are now RESOLVED by consolidation.
 
-     refs/[20] == refs/[21]   Yang, Wang, Yang, Jiao, Int. J. Solids Struct.
-                              300 (2024) 112927.  Already noted in
-                              refs/README.md as "20=21".
-     refs/[32] == refs/[39]   J. Compos. Sci. 4(4) (2020) 183.  NOT noted
-                              anywhere.  Found by hashing the extracted text.
+     [21] -> [20]   Yang, Wang, Yang, Jiao, Int. J. Solids Struct. 300
+                    (2024) 112927.  Was already noted in refs/README.md
+                    as "20=21" and never acted on.
+     [39] -> [32]   Jain & Koch, J. Compos. Sci. 4(4) (2020) 183.  Not
+                    noted anywhere.  Found by hashing the extracted text.
+                    Byte-identical files, not merely the same paper.
 
-   So refs/ holds 47 PDFs and 45 distinct papers.  Neither duplicate is
-   double-cited in the reference list, so this is a housekeeping defect and
-   not a citation defect -- but it becomes one the moment someone renumbers.
+   The redundant PDFs were deleted and the numbers 21 and 39 RETIRED -- new
+   papers start at 46.  refs/ now holds 45 PDFs and 45 distinct papers.
+
+   [39] was the dangerous one.  docs/REFS_36_45_ASSESSMENT.md described it
+   as newly securing "the D-criterion primary source we had been citing
+   without the original" -- but the original had been sitting in refs/ as
+   [32] since the second batch.  That sentence was corrected.
+   docs/NOVELTY.md also had [32]'s journal wrong ("Materials"); it is
+   J. Compos. Sci.  Fixed.
 
 2. THREE citation markers used in the chapters with no reference-list entry:
    [07] (Ch.3, Ch.4), [13] (Ch.4), [31] (Ch.4).  A reader who looks them up
@@ -42,11 +49,25 @@ What the audit found
    say "3D C-SiC 물성".  They are legitimate to cite for METHOD.  They must
    never supply a constituent property.  Listed and flagged below.
 
-5. NO orphans.  Every one of the 45 numbers is referred to somewhere in the
-   repository.
+5. TWO numbers each hold TWO DIFFERENT papers -- the opposite defect from a
+   duplicate, and it survives the consolidation above:
 
-6. refs/[10] answers a2-0003, and had already been transcribed into Ch.4.
-   See the note at the end of this docstring.
+     [01]  Yang & Liu, Ceram. Int. 46 (2020) 6029   (ox/ox CMC, CDM)
+     [01]  Yang & Liu, Int. J. Fatigue 134 (2020) 105507
+     [05]  Q. Zhang et al., Ceram. Int. 48 (2022) 3109   <- OUR base paper
+     [05]  Skinner & Chattopadhyay, Compos. Struct. 268 (2021) 114006
+
+   [05] is handled: the thesis writes [5] and [5b] and lists both separately.
+   [01] is NOT: the reference list has a single [01] row covering both papers
+   joined by "및".  A citation of [01] in the text cannot be resolved to one
+   of them.  Flagged, not silently repaired -- splitting it into [01a]/[01b]
+   changes citation keys and is the author's call.
+
+   So: 45 files, 43 distinct numbers, 45 distinct papers.
+
+6. NO orphans.  Every number is referred to somewhere in the repository.
+
+7. refs/[10] answers a2-0003, and had already been transcribed into Ch.4.
 
 Run:  python3 data/literature/refs_audit.py --check
 """
@@ -76,11 +97,14 @@ def t(name, cond, detail=""):
 # Duplicate pairs, by md5 of the extracted text.  Recorded so a regression is
 # visible; re-derived on every run when pdftotext is available.
 # --------------------------------------------------------------------------
-DUPLICATES = [
-    (20, 21, "Yang, Wang, Yang, Jiao, Int. J. Solids Struct. 300 (2024) 112927",
-     "10.1016/j.ijsolstr.2024.112927", "refs/README.md 에 기록돼 있음"),
-    (32, 39, "J. Compos. Sci. 4(4) (2020) 183",
-     "10.3390/jcs4040183", "이번 점검에서 처음 발견"),
+# Retired numbers: (retired, kept, citation, doi, how it was found).
+# The PDF under the retired number is gone; the check asserts it stays gone
+# and that nothing points at it any more.
+RETIRED = [
+    (21, 20, "Yang, Wang, Yang, Jiao, Int. J. Solids Struct. 300 (2024) 112927",
+     "10.1016/j.ijsolstr.2024.112927", "refs/README.md 에 적혀 있었으나 방치됨"),
+    (39, 32, "Jain & Koch, J. Compos. Sci. 4(4) (2020) 183",
+     "10.3390/jcs4040183", "추출 텍스트 md5 대조로 처음 발견"),
 ]
 
 # --------------------------------------------------------------------------
@@ -115,8 +139,19 @@ MUST_BE_LISTED = {
           "4261-4265",
 }
 
-N_PDF = 47
+N_PDF = 45
 N_DISTINCT = 45
+N_NUMBERS = 43   # [01] and [05] each carry two different papers
+NEXT_FREE = 46   # 21 and 39 are retired, never reused
+
+# Numbers that legitimately hold two DIFFERENT papers, and whether the thesis
+# can tell them apart.  "resolved" means the reference list separates them.
+COLLISIONS = {
+    1: ("Yang & Liu x2 (Ceram. Int. 46 (2020) 6029 and Int. J. Fatigue 134 "
+        "(2020) 105507)", False),
+    5: ("Q. Zhang et al. Ceram. Int. 48 (2022) 3109 [5] and Skinner & "
+        "Chattopadhyay Compos. Struct. 268 (2021) 114006 [5b]", True),
+}
 
 
 def extract(path):
@@ -177,11 +212,12 @@ def report():
     readable = [x for x in inv if x[2]]
     print("     %d readable with pdftotext" % len(readable))
 
-    print("\n 2. duplicates (identical extracted text)")
-    for a, b, cite, doi, note in DUPLICATES:
-        print("     refs/[%02d] == refs/[%02d]  %s" % (a, b, cite))
-        print("                            doi:%s  -- %s" % (doi, note))
-    print("     -> %d files, %d distinct papers" % (N_PDF, N_DISTINCT))
+    print("\n 2. retired numbers (were duplicates, now consolidated)")
+    for dead, keep, cite, doi, note in RETIRED:
+        print("     [%02d] -> [%02d]  %s" % (dead, keep, cite))
+        print("                   doi:%s  -- %s" % (doi, note))
+    print("     -> %d files, %d distinct papers; next free number is %d"
+          % (N_PDF, N_DISTINCT, NEXT_FREE))
 
     print("\n 3. polymer-matrix papers -- METHOD ONLY, never a card value")
     for n in sorted(POLYMER):
@@ -201,8 +237,10 @@ def report():
     print("     written only as refs/[nn] file pointers: %s"
           % ", ".join("[%s]" % k for k in sorted(filed) if k not in cited))
 
-    print("\n 5. what this changes")
-    print("     * [32]=[39] was unknown -- refs/ is 45 papers, not 47")
+    print("\n 5. what this changed")
+    print("     * [21] and [39] deleted, numbers retired -- 45 files = 45 papers")
+    print("     * [39] had been written up as a NEW acquisition of a source")
+    print("       that was already in refs/ as [32]; that text is corrected")
     print("     * [07] [13] [31] were cited into thin air; now listed")
     print("     * [43] carried a number (98.90 %) with no bibliography")
     print("     * 7 polymer papers are one careless copy away from a card")
@@ -220,40 +258,64 @@ def check():
     t("refs/ exists", os.path.isdir(REFS))
     t("it holds %d numbered PDFs" % N_PDF, len(inv) == N_PDF, "%d" % len(inv))
     nums = sorted(by_n)
-    t("numbering runs 01-45 with no gap",
-      nums == sorted(set(nums)) or True,
-      "%d distinct numbers" % len(set(nums)))
-    t("two numbers are used twice (the duplicate pairs are separate numbers)",
-      len(inv) - len(set(nums)) == 2, "%d" % (len(inv) - len(set(nums))))
+    t("one PDF per paper", N_PDF == N_DISTINCT)
+    raw = sorted(n for n, _, _ in inv)      # NOT by_n -- that is deduplicated
+    t("exactly %d distinct numbers" % N_NUMBERS,
+      len(set(raw)) == N_NUMBERS, "%d" % len(set(raw)))
+    twice = sorted(n for n in set(raw) if raw.count(n) > 1)
+    t("the only numbers used twice are the known collisions",
+      twice == sorted(COLLISIONS), ", ".join("[%02d]" % n for n in twice))
 
-    print("\n B. duplicates, re-derived not remembered")
-    ok_any = False
-    for a, b, cite, doi, _ in DUPLICATES:
-        ta = [x[2] for x in inv if x[0] == a and x[2]]
-        tb = [x[2] for x in inv if x[0] == b and x[2]]
-        if ta and tb:
-            ok_any = True
-            ha = hashlib.md5(ta[0].encode()).hexdigest()
-            hb = hashlib.md5(tb[0].encode()).hexdigest()
-            t("refs/[%02d] and refs/[%02d] are the same paper" % (a, b),
-              ha == hb, "md5 %s" % ha[:10])
-            t("  and both carry doi %s" % doi,
-              doi in ta[0] and doi in tb[0])
+    print("\n B. the retired numbers are gone and stay gone")
+    for dead, keep, cite, doi, _ in RETIRED:
+        t("refs/[%02d] no longer exists" % dead, dead not in by_n)
+        t("  its paper survives as refs/[%02d]" % keep, keep in by_n)
+        txt = by_n[keep][1] if keep in by_n else None
+        if txt:
+            t("  and [%02d] really carries doi %s" % (keep, doi), doi in txt)
         else:
-            t("refs/[%02d] and refs/[%02d] are the same paper" % (a, b), True,
-              "recorded (pdftotext unavailable)")
-            t("  and both carry doi %s" % doi, True, "recorded")
-    t("the duplicate check actually ran on the PDFs", ok_any,
-      "" if ok_any else "recorded values used")
-    t("%d files minus 2 duplicates is %d distinct papers" % (N_PDF, N_DISTINCT),
-      N_PDF - len(DUPLICATES) == N_DISTINCT)
+            t("  and [%02d] really carries doi %s" % (keep, doi), True,
+              "recorded")
 
-    print("\n C. no duplicate is cited twice in the reference list")
-    _, _, listed = citations()
-    for a, b, _, _, _ in DUPLICATES:
-        both = ("%02d" % a in listed or str(a) in listed) and \
-               ("%02d" % b in listed or str(b) in listed)
-        t("only one of [%02d]/[%02d] appears in the list" % (a, b), not both)
+    print("\n B2. no NEW duplicate has appeared")
+    seen, dup = {}, []
+    ran = False
+    for n, fn, txt in inv:
+        if not txt:
+            continue
+        ran = True
+        h = hashlib.md5(txt.encode()).hexdigest()
+        if h in seen:
+            dup.append((seen[h], n))
+        seen[h] = n
+    t("the hash sweep actually ran on the PDFs", ran)
+    t("no two PDFs have identical text", not dup,
+      ", ".join("[%02d]=[%02d]" % p for p in dup) if dup else "")
+
+    print("\n B3. two papers under one number -- known, and is it resolvable")
+    _, _, listed0 = citations()
+    for n, (what, resolved) in sorted(COLLISIONS.items()):
+        t("refs/[%02d] holds two different papers" % n,
+          sorted(x[0] for x in inv).count(n) == 2, what[:46])
+        if resolved:
+            t("  and the reference list separates them ([5] vs [5b])",
+              "5" in listed0 and "5b" in listed0)
+        else:
+            t("  and the reference list does NOT separate them -- flagged",
+              "1" in listed0 or "01" in listed0,
+              "single [01] row covers both; splitting is the author's call")
+
+    print("\n C. nothing points at a retired number")
+    cited, filed, listed = citations()
+    body = ""
+    for fn in os.listdir(DOCS):
+        if fn.endswith(".md"):
+            body += open(os.path.join(DOCS, fn), encoding="utf-8").read()
+    for dead, keep, _, _, _ in RETIRED:
+        t("no chapter cites [%02d]" % dead,
+          "%02d" % dead not in listed and str(dead) not in listed)
+        t("  and no document points at refs/[%02d]" % dead,
+          "refs/[%02d]" % dead not in body)
 
     print("\n D. every cited marker has a reference-list entry")
     cited, filed, listed = citations()

@@ -83,13 +83,20 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 | **17** | **P. Zhang, Zhu, Tong 외**, *Revealing thermal shock behaviors and damage mechanism of 3D needled C/C–SiC composites based on multi-scale analysis*, **JMRT 29 (2024) 2016–2034** | ⚠️ **가장 위험한 선행연구.** 다중스케일+반복 열충격을 이미 함. 단 (a) **균일 온도장**으로 단순화 명시, (b) **온도무관 물성** 가정, (c) TRS 처리 1가지 → **이 셋이 우리 자리** |
 | **15** | **S. Zhang, D. Zhang, J. Zhou 외**, *Quantification of thermal residual stresses and their effects on the mechanical behavior of 3D C/SiC composites*, **Compos. A 207 (2026) 109796** | ★ **XRD 실측 TRS**: 매트릭스 +114.7/+40.3 MPa, 얀 −68.7/−23.9 MPa. "TRS는 매트릭스 균열이 생겨야 강성에 영향" + **인장/압축 비대칭** → 새 노벨티 C3의 근거 |
 | **30** | **Q. Zhang, J. Ge, Liang 외**, *…2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. B 313 (2026) 113395** | **우리 기반 논문과 같은 그룹의 2026 후속작.** 단 **진폭 증가** 기계 반복이라 shakedown이 안 생김 → 우리 문제와 다름을 명시할 근거 |
-| **20**=**21** | **Z. Yang, J. Wang, R. Yang, J. Jiao**, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **IJSS 300 (2024) 112927** | 급랭 문제에 가장 가까움. 단 **ERR 기반 균열 개시**(누적손상 아님) + 라미네이트 1D |
+| **20** | **Z. Yang, J. Wang, R. Yang, J. Jiao**, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **IJSS 300 (2024) 112927** | 급랭 문제에 가장 가까움. 단 **ERR 기반 균열 개시**(누적손상 아님) + 라미네이트 1D |
 
-> **⚠️ 중복 2쌍 — PDF 47개, 서로 다른 논문은 45편이다.**
-> `[20]`=`[21]` (IJSS 300 (2024) 112927) 은 아래 표에 이미 적혀 있고,
-> **`[32]`=`[39]` (J. Compos. Sci. 4(4) (2020) 183, doi:10.3390/jcs4040183)**
-> 는 2026-08-05 점검에서 추출 텍스트 md5 대조로 처음 발견되었다.
-> 어느 쪽도 참고문헌 목록에 두 번 들어가 있지는 않다.
+> **⚠️ 폐번 2개 — PDF 45편이 곧 논문 45편이다 (2026-08-05 정리).**
+> 같은 논문이 두 번 들어와 있던 것을 통합했다. **통합 후 중복은 없다.**
+>
+> | 폐번 | 통합처 | 논문 |
+> |---|---|---|
+> | `[21]` | **`[20]`** | Yang, Wang, Yang, Jiao, IJSS **300** (2024) 112927 |
+> | `[39]` | **`[32]`** | Jain & Koch, J. Compos. Sci. **4**(4) (2020) 183 |
+>
+> **폐번 21·39는 다시 쓰지 않는다.** 새 논문은 46번부터 매긴다.
+> `[39]`쪽이 특히 위험했다 — `docs/REFS_36_45_ASSESSMENT.md`가 이것을
+> '지금까지 원문 없이 인용하던 D-기준 1차 출처를 새로 확보' 라고 적고
+> 있었는데, 원문은 처음부터 `[32]`로 있었다. 그 서술은 정정했다.
 > 판정기: `python3 data/literature/refs_audit.py --check`
 
 > **⚠️ 고분자 기지 논문 7편이 섞여 있다 — 카드값 출처로 쓰면 안 된다.**
