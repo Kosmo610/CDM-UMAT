@@ -105,6 +105,31 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 > **기법(균질화·주기경계조건) 인용은 정당하고, 물성 인용만 금지**된다.
 > 실제로 `[24]`에서 얀 $G_{1t}$·$G_{1c}$와 횡방향 강도가 넘어온 적이 있다.
 
+### ★ 3차 입고분 `[46]`–`[50]` (2026-08-06) — 기법 원전 4편 + 신규 1편
+
+| # | 서지 | 위치 |
+|---|---|---|
+| **46** | **Bažant & Oh**, *Crack band theory for fracture of concrete*, **Mater. Struct. 16(93) (1983) 155–177** | **`[S1]` 원문** — 균열대 이론 원전. $w_c \approx 3d_a$ 를 *"about the minimum admissible from the viewpoint of continuum smoothing"* 로 규정 |
+| **47** | **Jirásek & Bauer**, *Numerical aspects of the crack band approach*, **Comput. Struct. 110–111 (2012) 60–78**, doi:`10.1016/j.compstruc.2012.06.006` | ⚠️ **목록에 없던 신규.** 우리 구현에 직접 걸린다 — 아래 참조 |
+| **48** | **Liu & Tsai**, *A progressive quadratic failure criterion for a laminate*, **CST 58 (1998) 1023–1032** | **`[S4]` 원문** — 강도비 $R$(하중 배수 정규화)의 출처 |
+| **49** | **Hashin**, *Failure criteria for unidirectional fiber composites*, **J. Appl. Mech. 47(2) (1980) 329–334** | **`[S2]` 원문** — 우리 UMAT 파손기준 원전 |
+| **50** | **Tsai & Wu**, *A general theory of strength for anisotropic materials*, **JCM 5(1) (1971) 58–80** | **`[S3]` 원문** — 상호작용항 제약 $F_{12}^2 \le F_{11}F_{22}$ 로 파손면이 쌍곡면이 되는 것을 막는다 |
+
+> **⚠️ `[47]`이 우리 균열대 구현을 직접 건드린다.**
+> 우리 UMAT 은 `CELENT`(Abaqus 가 주는 요소 특성길이)를 $l_e$ 로 그대로 쓴다.
+> `[47]`은 그 방식을 이렇게 평가한다 — *"the cubic root of the element volume
+> (for three-dimensional elements). This rule, implemented in many commercial
+> finite element packages, is easy to apply but it can induce a large error for
+> elongated elements, and even for square or cube elements if the crack band is
+> not aligned with the mesh."* 오차 크기는 *"comparable to a misprediction of
+> the fracture energy by 50 % or even more"*.
+> 권고는 **주변형률 주축에 요소를 투영**해 폭을 잡되 **요소 중심(또는 평균)에서**
+> 주변형률을 평가하는 것이다. 반대로 **1차(선형) 요소를 쓰라**는 권고는 우리 C3D4
+> 선택을 뒷받침한다 — *"higher-order elements are not suitable for crack band
+> simulations, and the simplest (multi)linear elements should be preferred."*
+> 우리 RVE 는 26 452개 중 **1 185개가 뒤틀린 요소**이므로 이 오차가 가장 커지는
+> 조건에 해당한다. 판정은 코드 쪽(a2) 영역이라 `a1-0013`으로 넘겼다.
+
 **파손기준 세트** (`[27]`,`[32]`,`[33]`,`[34]`,`[35]`,`[28]`) — D-criterion 계열.
 `[33]` Yang, Jiao, Guo, *TAML* 4 (2014) 021007이 원전. `[35]` Yan 외, *Mater. Des.* 32 (2011)
 3504는 **고온 면내 전단 파손** 데이터로 온도의존 파손포락선 검증에 쓸 수 있습니다.

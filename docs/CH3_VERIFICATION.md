@@ -54,7 +54,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `card_gap_triage.py --check` | GUESS 14개의 knob/도출/공백 분류와 얀 물성 독립대조 | 69 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
-| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록 대조 | 47 |
+| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·3차 입고분 | 59 |
 | `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 | 30 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도와 척도 규칙 | 30 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
@@ -62,13 +62,13 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV | 35 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
-| `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 190 |
+| `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 191 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 | 15 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 40 |
-| **합계** | | **1586** |
+| **합계** | | **1599** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

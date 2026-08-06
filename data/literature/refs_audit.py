@@ -69,6 +69,30 @@ What the audit found, and what was done about it
 
 7. refs/[10] answers a2-0003, and had already been transcribed into Ch.4.
 
+8. THIRD BATCH, 2026-08-06: [46]-[50].  Four are the [S1]-[S4] method primary
+   sources the thesis had been citing without holding -- Bazant & Oh, Hashin,
+   Tsai & Wu, Liu & Tsai.  They are now held and the [S*] table records it.
+
+   The fifth, [47] Jirasek & Bauer "Numerical aspects of the crack band
+   approach", was on no list and is the one that changes something.  Our UMAT
+   passes Abaqus CELENT straight in as l_e, and CELENT is the cube root of the
+   element volume.  [47] on exactly that rule:
+
+     "the cubic root of the element volume (for three-dimensional elements).
+      This rule, implemented in many commercial finite element packages, is
+      easy to apply but it can induce a large error for elongated elements,
+      and even for square or cube elements if the crack band is not aligned
+      with the mesh."
+
+   and sizes the error as "comparable to a misprediction of the fracture
+   energy by 50% or even more".  Our RVE has 1185 distorted elements out of
+   26452, which is the condition where this is worst.  Handed to a2 as
+   a1-0013; choosing l_e is the code side's call.
+
+   The same paper endorses our element choice: "higher-order elements are not
+   suitable for crack band simulations, and the simplest (multi)linear
+   elements should be preferred."  We use C3D4.
+
 Run:  python3 data/literature/refs_audit.py --check
 """
 from __future__ import print_function
@@ -139,10 +163,21 @@ MUST_BE_LISTED = {
           "4261-4265",
 }
 
-N_PDF = 45
-N_DISTINCT = 45
-N_NUMBERS = 43   # [01] and [05] each carry two different papers
-NEXT_FREE = 46   # 21 and 39 are retired, never reused
+N_PDF = 50
+N_DISTINCT = 50
+N_NUMBERS = 48   # [01] and [05] each carry two different papers
+NEXT_FREE = 51   # 21 and 39 are retired, never reused
+
+# Third batch, 2026-08-06.  Four of the five close [S*] gaps -- method primary
+# sources the thesis had been citing without holding the originals.
+THIRD_BATCH = {
+    46: ("S1", "Bazant & Oh, Mater. Struct. 16(93) (1983) 155-177"),
+    47: (None, "Jirasek & Bauer, Comput. Struct. 110-111 (2012) 60-78 -- NOT "
+               "on any prior list; bears directly on our CELENT-based l_e"),
+    48: ("S4", "Liu & Tsai, Compos. Sci. Technol. 58 (1998) 1023-1032"),
+    49: ("S2", "Hashin, J. Appl. Mech. 47(2) (1980) 329-334"),
+    50: ("S3", "Tsai & Wu, J. Compos. Mater. 5(1) (1971) 58-80"),
+}
 
 # Numbers that legitimately hold two DIFFERENT papers, and whether the thesis
 # can tell them apart.  "resolved" means the reference list separates them.
@@ -361,6 +396,22 @@ def check():
     t("check_card_ranges.py exists", bool(src))
     t("where refs/[24] IS used, it is graded DEV or GUESS, never IN",
       not re.search(r'"IN",\s*\n\s*"[^"]*refs/\[24\]', src))
+
+    print("\n G2. third batch [46]-[50]")
+    for n, (skey, cite) in sorted(THIRD_BATCH.items()):
+        t("refs/[%02d] is on the shelf" % n, n in by_n, cite[:44])
+    got = [k for _, (k, _) in THIRD_BATCH.items() if k]
+    t("four of the five close an [S*] gap", len(got) == 4,
+      ", ".join(sorted(got)))
+    ch2 = open(CH2, encoding="utf-8").read()
+    for n, (skey, _) in sorted(THIRD_BATCH.items()):
+        if skey:
+            t("  [%s] now records 'refs/[%02d]' as held" % (skey, n),
+              "refs/[%02d]" % n in ch2)
+    t("[47] is listed as a numbered reference, not only as an [S*]",
+      "[47]" in ch2 and "compstruc.2012.06.006" in ch2)
+    t("and its CELENT warning is carried into the reference row",
+      "CELENT" in ch2)
 
     print("\n G. no orphans")
     body = ""
