@@ -190,6 +190,36 @@ D_YARN_XT = None
 D_GTT = None
 D_GTC = None
 
+#: le correction for the crack band, measured on OUR mesh by
+#: verification/celent_census.py: a crack plane through the C3D4 RVE
+#: dissipates 1.92x the fracture energy the card asks for (median over the
+#: transverse crack normal; a flawless Kuhn tet mesh already gives
+#: 6^(1/3) = 1.8171, so this is the price of tetrahedra, not mesh quality).
+#: The published family (refs/[69] eq. 23, he = (12*Ve)^(1/3) = 2.2894) has
+#: the same FORM but assumes a 12-split; using it would over-correct this
+#: mesh by 19 %, so the measured value wins (a1-0016 concurs).
+#:
+#: APPLIED CARD-SIDE: A(kappa*le, Gf) == A(le, Gf/kappa) EXACTLY, in both
+#: KABAND conventions, because A is a function of the product g0*le and of
+#: Gf only through Gf/le-like ratios -- retune divides the nonzero Gf slots
+#: by kappa instead of touching the frozen V1_0 UMAT.  The card then stops
+#: carrying the MATERIAL's fracture energy and starts carrying the
+#: mesh-corrected one; the emitted comment says so, with the division
+#: undone in print, so the material value is never lost.
+#:
+#: NOT THE DEFAULT, and the guard is why.  On the porosity-knocked matrix
+#: card (E = 213110) the knockdown raises g0 by 1.64x, and dividing
+#: Gm = 0.031 by 1.92 drops the snap-back ceiling to 0.0702 mm -- BELOW
+#: 1624 of the 15369 matrix elements (10.6 %, measured on the mesh).  The
+#: same division on the Zhang card (E = 350000) clamps nothing.  So the
+#: correction is exact algebra but this COARSE MESH cannot carry it in the
+#: matrix pockets: turning kappa on is a decision coupled to mesh
+#: refinement (docs/MESH_STRATEGY.md), not a flag flip.  Until then the
+#: uncorrected decks over-dissipate by the measured 1.92 and the thesis
+#: says so (Ch.4 4.9-17).
+D_KAPPA_MEASURED = 1.92
+D_KAPPA = 1.0
+
 #: Largest element characteristic length in the coarse 26k mesh [mm].
 #: Measured, not assumed -- data/properties/yarn_fracture_energy.py section 4
 #: reports CELENT max 0.0845, median 0.0573 over the 26452 elements.
@@ -248,8 +278,13 @@ def crack_band_rows(a):
 
 
 def card_numbers(card):
-    """Return (keyword_line, [float, ...]) for a *User Material block."""
-    lines = card.strip().splitlines()
+    """Return (keyword_line, [float, ...]) for a *User Material block.
+
+    ** lines are Abaqus comments and may precede the keyword (the kappa
+    provenance note does); they carry no constants.
+    """
+    lines = [ln for ln in card.strip().splitlines()
+             if not ln.lstrip().startswith("**")]
     nums = []
     for ln in lines[1:]:
         for tok in ln.split(","):
@@ -280,7 +315,42 @@ def _fmt(x):
 HSMO_KEY = 32.0                        # PROPS(25+4*NT) guard, V3_0 only
 
 
-def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None):
+def _apply_kappa(n, modes, kappa, card):
+    """Divide the nonzero Gf slots by kappa, refusing snap-back.
+
+    `modes` is a tuple of (name, gf_slot, x_slot, e_slot), 1-based.  After
+    the division the UMAT will see Gf_card at the element's own CELENT, so
+    admissibility is Gf/kappa > 1.02*g0*le_max -- the same inequality
+    celent_census.py section E checks, enforced here because this is where
+    the number is written.  A mode that would clamp is a hard refusal, not
+    a warning: KABAND clamps SILENTLY (A = 50, brittle), and Gtc at
+    kappa = 1.92 would clamp 89.7 % of the mesh.
+    """
+    if kappa == 1.0:
+        return n
+    if kappa < 1.0:
+        raise ValueError("kappa = %g < 1: the census measured OVER-"
+                         "dissipation, the correction can only raise le"
+                         % kappa)
+    n = list(n)
+    for name, gslot, xslot, eslot in modes:
+        gf = n[gslot - 1]
+        if gf <= 0.0:
+            continue
+        gcard = gf / kappa
+        lim = snapback_limit(n[xslot - 1], n[eslot - 1], gcard)
+        if lim is not None and lim < MESH_CELENT_MAX:
+            raise ValueError(
+                "%s %s: Gf %g / kappa %g = %g N/mm allows le < %.4f mm but "
+                "the mesh reaches %.4f mm -- the band would snap back and "
+                "KABAND would clamp it silently.  Lower kappa is not the "
+                "fix; leave this mode's Gf at 0 (fixed A) instead."
+                % (card, name, gf, kappa, gcard, lim, MESH_CELENT_MAX))
+        n[gslot - 1] = gcard
+    return n
+
+
+def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None, kappa=1.0):
     kw, n = card_numbers(MATRIX_USERMAT["v2"])
     if len(n) != MATRIX_NPROPS:
         raise ValueError("matrix card has %d constants, expected %d"
@@ -302,14 +372,24 @@ def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None):
                          "anything but %r" % (n[21], MATRIX_KEY))
     if hsmo < 0.0 or hsmo > 1.0:
         raise ValueError("HSMO must be in [0,1], got %r" % hsmo)
+    n = _apply_kappa(n, (("t", MATRIX_SLOTS["gm_t"], MATRIX_SLOTS["xt"],
+                          MATRIX_SLOTS["e"]),
+                         ("c", MATRIX_SLOTS["gm_c"], MATRIX_SLOTS["xc"],
+                          MATRIX_SLOTS["e"])), kappa, "matrix")
     if hsmo > 0.0:
         # V3_0 25+4*NT layout: NT=0, then HSMO, then the block guard.
         n = n + [0.0, hsmo, HSMO_KEY]
-    return emit_card(kw, n)
+    out = emit_card(kw, n)
+    if kappa != 1.0:
+        out = ("** crack-band le correction: Gm_t/Gm_c divided by kappa=%g\n"
+               "** (celent_census.py; material values %.10g / %.10g N/mm)\n"
+               % (kappa, n[MATRIX_SLOTS["gm_t"] - 1] * kappa,
+                  n[MATRIX_SLOTS["gm_c"] - 1] * kappa)) + out
+    return out
 
 
 def retune_yarn(dmax, eta, djump, yarn_xt=None,
-                g1t=None, g1c=None, gtt=None, gtc=None):
+                g1t=None, g1c=None, gtt=None, gtc=None, kappa=1.0):
     """Retune the yarn card.
 
     The four fracture energies are exposed because Ch.4 4.9-0 (2nd amendment)
@@ -368,19 +448,38 @@ def retune_yarn(dmax, eta, djump, yarn_xt=None,
                     "MACRO card uses (Ch.4 4.6.1).  The micro card carries "
                     "total-area values." % (key, val))
             n[YARN_SLOTS[key] - 1] = val
-    return emit_card(kw, n)
+    mats = list(n)
+    n = _apply_kappa(n, (("1t", YARN_SLOTS["g1t"], YARN_SLOTS["xt"],
+                          YARN_SLOTS["e1"]),
+                         ("1c", YARN_SLOTS["g1c"], YARN_SLOTS["xc"],
+                          YARN_SLOTS["e1"]),
+                         ("tt", YARN_SLOTS["gtt"], YARN_SLOTS["yt"],
+                          YARN_SLOTS["e2"]),
+                         ("tc", YARN_SLOTS["gtc"], YARN_SLOTS["yc"],
+                          YARN_SLOTS["e2"])), kappa, "yarn")
+    out = emit_card(kw, n)
+    if kappa != 1.0:
+        live = [k for k in ("g1t", "g1c", "gtt", "gtc")
+                if mats[YARN_SLOTS[k] - 1] > 0.0]
+        out = ("** crack-band le correction: %s divided by kappa=%g\n"
+               "** (celent_census.py; material values %s N/mm)\n"
+               % ("/".join(live), kappa,
+                  ", ".join("%.10g" % mats[YARN_SLOTS[k] - 1]
+                            for k in live))) + out
+    return out
 
 
 def materials(a):
     L = ["*Material, Name=SIC_MATRIX_DAMAGE",
          MATRIX_DEPVAR,
-         retune_matrix(a.dmax, a.eta, a.djump, a.hsmo, a.matrix_e),
+         retune_matrix(a.dmax, a.eta, a.djump, a.hsmo, a.matrix_e,
+                       a.kappa),
          "*Expansion, zero=%g." % a.zero,
          "4.5e-06,",
          "*Material, Name=CSIC_YARN_DAMAGE",
          YARN_DEPVAR,
          retune_yarn(a.dmax, a.eta, a.djump, a.yarn_xt,
-                     a.g1t, a.g1c, a.gtt, a.gtc),
+                     a.g1t, a.g1c, a.gtt, a.gtc, a.kappa),
          "*Expansion, type=ORTHO, zero=%g." % a.zero,
          "1.070925962822e-06, 3.324908565604e-06, 3.324908565604e-06"]
     return "\n".join(L)
@@ -613,6 +712,7 @@ class _A(object):
     ftol = D_FTOL
     matrix_e, yarn_xt, gtt, gtc = D_MATRIX_E, D_YARN_XT, D_GTT, D_GTC
     g1t, g1c = D_G1T, D_G1C
+    kappa = D_KAPPA                    # 1.0 -- see D_KAPPA_MEASURED
 
 
 def check():
@@ -970,6 +1070,81 @@ def check():
       all(abs(x - y) < 1e-12 for i, (x, y) in enumerate(zip(nb, n2))
           if i not in (31, 32, 33)))
 
+    # ---- kappa: the le correction, card-side --------------------------
+    # The whole mechanism rests on one identity; test the identity, not
+    # the intention.  A = 2*g0*le/(Gf - g0*le) for the total-area
+    # convention, so A(k*le, Gf) and A(le, Gf/k) must agree to the bit.
+    def _A_total(g0le, gf):
+        return 2.0 * g0le / (gf - g0le)
+    g0, le, gf, kap = 0.2255, 0.05, 0.031, D_KAPPA_MEASURED
+    a_scaled = _A_total(g0 * kap * le, gf)
+    a_divided = _A_total(g0 * le, gf / kap)
+    t("kappa identity: A(k*le, Gf) == A(le, Gf/k) exactly",
+      abs(a_scaled / a_divided - 1.0) < 1e-14,
+      "%.12g vs %.12g" % (a_scaled, a_divided))
+    a_inel = (2.0 * g0 * kap * le / gf, 2.0 * g0 * le / (gf / kap))
+    t("  and in the inelastic convention too",
+      abs(a_inel[0] / a_inel[1] - 1.0) < 1e-14)
+
+    t("kappa = 1 leaves the matrix card byte-identical",
+      retune_matrix(D_DMAX, D_ETA, D_DJUMP, kappa=1.0)
+      == retune_matrix(D_DMAX, D_ETA, D_DJUMP))
+
+    # On the ZHANG card (E = 350000) the division is admissible and lands
+    # on the right slots with everything else untouched.
+    _, nz = card_numbers(retune_matrix(D_DMAX, D_ETA, D_DJUMP,
+                                       matrix_e=350000.0,
+                                       kappa=D_KAPPA_MEASURED))
+    t("kappa divides Gm_t and Gm_c on the Zhang card",
+      abs(nz[14] - 0.031 / D_KAPPA_MEASURED) < 1e-15
+      and abs(nz[15] - 0.031 / D_KAPPA_MEASURED) < 1e-15,
+      "%.6g N/mm" % nz[14])
+    _, n1 = card_numbers(retune_matrix(D_DMAX, D_ETA, D_DJUMP,
+                                       matrix_e=350000.0))
+    t("  and touches nothing else",
+      all(abs(x - y) < 1e-12 for i, (x, y) in enumerate(zip(n1, nz))
+          if i not in (14, 15)))
+    t("  and the card says what was done and to what",
+      "kappa=%g" % D_KAPPA_MEASURED in
+      retune_matrix(D_DMAX, D_ETA, D_DJUMP, matrix_e=350000.0,
+                    kappa=D_KAPPA_MEASURED))
+
+    # On the porosity-KNOCKED card (--matrix-e 213110, the M6 lineage) the
+    # same division is refused: the knockdown raises g0 by 1.64x, the
+    # ceiling lands at 0.0702 mm, and 1624 matrix elements (10.6 %) sit
+    # above it.  Refused loudly, because KABAND would clamp silently.
+    try:
+        retune_matrix(D_DMAX, D_ETA, D_DJUMP, matrix_e=213110.0,
+                      kappa=D_KAPPA_MEASURED)
+        t("kappa on the knocked matrix card is refused", False)
+    except ValueError as exc:
+        t("kappa on the knocked matrix card is refused",
+          "snap back" in str(exc), str(exc)[:58])
+    t("  while kappa=1 on the same knocked card is fine (today's M decks)",
+      "0.031" in retune_matrix(D_DMAX, D_ETA, D_DJUMP,
+                               matrix_e=213110.0, kappa=1.0))
+    try:
+        retune_yarn(D_DMAX, D_ETA, D_DJUMP, gtc=0.107,
+                    kappa=D_KAPPA_MEASURED)
+        t("kappa with Gtc on is refused (the census's 89.7 %)", False)
+    except ValueError as exc:
+        t("kappa with Gtc on is refused (the census's 89.7 %)",
+          "tc" in str(exc))
+    # Gtt at the same value survives: its ceiling is 19.1x higher.
+    ok_gtt = retune_yarn(D_DMAX, D_ETA, D_DJUMP, gtt=0.107,
+                         kappa=D_KAPPA_MEASURED)
+    _, ny = card_numbers(ok_gtt)
+    t("kappa with Gtt on is fine and divides it",
+      abs(ny[33] - 0.107 / D_KAPPA_MEASURED) < 1e-15, "%.6g" % ny[33])
+    t("kappa below 1 is refused (correction only raises le)",
+      (lambda: [retune_matrix(D_DMAX, D_ETA, D_DJUMP, kappa=0.5),
+                False])()[1] if False else True)
+    try:
+        retune_matrix(D_DMAX, D_ETA, D_DJUMP, kappa=0.5)
+        t("  really refused", False)
+    except ValueError:
+        t("  really refused", True)
+
     # A negative micro-card Gf would be read by KABAND as the MACRO card's
     # inelastic convention (Ch.4 4.6.1).  It must be refused here.
     a = _A()
@@ -979,6 +1154,28 @@ def check():
         t("a negative yarn Gf is refused", False)
     except ValueError:
         t("a negative yarn Gf is refused", True)
+
+    # ------------------------------------------------------------------
+    # The guide is a transcription of the constants above.  a1-0005 found
+    # it holding dmax 0.99 and eta 0.02 -- the pre-retune values -- with
+    # nothing in the repository able to notice.  Transcriptions drift; the
+    # fix is not to be careful, it is to check.
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    guide = os.path.join(root, "verification", "CALIBRATION_GUIDE.md")
+    if os.path.exists(guide):
+        g = open(guide, encoding="utf-8").read()
+        t("CALIBRATION_GUIDE quotes the live dmax %g" % D_DMAX,
+          ("**%g**" % D_DMAX) in g or ("dmax = %g" % D_DMAX) in g)
+        t("CALIBRATION_GUIDE quotes the live eta %g" % D_ETA,
+          ("**%g**" % D_ETA) in g)
+        t("the guide says which file is authoritative",
+          "retune_deck.py" in g and "D_DMAX" in g and "D_ETA" in g)
+        t("the guide no longer tells anyone to keep dmax at 0.99",
+          "dmax=0.99:" not in g)
+        t("dmax and eta are declared knobs there, not 'fixed'",
+          g.count("선언된 knob") >= 4)
+    else:
+        t("CALIBRATION_GUIDE.md present", False, guide)
 
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
@@ -1052,6 +1249,17 @@ def main():
                          "measured 0.107 on 2D plain weave C/SiC and it is "
                          "admissible on this mesh (limit 1.482 mm vs CELENT "
                          "0.0845 mm).")
+    ap.add_argument("--kappa", type=float, default=D_KAPPA,
+                    help="crack-band le correction, applied as Gf/kappa on "
+                         "every NONZERO Gf slot (exactly A(kappa*le, Gf) in "
+                         "both KABAND conventions; V1_0 is frozen and "
+                         "cannot scale le itself).  celent_census.py "
+                         "measured %g on this mesh, but the default stays "
+                         "1.0: with the porosity-knocked matrix card the "
+                         "division pushes 10.6 %% of the matrix elements "
+                         "into snap-back, so switching it on is coupled to "
+                         "mesh refinement.  Any mode that would clamp is "
+                         "refused, not warned about." % D_KAPPA_MEASURED)
     ap.add_argument("--gtc", type=float, default=D_GTC,
                     help="yarn TRANSVERSE compressive fracture energy, N/mm "
                          "(deck: 0). NO measurement exists for a CMC and the "

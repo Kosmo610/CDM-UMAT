@@ -38,6 +38,20 @@ C      with degraded shear stiffness) -- the usual assumption.
 C      The stored history d is untouched: closure changes the secant
 C      stiffness only, damage stays monotonic.
 C
+C      KNOWN SIMPLIFICATION (2026-08-06, a1-0014): refs/[60] -- the
+C      Part II of the very paper our C3 claim rests on -- deactivates
+C      damage in compression through a CONTINUOUS function whose rate
+C      depends on the stress state (biaxial compression closes faster
+C      than uniaxial).  Our step switch with one constant HCLO is the
+C      degenerate case.  refs/[54] Chaboche 1995 is the closure
+C      formulation's origin (eta in [0,1], only the diagonal terms of
+C      the sign-reversed normal strains modified -- same principle as
+C      here; his closure point tied to residual strain is NOT ours).
+C      The planned HCLOS (shear recovery) slot is where a continuous,
+C      state-dependent deactivation would enter, AFTER the M6
+C      calibration -- docs/TO_ANALYSIS.md [A2].  Until then the thesis
+C      states the step switch as the simplification it is.
+C
 C  (3) MACRO HOMOGENISED CDM WITH CYCLE-DEPENDENT DAMAGE (KMACRO31).
 C      A history-variable CDM shakes down after the first cycle: under a
 C      repeated identical thermal load the failure index never exceeds
@@ -133,7 +147,8 @@ C  STATE VARIABLES
 C  ---------------
 C  YARN   NSTATV >= 16, as V1_0.  17 (optional) = closure flag.
 C  MATRIX NSTATV >= 20, identical to V1_0.
-C  MACRO  NSTATV >= 22 (>= 28 when ICRIT > 0):
+C  MACRO  NSTATV >= 29 (criteria SDVs 23-28 are always allocated and
+C         stay zero unless ICRIT > 0; TWMAX made 29 unconditional):
 C     1 D1T  2 D1C  3 DTT  4 DTC     (monotonic, per mode)
 C     5 R1T  6 R1C  7 RTT  8 RTC     (damage thresholds)
 C     9 D1   10 DT                   (TOTAL, incl. cycle damage)
@@ -151,6 +166,14 @@ C               4 = D-criterion fired
 C     26 NFHA   accumulated cycles when Hashin first reached 1.0
 C     27 NFTW   accumulated cycles when Tsai-Wu first reached 1.0
 C     28 NFDC   accumulated cycles when the D-criterion first reached 1.0
+C   -- always written --
+C     29 TWMAX  maximum temperature reached in the current step at this
+C               point.  The fC (cycle-damage C(T)) column is evaluated
+C               HERE, not at the instantaneous temperature: cycle damage
+C               is oxidation chemistry set by the cycle's peak (the
+C               severity paradox, refs/[02] vs [03] -- see the comment
+C               at the fC evaluation).  Also the post-run audit that a
+C               cycle-jump block really sat at its Tmax.
 C
 C  The three criteria are evaluated at every integration point from the
 C  SAME state, but only Hashin drives the damage evolution.  Tsai-Wu and
@@ -204,10 +227,13 @@ C
       IF (PNEWDT.LE.0.0D0) PNEWDT=1.0D0
 C
       IF (INDEX(CMNAME,'MACRO').GT.0) THEN
-         IF (NPROPS.LT.47 .OR. NSTATV.LT.22 .OR.
+         IF (NPROPS.LT.47 .OR. NSTATV.LT.29 .OR.
      1       ABS(PROPS(36)-31.0D0).GT.1.0D-6) THEN
             WRITE(7,*) 'V3_0 MACRO card needs NPROPS>=47 with'
-            WRITE(7,*) 'PROPS(36)=31.0 as key and NSTATV>=22.'
+            WRITE(7,*) 'PROPS(36)=31.0 as key and NSTATV>=29.'
+            WRITE(7,*) '(29 since the TWMAX window, 2026-08-06; a'
+            WRITE(7,*) 'deck emitting the old 22/28 must be remade'
+            WRITE(7,*) 'with make_macro_thermalshock.py.)'
             WRITE(7,*) 'Got NPROPS,NSTATV=',NPROPS,NSTATV
             CALL XIT
          END IF
@@ -228,18 +254,16 @@ C        right LENGTH but the wrong CONTENT is still rejected.
      1                    PROPS(56+8*NT)
                CALL XIT
             END IF
-            IF (NINT(PROPS(48+8*NT)).GT.0 .AND. NSTATV.LT.28) THEN
-               WRITE(7,*) 'V3_0 MACRO: ICRIT>0 needs NSTATV>=28. Got',
-     1                    NSTATV
-               CALL XIT
-            END IF
+C           (ICRIT>0 used to need NSTATV>=28 here; the unconditional
+C           NSTATV>=29 above already covers it since TWMAX moved every
+C           macro card to 29 slots, criteria on or off.)
          END IF
 C        Cycle rate from a *FIELD variable when PREDEFN>0.
          FLDV=0.0D0
          IPF=NINT(PROPS(46))
          IF (IPF.GT.0) FLDV=PREDEF(1)+DPRED(1)
          CALL KMACRO31(EPS,STRESS,DDSDDE,STATEV,PROPS,NPROPS,NT,
-     1        DTIME,TEMP,DTEMP,FLDV,PNEWDT,KSTEP,CELENT)
+     1        DTIME,TEMP,DTEMP,FLDV,PNEWDT,KSTEP,TIME(1),CELENT)
       ELSE IF (INDEX(CMNAME,'YARN').GT.0) THEN
          IF (NSTATV.LT.16) THEN
             WRITE(7,*) 'V3_0 YARN card needs NSTATV>=16. Got',NSTATV
@@ -748,7 +772,7 @@ C
       END
 C=======================================================================
       SUBROUTINE KMACRO31(EPS,STRESS,CTAN,SV,P,NPROPS,NT,DTIME,TEMP,
-     1 DTEMP,FLDV,PNEWDT,KSTEP,CELENT)
+     1 DTEMP,FLDV,PNEWDT,KSTEP,STIME,CELENT)
 C     Homogenised orthotropic CDM for the macro scale.
 C     Same 3-D Hashin + exponential-softening skeleton as the yarn law
 C     (it is a general orthotropic CDM), driven by RVE-homogenised
@@ -759,8 +783,9 @@ C     Without d_cyc this law shakes down after the first thermal cycle;
 C     d_cyc is what makes repeated thermal shock degrade the material.
       IMPLICIT NONE
       DOUBLE PRECISION EPS(6),STRESS(6),CTAN(6,6),SV(*),P(*)
-      DOUBLE PRECISION DTIME,TEMP,DTEMP,FLDV,PNEWDT,CELENT
-      DOUBLE PRECISION C0(6,6),CD(6,6),SE(6),F(7)
+      DOUBLE PRECISION DTIME,TEMP,DTEMP,FLDV,PNEWDT,STIME,CELENT
+      DOUBLE PRECISION C0(6,6),CD(6,6),SE(6),F(7),FW(7)
+      DOUBLE PRECISION TWMAX
       DOUBLE PRECISION E1,E2,E3,NU12,NU13,NU23,G12,G13,G23
       DOUBLE PRECISION XT,XC,YT,YC,S12,S13,S23
       DOUBLE PRECISION A1T,A1C,ATT,ATC,DMAX1,DMAXT,ETA,DJMAX
@@ -838,7 +863,33 @@ C
       S12=S12*F(6)
       S13=S13*F(6)
       S23=S23*F(6)
-      CCYC=CCYC*F(7)
+C     Cycle-severity temperature (a1-0018, the severity paradox).  The
+C     chemistry that drives cycle damage -- carbon oxidation below the
+C     silica-flow point, crack self-healing above it -- is set by the
+C     cycle's PEAK temperature, not the instantaneous one: refs/[02]
+C     (DT=1000 C) damages 6.05x LESS per cycle and kelvin than
+C     refs/[03] (DT=600 C), a sign no monotonic function of DT or of
+C     the instantaneous T can produce.  So the fC column is evaluated
+C     at the maximum temperature this STEP has reached at this point
+C     (SDV 29; one cycling block is one step by deck construction),
+C     while the six property columns stay at TEND -- stiffness and
+C     strength must follow the temperature of the moment.
+C       At a cycle-jump hold the window equals the hold temperature
+C     from the first increment, so hold-at-Tmax runs are exact.  In an
+C     explicitly resolved swing the window is exact on every cycle
+C     after the first peak (including the cooling half); only the
+C     FIRST rise through a non-monotonic fC peak is overweighted.
+C     Long blocks are therefore run as jump-at-hold (CALIBRATION_GUIDE
+C     5-2), and TWMAX doubles as the post-run audit that a block
+C     really sat at its Tmax.
+      IF (STIME.LE.0.0D0) THEN
+         TWMAX=TEND
+      ELSE
+         TWMAX=MAX(SV(29),TEND)
+      END IF
+      SV(29)=TWMAX
+      CALL KPROP_INTERP(TWMAX,P,48,NT,7,FW)
+      CCYC=CCYC*FW(7)
 C
       CALL KORTHO(E1,E2,E3,NU12,NU13,NU23,G12,G13,G23,C0)
       CALL KMATVEC6(C0,EPS,SE)

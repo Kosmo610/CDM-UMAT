@@ -70,7 +70,7 @@ def build(workdir):
 
 
 def run_fortran(exe, kind, props, statev, eps, temp, dtemp, dtime, fldv,
-                celent, kstep):
+                celent, kstep, stime=0.0):
     def fmt(seq):
         return " ".join("%.17g" % v for v in seq)
     inp = "\n".join([
@@ -80,8 +80,8 @@ def run_fortran(exe, kind, props, statev, eps, temp, dtemp, dtime, fldv,
         str(len(statev)),
         fmt(statev),
         fmt(eps),
-        "%.17g %.17g %.17g %.17g %.17g %d"
-        % (temp, dtemp, dtime, fldv, celent, kstep),
+        "%.17g %.17g %.17g %.17g %.17g %d %.17g"
+        % (temp, dtemp, dtime, fldv, celent, kstep, stime),
     ]) + "\n"
     p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
@@ -153,7 +153,10 @@ def case_macro(exe, rng):
     for it in range(24):
         eps = np.array([rng.uniform(-2.5e-3, 3.0e-3) for _ in range(3)]
                        + [rng.uniform(-2.0e-3, 2.0e-3) for _ in range(3)])
-        sv = [0.0] * 28
+        sv = [0.0] * 29
+        # Mid-step continuations (stime > 0) must carry a window that is
+        # already open; fresh steps must reset it.  Half of each.
+        stime = rng.choice([0.0, 1.0])
         # start from a partly damaged state on half the cases
         if it % 2:
             sv[0] = rng.uniform(0.0, 0.5)
@@ -162,6 +165,7 @@ def case_macro(exe, rng):
             sv[6] = rng.uniform(1.0, 2.0)
             sv[16] = rng.uniform(0.0, 0.4)
             sv[17] = rng.uniform(0.0, 50.0)
+            sv[28] = rng.uniform(23.0, 1400.0)
             # Pre-set some latch bits so the "fire only once" logic is
             # exercised from a non-zero state, not just from rest.
             sv[24] = float(rng.choice([0, 1, 2, 4, 3, 5, 6, 7]))
@@ -172,12 +176,13 @@ def case_macro(exe, rng):
         dtime = rng.choice([0.01, 0.1, 1.0])
 
         sF, svF, cF = run_fortran(exe, 1, props, sv, eps, temp, 0.0, dtime,
-                                  0.0, 1.0, 3)
+                                  0.0, 1.0, 3, stime=stime)
         # The driver passes TEMP with DTEMP=0, so the mirror uses temp
         # directly.  rate=None makes it fall back on CYCRATE = PROPS(45),
         # which is what the Fortran does when PREDEFN = 0.
         sP, CP, svP = vt.macro_point(eps, sv, P, ttab, temp=temp,
-                                     dtime=dtime, rate=None, celent=1.0)
+                                     dtime=dtime, rate=None, celent=1.0,
+                                     stime=stime)
         o1, e1 = cmp_arrays("STRESS", sF, sP)
         o2, e2 = cmp_arrays("Cdiag", cF, [CP[i, i] for i in range(6)])
         o3, e3 = cmp_arrays("STATEV", svF, svP)

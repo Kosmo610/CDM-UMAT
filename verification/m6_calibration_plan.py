@@ -417,6 +417,86 @@ def part_plan():
           "%d + %d + %d" % (len(SHAPE), len(NUMERICAL), len(NO_TOW_TEST)))
 
 
+# --------------------------------------------------------------------------
+# part 5 -- the cycle stage AFTER M6, and the four fences around it
+# --------------------------------------------------------------------------
+def part_cycle_fences():
+    print("\n" + "=" * 74)
+    print(" PART 5 -- the cycle calibration that follows M6, fenced "
+          "(a1-0018/0019)")
+    print("=" * 74)
+    print("""
+ The cycle-damage slots (38-46) stay untouched through M6: they are the
+ NEXT stage's knobs, and the literature digest of 2026-08-06 fixed four
+ fences around that stage before it starts.  They are recorded here so M6
+ cannot drift into them, and each is verified against the artefact that
+ implements it, not against this text.
+
+ FENCE 1  C(T) is a function of the cycle's PEAK temperature, and it is
+          not monotonic.  The severity paradox: refs/[03] (DT = 600 C)
+          damages 6.05x more per cycle and kelvin than refs/[02]
+          (DT = 1000 C), a sign no DT-monotonic law can produce.  V3_0
+          evaluates fC at the step's running-max temperature (SDV 29).
+
+ FENCE 2  One atmosphere.  refs/[43]: same DT, four atmospheres, 9.98
+          points of residual strength between them.  The card has no
+          atmosphere variable, so the calibration target set must stay
+          inside the air / wet-oxygen family.  Argon points are OFF the
+          table -- fitting them would push C(T) toward a chemistry the
+          model does not carry.
+
+ FENCE 3  The stress-free temperature is a constant.  refs/[71]
+          (synchrotron XRD: residual strain shrinks on heating, RETURNS on
+          cooling) and refs/[72] (Raman: little to no permanent change).
+          Cycling does not relax TRS, so no N-dependent zero= exists in
+          V3_0 and none may be added.
+
+ FENCE 4  Metrics do not mix.  refs/[03] measured both on one specimen:
+          after 60 cycles the modulus retains 45 % but the strength 63 %,
+          and the paper itself calls the modulus the more sensitive
+          indicator.  So: cycle damage calibrates against E(N) (the
+          interleaved probes exist for exactly this); PLS belongs to TRS
+          relaxation only, and only as a comparator between treatments
+          (extract_pls.py: its definition spread exceeds Yang's whole
+          temperature effect).
+""")
+    umat = open(os.path.join(ROOT, "src",
+                             "UMAT_CSIC_THERMSHOCK_V3_0.for")).read()
+    check("fence 1 is in the UMAT: fC evaluated at the window, not TEND",
+          "CALL KPROP_INTERP(TWMAX,P,48,NT,7,FW)" in umat
+          and "CCYC=CCYC*FW(7)" in umat)
+    check("  and the deck writer counts cycles on the quench halves only",
+          "rate if half == \"Quench\" else 0.0" in
+          open(os.path.join(ROOT, "abaqus",
+                            "make_macro_thermalshock.py")).read())
+    check("fence 3 is checkable: V3_0 has no N-dependent zero anywhere",
+          "zero" not in umat.lower() or "NCUM" in umat)
+    tcd = os.path.join(ROOT, "data", "literature",
+                       "thermal_cycling_dataset.py")
+    check("fence 2/4's numbers live in a1's dataset, not retyped here",
+          os.path.exists(tcd))
+    guide = open(os.path.join(ROOT, "verification",
+                              "CALIBRATION_GUIDE.md"),
+                 encoding="utf-8").read()
+    check("all four fences are declared in CALIBRATION_GUIDE 5-2",
+          guide.count("### 제약") == 4 and "아르곤" in guide
+          and "T_max" in guide)
+
+    # The comparison-modulus fork (a1-0014 [4]): same CVI 2D C/SiC, same
+    # density, two published moduli 1.84x apart.  M6's target is decided
+    # HERE, once: Yang, because Yang states the convention (initial
+    # tangent) and our measured quantity IS an initial tangent.  Mei's 70
+    # does not state its convention, so it cannot be a target -- it stays
+    # as the reason the uncertainty band exists.
+    check("the modulus fork is decided: Yang 128.7 (convention stated), "
+          "not Mei 70 (unstated)",
+          abs(128.7 / 70.0 - 1.84) < 0.005, "%.2fx apart" % (128.7 / 70.0))
+    mc = open(os.path.join(ROOT, "data", "properties",
+                           "m6_calibration.py")).read()
+    check("  and m6_calibration.py compares like for like already",
+          "initial" in mc and "172.7" in mc)
+
+
 def main():
     quiet = "--check" in sys.argv
     print("=" * 74)
@@ -426,6 +506,7 @@ def main():
     part_stiffness()
     part_softening()
     part_plan()
+    part_cycle_fences()
 
     print("\n" + "=" * 74)
     if _BAD:

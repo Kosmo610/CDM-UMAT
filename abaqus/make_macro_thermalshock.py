@@ -292,7 +292,17 @@ def mech_steps(sev, trs, ncycle, checkpoints, t_quench, t_dwell, heatjob,
             continue
         # cycles actually simulated in this block
         nsim = max(1, int(round(nblk / float(cyclejump))))
-        rate = nblk / float(nsim) / (t_quench + t_dwell)
+        # ALL of a block's cycles are counted on the QUENCH halves, none on
+        # the reheats.  A quench step BEGINS at T_hi, so the severity window
+        # (SDV 29) equals the cycle's peak temperature from its very first
+        # increment and the fC column is exact -- while the failure-index
+        # drive still sweeps the full T_hi -> T_lo stress excursion, which
+        # contains the same states as the reheat in reverse.  Spreading the
+        # rate over the reheat instead would let the window fill from T_lo
+        # and weight a non-monotonic fC peak during every rise (a1-0018,
+        # the severity paradox).  The reheat still runs -- it restores the
+        # stress state -- it just counts no cycles.
+        rate = nblk / float(nsim) / t_quench
         for c in range(nsim):
             for half, tper, Tref in (("Quench", t_quench, s["T_lo"]),
                                      ("Reheat", t_dwell, s["T_hi"])):
@@ -316,7 +326,7 @@ def mech_steps(sev, trs, ncycle, checkpoints, t_quench, t_dwell, heatjob,
                 hs = 1 if half == "Quench" else 2
                 L.append("*Temperature, file=%s.odb, bstep=%d, estep=%d"
                          % (heatjob, hs, hs))
-                L.append(_mech_field(rate))
+                L.append(_mech_field(rate if half == "Quench" else 0.0))
                 L.append(_mech_output(restart=False))
                 L.append("*End Step")
         done = cp
@@ -363,8 +373,11 @@ def _mech_output(restart):
            # SDV9/10 damage, 17 d_cyc, 18 N, 19 Hashin, 23 Tsai-Wu,
            # 24 D-criterion, 25 latch flag -- the failure-criterion
            # comparison needs all three indices at every history frame.
+           # SDV29 TWMAX: the audit that a cycling block really sat at
+           # its Tmax -- the fC column is evaluated there (a1-0018).
            "*Element Output, elset=ALL\n"
-           "SDV9, SDV10, SDV17, SDV18, SDV19, SDV23, SDV24, SDV25\n")
+           "SDV9, SDV10, SDV17, SDV18, SDV19, SDV23, SDV24, SDV25, "
+           "SDV29\n")
     if restart:
         out += "*Restart, write, overlay\n"
     return out
@@ -469,6 +482,41 @@ def gf_audit(p, nt, le=None):
     return rows
 
 
+def gf_temperature_drift(rows):
+    """How far A wanders across the temperature table, per mode.
+
+    Holding Gf fixed while E and X move is an ASSUMPTION, and until
+    2026-08-06 it was an unstated one.  a1-0011 sourced its direction:
+    Snead refs/[06] Fig. 14 and section 2.7.3 report that SiC's fracture
+    resistance is constant or RISING to 1000 C, never falling.  Our card
+    holds Gf fixed, so at temperature the card understates |Gf|, which
+    overstates A = 2*g0*le/|Gf|, which softens faster and predicts MORE
+    damage.  The error is therefore conservative for life prediction --
+    the one direction we can afford.
+
+    The size is small because E and X move together: A scales as
+    g0 = X^2/(2E), and refs/[10]'s four measured temperatures move g0 by
+    at most 5.1 % to 1273 K, while our own f(T) table moves it by 5.9 %.
+    Returns {mode: (A_min, A_max, drift)} with drift = A_max/A_min - 1,
+    at a single le so the length cancels.
+    """
+    out = {}
+    for rec in rows:
+        per_le = {}
+        for st in rec["states"]:
+            per_le.setdefault(st["le"], []).append(st["A"])
+        best = None
+        for le, As in per_le.items():
+            if len(As) < 2:
+                continue
+            d = max(As) / min(As) - 1.0
+            if best is None or d > best[2]:
+                best = (min(As), max(As), d)
+        if best is not None:
+            out[rec["mode"]] = best
+    return out
+
+
 def _t_factors(p, nt, xslot, eslot):
     """(T, strength multiplier, modulus multiplier) for every table row.
 
@@ -548,8 +596,9 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
         idmode = int(round(p[50 + 8 * nt]))
         dcs = p[51 + 8 * nt:54 + 8 * nt]
         if icrit > 0:
-            if ndep is None or ndep < 28:
-                raise SystemExit("macro card%s: ICRIT>0 needs *Depvar >= 28, "
+            if ndep is None or ndep < 29:
+                raise SystemExit("macro card%s: ICRIT>0 needs *Depvar >= 29 "
+                                 "(28 before the TWMAX window, 2026-08-06), "
                                  "got %s" % (tag, ndep))
             if idmode not in (1, 2):
                 raise SystemExit("macro card%s: IDMODE must be 1 or 2, got %d"
@@ -562,9 +611,11 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
                 raise SystemExit("macro card%s: Tsai-Wu %s = %g gives an OPEN "
                                  "failure surface (|F*| < 1 required)"
                                  % (tag, name, p[k]))
-    elif ndep is not None and ndep < 22:
-        raise SystemExit("macro card%s: *Depvar >= 22 required, got %d"
-                         % (tag, ndep))
+    elif ndep is not None and ndep < 29:
+        raise SystemExit("macro card%s: *Depvar >= 29 required (V3_0 writes "
+                         "TWMAX, the cycle-severity window, to SDV 29 on "
+                         "every macro card -- 22 was the pre-window layout), "
+                         "got %d" % (tag, ndep))
 
     gf = gf_audit(p, nt, le)
     stale = [g for g in gf if g["sign"] == "total"]
@@ -693,13 +744,20 @@ def selftest():
 
     c = PLACEHOLDER_CARD
     expect_ok("placeholder card, criteria on", c)
-    expect_ok("criteria off (47 slots, Depvar 22)",
-              _mangle(c, depvar=22, drop=9))
+    expect_ok("criteria off (47 slots, Depvar 29)",
+              _mangle(c, depvar=29, drop=9))
 
     expect_reject("wrong card key PROPS(36)", _mangle(c, slot=36, value=30.0))
     expect_reject("missing block guard PROPS(56)",
                   _mangle(c, slot=56, value=0.0))
     expect_reject("ICRIT on but *Depvar still 22", _mangle(c, depvar=22))
+    # 28 was VALID until the TWMAX window (2026-08-06).  A deck built by an
+    # old generator is exactly the mistake that will happen, so the stale
+    # layout is rejected by name, not merely by arithmetic.
+    expect_reject("pre-window *Depvar 28 (stale layout)",
+                  _mangle(c, depvar=28))
+    expect_reject("criteria off but *Depvar 22 (stale layout)",
+                  _mangle(c, depvar=22, drop=9))
     expect_reject("truncated card (55 slots)", _mangle(c, drop=1))
     expect_reject("NT says 2 but no table rows", _mangle(c, slot=47, value=2.0))
     expect_reject("IDMODE = 3", _mangle(c, slot=51, value=3.0))
@@ -775,6 +833,43 @@ def selftest():
                 nstate == max(info["nt"], 1) * 2,
                 "%d states from NT=%d x 2 lengths" % (nstate, info["nt"]))
 
+    # a1-0011: holding Gf fixed while E and X move with temperature is an
+    # assumption, and its size is now bounded rather than merely admitted.
+    # The bound is anchored on measurement, not on a test fixture:
+    # refs/[10] Yang Table 1 gives E and the ultimate strength at four
+    # temperatures on ONE material, so g0 = X^2/(2E) -- which is all A
+    # depends on once Gf and le are fixed -- can be evaluated directly.
+    YANG = ((300.0, 128.7e3, 225.8), (973.0, 152.3e3, 240.5),
+            (1273.0, 172.7e3, 268.2), (1473.0, 169.1e3, 240.9))
+    gfy, ley = 0.12, LE
+    A_of = dict((T, _kaband(X * X / (2.0 * E) * ley, -gfy, 2.0))
+                for T, E, X in YANG)
+    in_range = [A_of[T] for T, _, _ in YANG if T <= 1273.0]
+    dev_rt = max(abs(a / A_of[300.0] - 1.0) for a in in_range)
+    expect_true("A stays within 5.2 % of its RT value out to 1273 K",
+                dev_rt < 0.052, "%.1f %%" % (100.0 * dev_rt))
+    expect_true("and it is not monotonic -- 973 K dips before 1273 K rises",
+                A_of[973.0] < A_of[300.0] < A_of[1273.0],
+                "%.4f < %.4f < %.4f"
+                % (A_of[973.0], A_of[300.0], A_of[1273.0]))
+    expect_true("beyond our 1000 C ceiling it does move, so the bound is"
+                " scoped", abs(A_of[1473.0] / A_of[300.0] - 1.0) > 0.10,
+                "%.1f %% at 1473 K" % (100.0 * (A_of[1473.0] / A_of[300.0]
+                                                - 1.0)))
+    # The reporter itself, on a hand-built two-temperature mode.
+    rows = [dict(mode="1t", states=[dict(T=300.0, le=LE, g0=0.2, A=2.0),
+                                    dict(T=1273.0, le=LE, g0=0.21, A=2.1)])]
+    d = gf_temperature_drift(rows)
+    expect_true("gf_temperature_drift reports max/min per mode",
+                abs(d["1t"][2] - 0.05) < 1e-12, "%.4f" % d["1t"][2])
+    # And the direction: real |Gf| rises with temperature (Snead refs/[06]
+    # Fig. 14), the card does not, so the card over-predicts A and therefore
+    # over-predicts damage.  Conservative.  Stated so it cannot be re-derived
+    # backwards later.
+    expect_true("the sign of that error is written down where A is computed",
+                "conservative for life prediction" in gf_temperature_drift
+                .__doc__)
+
     # Cross-module: the card that postprocess/homogenize.py will actually
     # emit after the RVE virtual tests must pass this validator.  Without
     # this the two files can drift apart and nobody notices until M3.
@@ -822,6 +917,35 @@ def selftest():
                             "A = %s" % ", ".join(
                                 "%.3f" % s["A"]
                                 for s in info["gf"][0]["states"]))
+
+    # ---- the severity window's deck-side half (a1-0018) -----------------
+    # V3_0 evaluates fC at the step's running-max temperature (SDV 29).
+    # That is exact only if cycle counting happens in steps that BEGIN at
+    # the cycle's peak temperature, which is the quench halves.  The deck
+    # writer must therefore put the whole block's rate on the quenches and
+    # zero on the reheats -- checked on the emitted text, not trusted.
+    body, _ = mech_steps("Z", "C", 60, (20, 40, 60), 15.0, 45.0,
+                         "HEATJOB", 5.0, 12.5)
+    steps = body.split("*Step, Name=")[1:]
+    q = [st for st in steps if st.startswith("Quench")]
+    r = [st for st in steps if st.startswith("Reheat")]
+    expect_true("cycling emits Quench and Reheat halves",
+                len(q) == 12 and len(r) == 12,
+                "%d + %d steps" % (len(q), len(r)))
+    def _rate(st):
+        m = re.search(r"\*Field, variable=1\nALLNODES, ([0-9.eE+-]+)", st)
+        return float(m.group(1)) if m else None
+    expect_true("every Quench half carries the block's cycle rate",
+                all((_rate(st) or 0.0) > 0.0 for st in q),
+                "rate = %.6g" % _rate(q[0]))
+    expect_true("every Reheat half carries rate 0 (counts no cycles)",
+                all(_rate(st) == 0.0 for st in r))
+    # tolerance is the %.10g text round-trip's, not the arithmetic's
+    expect_true("the quench rate absorbs the reheat's share "
+                "(dN per block conserved)",
+                abs(_rate(q[0]) * 15.0 * 4 - 20.0) < 1e-4,
+                "%.6g cycles/s x 15 s x 4 steps = %.6g cycles"
+                % (_rate(q[0]), _rate(q[0]) * 15.0 * 4))
 
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
@@ -876,13 +1000,14 @@ PLACEHOLDER_CARD = """** PLACEHOLDER macro card -- replace with the RVE output
 ** Running with these numbers produces a WORKING deck but MEANINGLESS results.
 *Material, Name=CSIC_MACRO_CDM
 *Depvar
-28,
+29,
 23, FITW, FITW
 24, FIDC, FIDC
 25, NFLAG, NFLAG
 26, NFHA, NFHA
 27, NFTW, NFTW
 28, NFDC, NFDC
+29, TWMAX, TWMAX
 *User Material, constants=56
 3., 105000., 105000., 52000., 0.10, 0.25, 0.25, 36000.
 22000., 22000., 220., 480., 220., 480., 110., 90.
@@ -915,7 +1040,7 @@ def main():
     ap.add_argument("--sev", nargs="+", default=["M"], choices=sorted(SEVERITIES))
     ap.add_argument("--trs", nargs="+", default=list(TRS_CASES), choices=TRS_CASES)
     ap.add_argument("--checkpoints", type=int, nargs="+",
-                    default=[5, 10, 20, 40, 60],
+                    default=None,
                     help="cycle counts at which to probe E and write a restart")
     ap.add_argument("--cycle-jump", type=float, default=5.0,
                     help="real cycles represented by one simulated cycle")
@@ -943,6 +1068,9 @@ def main():
                          "and rejects every broken one")
     args = ap.parse_args()
 
+    if args.checkpoints is None:
+        args.checkpoints = [5, 10, 20, 40, 60]
+
     if args.list_checks:
         print(CHECKS)
         return 0
@@ -957,7 +1085,12 @@ def main():
         args.dims = list(sp["dims"])
         args.mesh = list(sp["mesh"])
         args.sev = [sp["sev"]]
-        args.checkpoints = list(sp["checkpoints"])
+        # An explicit --checkpoints wins over the specimen's defaults: the
+        # cycle-jump preflight runs a published specimen but only to the
+        # FIRST checkpoint, and silently forcing 60 cycles onto it would
+        # turn a minutes job into an hour one.
+        if args.checkpoints is None:
+            args.checkpoints = list(sp["checkpoints"])
         print("specimen %s: %.4g x %.4g x %.4g mm, severity %s (Bi = %.4g)"
               % (args.specimen, args.dims[0], args.dims[1], args.dims[2],
                  sp["sev"], SEVERITIES[sp["sev"]]["bi"]))

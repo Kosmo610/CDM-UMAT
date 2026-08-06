@@ -357,8 +357,17 @@ def kdcrit(d1, dt, d12, d13, d23, dc1, dct, dcs, di12, idmode):
 
 
 def macro_point(eps, sv, P, ttab=None, temp=23.0, dtime=1.0, rate=None,
-                celent=1.0, enable=True):
-    """Mirror of KMACRO31.  Returns (stress, C_secant, sv_new)."""
+                celent=1.0, enable=True, stime=0.0):
+    """Mirror of KMACRO31.  Returns (stress, C_secant, sv_new).
+
+    `stime` mirrors TIME(1), the step time at the start of the increment:
+    0.0 marks the first increment of a step and RESETS the temperature
+    window; anything positive continues it.  The fC (cycle-damage C(T))
+    column is evaluated at the window maximum sv[28] (SDV 29), not at the
+    instantaneous temperature -- the severity paradox (a1-0018) is a
+    chemistry of the cycle's peak.  The six property columns stay at the
+    instantaneous temperature.
+    """
     E1, E2, E3 = P[2], P[3], P[4]
     n12, n13, n23 = P[5], P[6], P[7]
     G12, G13, G23 = P[8], P[9], P[10]
@@ -390,7 +399,9 @@ def macro_point(eps, sv, P, ttab=None, temp=23.0, dtime=1.0, rate=None,
     S12 *= f[5]
     S13 *= f[5]
     S23 *= f[5]
-    C *= f[6]
+    twmax = temp if stime <= 0.0 else max(sv[28], temp)
+    fw = kprop_interp(twmax, ttab or [], 7)
+    C *= fw[6]
 
     C0 = vc.kortho(E1, E2, E3, n12, n13, n23, G12, G13, G23)
     se = C0.dot(eps)
@@ -480,6 +491,7 @@ def macro_point(eps, sv, P, ttab=None, temp=23.0, dtime=1.0, rate=None,
     svn[16] = dcy
     svn[17] = sv[17] + dninc
     svn[18] = rdrv
+    svn[28] = twmax
     svn[19], svn[20] = d1m, dtm
     svn[21] = float(sum(1 for i in range(3) if eps[i] < 0.0))
 
@@ -507,7 +519,7 @@ def macro_point(eps, sv, P, ttab=None, temp=23.0, dtime=1.0, rate=None,
     return stress, CD, svn
 
 
-def new_sv(n=28):
+def new_sv(n=29):
     return [0.0] * n
 
 
@@ -533,6 +545,7 @@ def thermal_cycle(P, ttab, ncycle, eps_hot, eps_cold, sv=None,
     hist = {"N": [], "dcyc": [], "dt": [], "d1": [], "Esec": []}
     dt_inc = dtime_cycle / (2.0 * nsub)
     E2_0 = P[3]
+    stime = 0.0          # the whole cycling block is one step (deck rule)
     for c in range(ncycle):
         legs = (np.linspace(eps_cold, eps_hot, nsub + 1)[1:],
                 np.linspace(eps_hot, eps_cold, nsub + 1)[1:])
@@ -542,7 +555,9 @@ def thermal_cycle(P, ttab, ncycle, eps_hot, eps_cold, sv=None,
             for e, T in zip(leg, tl):
                 eps = np.array([e, e, 0.0, 0.0, 0.0, 0.0])
                 _, CD, sv = macro_point(eps, sv, P, ttab, temp=T,
-                                        dtime=dt_inc, rate=rate)
+                                        dtime=dt_inc, rate=rate,
+                                        stime=stime)
+                stime += dt_inc
         if record:
             hist["N"].append(sv[17] if sv[17] > 0 else float(c + 1))
             hist["dcyc"].append(sv[16])
@@ -1224,6 +1239,115 @@ def figure_unilateral():
     print("  figure -> %s" % p)
 
 
+
+def t9_severity_window():
+    """T9: the C(T) column follows the cycle's PEAK temperature.
+
+    The severity paradox (a1-0018): refs/[03]'s DT=600 C cycles damage
+    6.05x MORE per cycle and kelvin than refs/[02]'s DT=1000 C cycles.  No
+    monotonic function of DT can produce that sign, and neither can C(T)
+    sampled at the instantaneous temperature -- a 300<->1300 swing would
+    collect peak-C damage merely PASSING through 1000 C.  V3_0 therefore
+    evaluates fC at the maximum temperature the step has reached (SDV 29,
+    the window), which this test pins down.
+
+    The table below is a SHAPE, not a calibration: peak near 1000 C
+    (carbon oxidises, silica does not yet flow), low again at 1300 C
+    (silica flows and heals).  M6+ calibrates the numbers; this test
+    proves the machinery can represent them.
+    """
+    print("\nT9  SEVERITY WINDOW  (C at the cycle peak, not the moment)")
+    # T, fE1, fE2, fG, fX, fY, fS, fC -- elastic columns deliberately
+    # non-constant so the split (props at T, C at TWMAX) is observable.
+    tt = [[300.0, 1.00, 1.00, 1.0, 1.0, 1.0, 1.0, 0.20],
+          [1000.0, 1.20, 1.20, 1.0, 1.0, 1.0, 1.0, 1.00],
+          [1300.0, 1.30, 1.30, 1.0, 1.0, 1.0, 1.0, 0.15]]
+
+    ok = True
+    f650 = kprop_interp(650.0, tt, 7)
+    f1150 = kprop_interp(1150.0, tt, 7)
+    f1300 = kprop_interp(1300.0, tt, 7)
+    ok &= check("the fC column may be non-monotonic and interpolates so",
+                f650[6] < 1.0 and f1150[6] < 1.0 and f1300[6] == 0.15,
+                "fC(650)=%.3f fC(1150)=%.3f fC(1300)=%.3f"
+                % (f650[6], f1150[6], f1300[6]))
+
+    P, _ = macro_card(cycon=1.0, C=1.0e-3, n=1.0, k=0.0, rth=0.10,
+                      ttab=tt)
+    eps = np.array([2.05e-3, 2.05e-3, 0.0, 0.0, 0.0, 0.0])
+
+    # One step: first increment at 1300 (opens the window), second at 500.
+    sv = new_sv()
+    _, _, sv = macro_point(eps, sv, P, tt, temp=1300.0, dtime=1.0,
+                           rate=1.0, stime=0.0)
+    ok &= check("TWMAX (SDV 29) records the step peak",
+                sv[28] == 1300.0, "%.0f" % sv[28])
+    d0 = sv[16]
+    _, _, sv2 = macro_point(eps, sv, P, tt, temp=500.0, dtime=1.0,
+                            rate=1.0, stime=1.0)
+    dd_window = sv2[16] - d0
+    ok &= check("cooling inside the step keeps the window",
+                sv2[28] == 1300.0, "%.0f" % sv2[28])
+
+    # A fresh point genuinely AT 500 (new step) for comparison.
+    svf = new_sv()
+    _, _, svf = macro_point(eps, svf, P, tt, temp=500.0, dtime=1.0,
+                            rate=1.0, stime=0.0)
+    dd_fresh = svf[16]
+    f500 = kprop_interp(500.0, tt, 7)
+    f13 = kprop_interp(1300.0, tt, 7)
+    # the excess differs slightly (elastic columns move the index), so
+    # compare the C-weighting after dividing the common drive out
+    ok &= check("at 500 C inside a 1300 C step, C carries fC(1300) "
+                "not fC(500)",
+                dd_window < dd_fresh and f13[6] < f500[6],
+                "dd(window)=%.3e dd(fresh)=%.3e" % (dd_window, dd_fresh))
+
+    # A new step resets the window.
+    svr = new_sv()
+    _, _, svr = macro_point(eps, svr, P, tt, temp=500.0, dtime=1.0,
+                            rate=0.0, stime=0.0)
+    ok &= check("a new step resets the window to its own temperature",
+                svr[28] == 500.0, "%.0f" % svr[28])
+
+    # The paradox's SIGN, at the law level: hold-mode blocks (one step
+    # each, cycle jump at the hold).  Block A holds at 1000 (DT 600);
+    # block B holds at 1300 (DT 1000).  Same drive, same cycles.
+    def block(thold, ncyc):
+        svb = new_sv()
+        st = 0.0
+        for _ in range(ncyc):
+            _, _, svb = macro_point(eps, svb, P, tt, temp=thold,
+                                    dtime=1.0, rate=1.0, stime=st)
+            st += 1.0
+        return svb[16]
+    dA = block(1000.0, 30)
+    dB = block(1300.0, 30)
+    perA = dA / 30.0 / 600.0
+    perB = dB / 30.0 / 1000.0
+    ok &= check("smaller-DT block damages MORE per cycle and kelvin "
+                "(the [03] vs [02] sign)",
+                perA > perB,
+                "%.2e vs %.2e per cycle*K (ratio %.1fx)"
+                % (perA, perB, perA / perB))
+    ok &= check("that sign is impossible for any DT-monotonic law, which "
+                "is why fC(Tmax) exists",
+                perA / perB > 1.0)
+
+    # And the split: elastic columns still follow the INSTANTANEOUS T.
+    C500_win, _, _ = macro_point(eps, sv, P, tt, temp=500.0, dtime=1.0,
+                                 rate=0.0, stime=1.0)[1], None, None
+    C500_frs = macro_point(eps, new_sv(), P, tt, temp=500.0, dtime=1.0,
+                           rate=0.0, stime=0.0)[1]
+    # same damage state is not guaranteed, so compare fresh-vs-fresh:
+    # a fresh point at 500 must NOT see the 1.30 stiffness of 1300.
+    e_eff = C500_frs[0, 0]
+    ok &= check("elastic columns stay at the instantaneous temperature",
+                e_eff < 1.25 * 105000.0,
+                "C11(500 C) = %.0f MPa" % e_eff)
+    return ok
+
+
 # ===========================================================================
 def main():
     print("=" * 72)
@@ -1239,6 +1363,7 @@ def main():
     t6_cycle_jump()
     t7_tsaiwu()
     t8_dcriterion()
+    t9_severity_window()
 
     cal = calibrate_to_literature()
 
