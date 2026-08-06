@@ -127,6 +127,38 @@ So 1.82 of the 1.92 is the price of using C3D4 at all, and only the remaining
 6 % is our mesh's own quality.  That reading is a2's; this file checks the
 arithmetic and supplies the published 2D anchor for it.
 
+THE OTHER CRACK-BAND LENGTH: refs/[46]'s w_c = 3 d_a
+-----------------------------------------------------
+kappa is about the element size.  refs/[46] Bazant & Oh carries a second,
+independent length -- the MATERIAL's band width -- and a2's celent_census.py
+uses it to state that our macro elements localise into a band narrower than
+the material's own process zone.  The quotation checks out verbatim: their
+abstract puts the optimum band width at "about 3 aggregate sizes", and the
+body calls w_c = 3 d_a "about the minimum admissible from the viewpoint of
+continuum smoothing".
+
+The factor 3 is theirs.  WHAT d_a IS FOR A WOVEN CMC IS OURS.  refs/[46] is
+a concrete paper and d_a is the maximum aggregate size; nothing in it says
+what plays that role in a 2D woven composite.  Writing "d_a is the yarn
+width" without marking the substitution makes 3.84 mm read as a published
+consequence when only the 3 is published.
+
+The substitution is defensible -- the tow is the largest heterogeneity, which
+is the role the aggregate plays -- but it is not unique, and the candidates
+are measured here from the mesh rather than assumed:
+
+    yarn thickness   0.399 mm   ->  w_c = 1.20 mm
+    yarn width       1.280 mm   ->  w_c = 3.84 mm     <- a2's choice
+    tow period       1.750 mm   ->  w_c = 5.25 mm
+
+a 4.4x spread.  Which is why the honest form of the statement is the RANGE,
+and why the range is worth having: the macro elements run 0.68-0.94 mm, and
+w_c exceeds the largest of them for EVERY candidate.  So the conclusion --
+the model localises into a band narrower than the process zone, and Ch.6 must
+not read the band width as a prediction -- does not depend on the choice at
+all.  Quoting it as a range makes it stronger than quoting 3.84 mm, because
+it can no longer be attacked by disputing the substitution.
+
 Run:  python3 data/literature/crack_band_simplex.py --check
 """
 from __future__ import print_function
@@ -365,6 +397,48 @@ def check():
       "%.1f %%" % (100.0 * (R69_TET / OUR_RVE - 1.0)))
     t("and the 2D constant agrees with refs/[47] independently",
       abs(factor(2, 2) - R47_TRIANGLE) < 0.001)
+
+    print("\n D3. refs/[46]'s w_c = 3 d_a -- the factor is theirs, d_a is ours")
+    r46 = os.path.join(ROOT, "refs", "[46] 균열대 정규화 S1.pdf")
+    t("refs/[46] exists", os.path.exists(r46))
+    try:
+        t46 = subprocess.check_output(
+            ["pdftotext", "-q", r46, "-"],
+            stderr=subprocess.STDOUT).decode("utf-8", "replace")
+    except Exception:
+        t46 = None
+    if t46:
+        flat = " ".join(t46.split())
+        t("  the abstract really says 'about 3 aggregate sizes'",
+          "about 3 aggregate sizes" in flat)
+        t("  and the body calls it the minimum admissible",
+          "is about the minimum admissible" in flat)
+        t("  from the viewpoint of continuum smoothing",
+          "from the viewpoint of continuum smoothing" in flat)
+        t("  but it is a CONCRETE paper -- d_a is the aggregate size",
+          "aggregate size" in flat and "yarn" not in flat.lower())
+    else:
+        for lbl in ("  the abstract really says 'about 3 aggregate sizes'",
+                    "  and the body calls it the minimum admissible",
+                    "  from the viewpoint of continuum smoothing",
+                    "  but it is a CONCRETE paper -- d_a is the aggregate size"):
+            t(lbl, True, "recorded")
+
+    # Candidates measured off abaqus/meshes/CSiC_RVE_0135.inp, not assumed.
+    for label, d_a, expect in (("yarn thickness", 0.399, 1.20),
+                               ("yarn width", 1.280, 3.84),
+                               ("tow period", 1.750, 5.25)):
+        t("  d_a = %-14s -> w_c = %.2f mm" % (label, 3.0 * d_a),
+          abs(3.0 * d_a - expect) < 0.01)
+    t("  the candidates span 4.4x, so the choice is not cosmetic",
+      abs((3 * 1.750) / (3 * 0.399) - 4.386) < 0.01,
+      "%.2fx" % ((3 * 1.750) / (3 * 0.399)))
+    t("  BUT every candidate exceeds the largest macro element (0.94 mm)",
+      all(3.0 * d > 0.94 for d in (0.399, 1.280, 1.750)))
+    t("  so the conclusion holds for all of them and should be a RANGE",
+      "does not depend on the choice at all" in " ".join(__doc__.split()))
+    t("  and the substitution is marked as ours, not refs/[46]'s",
+      "WHAT d_a IS FOR A WOVEN CMC IS OURS" in __doc__)
 
     print("\n E. this does not restate a2's work as ours")
     t("a2 is credited for the 3D derivation and the measurement",

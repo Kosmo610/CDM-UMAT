@@ -74,6 +74,22 @@ contradictory".  Our RVE has exactly that spread -- matrix and yarn damage at
 very different rates -- so the single-interval restriction is not an artefact
 of our simplification; it survives into the adaptive scheme too.
 
+THE TOLERANCE SCALE'S ANCHOR (citation fix, 2026-08-06)
+-------------------------------------------------------
+a2's postprocess/compare_cyclejump.py grades the measured structural jump
+error on a 1 % / 3 % scale and justified the lower bound as "below refs/[03]'s
+own error bars".  refs/[03] has no error bars.  Not one "+/-" appears in the
+paper: it states that five unshocked and three shocked specimens were tested
+per condition and reports averages, and that is all.  A tolerance cannot be
+anchored to scatter that was never published.
+
+The thresholds are still defensible, on refs/[10] Table 1, which publishes
+scatter on the same quantity for the same class of material -- and which we
+already cite for exactly this modulus.  Relative scatter runs 1.40 % (300 K)
+to 4.05 % (1273 K), so 1 % sits below the smallest published error bar and
+3 % below the largest.  Only the citation changed; the numbers a2 chose did
+not, and the choice of thresholds remains theirs.
+
 Run:  python3 data/literature/cycle_jump_provenance.py --check
 """
 from __future__ import print_function
@@ -227,7 +243,47 @@ def check():
     t("and warns against harvesting properties from them",
       "nobody harvests a stiffness or a strength" in __doc__)
 
-    print("\n F. the restriction that survives into the adaptive scheme")
+    print("\n F. the 1 %/3 % scale is anchored to scatter that exists")
+    r03 = os.path.join(ROOT, "refs", "[03] zhang2012 S.pdf")
+    t03 = extract(r03)
+    t("refs/[03] is readable", bool(t03))
+    t("  and it publishes NO scatter at all",
+      bool(t03) and t03.count("±") == 0,
+      "%d '+/-' found" % (t03.count("±") if t03 else -1))
+    t("  it reports averages over 5 unshocked / 3 shocked specimens",
+      bool(t03) and "at least three specimens" in t03
+      and "determined for ﬁve specimens" in t03)
+    t("so 'below refs/[03]'s error bars' was unsupported",
+      "refs/[03] has no error bars" in " ".join(__doc__.split()))
+    # refs/[10] Table 1 does publish it, on the same quantity.
+    R10 = ((300, 128.7, 1.8), (973, 152.3, 4.7),
+           (1273, 172.7, 7.0), (1473, 169.1, 2.6))
+    rel = [100.0 * s / e for _, e, s in R10]
+    t("refs/[10] Table 1 does publish modulus scatter",
+      len(R10) == 4)
+    t("  its smallest relative scatter is 1.40 %",
+      abs(min(rel) - 1.40) < 0.01, "%.2f %%" % min(rel))
+    t("  its largest is 4.05 %", abs(max(rel) - 4.05) < 0.01,
+      "%.2f %%" % max(rel))
+    t("  so 1 % sits below every published error bar", 1.0 < min(rel))
+    t("  and 3 % below the largest", 3.0 < max(rel))
+    cj = os.path.join(ROOT, "postprocess", "compare_cyclejump.py")
+    src = open(cj, encoding="utf-8").read() if os.path.exists(cj) else ""
+    # The old phrase still appears inside the retraction note that explains
+    # it, so test the LIVE scale line rather than the file as a whole.
+    live = [l for l in src.splitlines() if l.strip().startswith("< 1 %")]
+    t("the comparator's live scale no longer cites refs/[03]",
+      len(live) == 1 and "refs/[03]" not in live[0],
+      live[0].strip() if live else "scale line not found")
+    t("  and the retraction is recorded rather than silently edited",
+      "refs/[03]\n publishes NO error bars" in src
+      or "publishes NO error bars" in src)
+    t("  and now names the source that has them",
+      "refs/[10] Table 1 does" in src)
+    t("  while leaving the thresholds themselves unchanged",
+      "1-3 %   acceptable" in src and "> 3 %   too coarse" in src)
+
+    print("\n G. the restriction that survives into the adaptive scheme")
     t("only one global jump length exists even when locals disagree",
       bool(txt) and "no more than one global value of the cycle jump" in txt)
     t("so our single-interval limitation is not purely our simplification",

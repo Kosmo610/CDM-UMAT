@@ -21,9 +21,29 @@ VERDICT SCALE
 The error that matters is on E/E0 at the shared checkpoint, because E(N)
 is the primary cycle-calibration target (T1, refs/[03]).
 
-    < 1 %   negligible -- below refs/[03]'s own error bars
+    < 1 %   negligible -- below every published modulus error bar we hold
     1-3 %   acceptable -- report the number next to every E(N) result
     > 3 %   too coarse -- halve the jump (or implement refs/[58]) and rerun
+
+WHERE THE 1 % ANCHOR COMES FROM (a1, citation fix 2026-08-06)
+-------------------------------------------------------------
+This scale first read "below refs/[03]'s own error bars".  refs/[03]
+publishes NO error bars -- not one "+/-" appears in the paper.  It tests
+five unshocked and three shocked specimens per condition and reports
+averages only, so nothing in it can anchor a tolerance.
+
+The threshold survives on a different source.  refs/[10] Table 1 does
+publish scatter, on the same quantity (tensile modulus) for the same class
+of material:
+
+    300 K   128.7 +/- 1.8 GPa   1.40 %
+    973 K   152.3 +/- 4.7 GPa   3.09 %
+   1273 K   172.7 +/- 7.0 GPa   4.05 %
+   1473 K   169.1 +/- 2.6 GPa   1.54 %
+
+1 % sits below the smallest of these, and 3 % below the largest, so the
+scale is anchored to measured scatter after all -- just not to [03]'s.
+The thresholds themselves are unchanged; only the citation is.
 """
 from __future__ import print_function
 

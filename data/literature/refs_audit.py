@@ -318,13 +318,25 @@ def citations():
 
     A marker written as refs/[nn] is a POINTER TO A FILE, not a citation, and
     the two must not be conflated -- doing so produced a false finding the
-    first time this was run."""
+    first time this was run.
+
+    A reference-list ROW is not a citation either, and conflating THAT
+    silently disabled the orphan check for every key in the table: each row
+    opens with its own marker, so every listed key counted as citing itself
+    and "listed but never cited" could never fire.  It hid [S9] (Chaboche
+    1993), which is listed and cited nowhere.  Rows are skipped here."""
+    # A struck-through row (~~[S9]~~) is still a ROW -- it records a
+    # deleted entry and its reason.  Tolerating the markers keeps that
+    # audit trail without the row reading as a live citation.
+    row = re.compile(r"^\|\s*[~*]{0,4}\[(?:\d{1,2}[a-b]?|[SC]\d{1,2})\]"
+                     r"[~*]{0,4}\s*\|")
     cited, filed = {}, {}
     for fn in sorted(os.listdir(DOCS)):
         if not re.match(r"CH\d_.*\.md$", fn):
             continue
         txt = open(os.path.join(DOCS, fn), encoding="utf-8").read()
-        for m in re.finditer(r"(refs/)?\[(\d{1,2}[a-b]?|[SC]\d{1,2})\]", txt):
+        body = "\n".join(l for l in txt.splitlines() if not row.match(l))
+        for m in re.finditer(r"(refs/)?\[(\d{1,2}[a-b]?|[SC]\d{1,2})\]", body):
             (filed if m.group(1) else cited).setdefault(
                 m.group(2), set()).add(fn[:3])
     txt = open(CH2, encoding="utf-8").read()
@@ -465,8 +477,32 @@ def check():
     for k, who in sorted(MUST_BE_LISTED.items()):
         t("[%s] is listed with real bibliography" % k, norm(k) in ln,
           who[:44])
-    t("no entry is listed but never cited",
-      not [k for k in listed if norm(k) not in {norm(c) for c in cited}])
+    # An entry that no chapter cites splits in two, and the split matters.
+    # If a chapter at least POINTS at the file as refs/[nn], the paper is in
+    # use and simply has not been written into prose yet -- a to-do for the
+    # writing, not a bibliography error.  If nothing references it at all,
+    # it is a dead entry and must be cited or removed before submission.
+    cn = {norm(c) for c in cited}
+    fnm = {norm(f) for f in filed}
+    uncited = [k for k in listed if norm(k) not in cn]
+    dead = sorted(k for k in uncited if norm(k) not in fnm)
+    held = sorted(k for k in uncited if norm(k) in fnm)
+    t("no entry is dead -- listed, and referenced nowhere at all",
+      not dead, ", ".join("[%s]" % k for k in dead) if dead else "")
+    print("       (held but not yet written into prose: %s)"
+          % (", ".join("[%s]" % k for k in held) or "none"))
+    # [S9] was the finding that exposed the hole in this very check.
+    t("[S9] is gone from the reference list",
+      "S9" not in listed,
+      "superseded by refs/[54], the same author's 1995 sequel")
+    t("  and its replacement is both held and cited", "54" in listed)
+    ch2txt = open(CH2, encoding="utf-8").read()
+    t("the [S*] triage is written down, not left as 'could not obtain'",
+      "미확보 `[S*]`의 처리" in ch2txt)
+    for key, verdict in (("S11", "확보 불필요"), ("S12", "확보 권장"),
+                         ("S13", "확보 필요")):
+        t("  [%s] carries a verdict of its own" % key,
+          ("`[%s]`" % key) in ch2txt and verdict in ch2txt, verdict)
 
     print("\n E. the [43] entry is a real reference now, not a description")
     txt = open(CH2, encoding="utf-8").read()
