@@ -201,6 +201,39 @@ def main():
           n_over == 849 and near(100.0 * n_over / n_mat, 5.5, 0.05),
           "%d = %.1f %%" % (n_over, 100.0 * n_over / n_mat))
 
+    # ------------------------------- 4.9-17: kappa x porosity knockdown
+    # a2 reported that turning on the tetrahedron correction kappa = 1.92
+    # together with the porosity-knocked-down matrix card puts 10.6 % of the
+    # matrix outside the snap-back limit.  Their count came from their own
+    # census; this block recomputes it from the mesh we already parsed, so
+    # the chapter's table is independent of their tool.
+    print("\n 4.9-17 kappa x porosity knockdown -- recomputed from the mesh")
+    E_POROUS, KAPPA = 213110.0, 1.92
+    g0p = 310.0 ** 2 / (2.0 * E_POROUS)
+    limp = 0.031 / (1.02 * g0p)
+    check("porosity card raises g0 by 1.64x", near(g0p / g0, 1.6423, 5e-4),
+          "%.4f" % (g0p / g0))
+    check("its snap-back limit is 0.1348 mm", near(limp, 0.1348, 5e-5),
+          "%.4f mm" % limp)
+    check("  and no matrix element exceeds it without kappa",
+          sum(1 for x in cbrt if x >= limp) == 0)
+    limk = limp / KAPPA
+    check("with kappa = 1.92 the limit becomes 0.0702 mm",
+          near(limk, 0.0702, 5e-5), "%.4f mm" % limk)
+    over_k = sum(1 for x in cbrt if x >= limk)
+    check("1624 matrix elements then exceed it", over_k == 1624, "%d" % over_k)
+    check("  which is 10.6 % of the matrix",
+          near(100.0 * over_k / n_mat, 10.6, 0.05),
+          "%d / %d = %.1f %%" % (over_k, n_mat, 100.0 * over_k / n_mat))
+    p90 = cbrt[int(0.90 * len(cbrt))]
+    check("  because the limit lands on the CELENT 90th percentile",
+          near(p90, 0.0705, 5e-4), "p90 = %.4f mm" % p90)
+    check("the Zhang card is unaffected -- 0 elements over 0.1153 mm",
+          sum(1 for x in cbrt if x >= lim / KAPPA) == 0)
+    check("Ch.4 states the 10.6 % exposure", "10.6 %" in ch4)
+    check("  and orders mesh convergence BEFORE kappa",
+          "메시 세분화 이후" in ch4 and "전제조건" in ch4)
+
     # ---------------------------------------- distorted-element fractions
     print("\n 4.3.2 distorted elements (counts from the .dat quality check)")
     check("1185 distorted = 4.5 % of all elements",
