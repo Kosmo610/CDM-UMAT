@@ -9,7 +9,10 @@
 ```
 E:\LTH\
 ├─ extract_tension.py            ← 최신판 1개만. 각 폴더에서 ..\ 로 부름
-├─ make_paper_figures.py         ← 최신판 1개만
+├─ extract_cooling_damage.py     ← 냉각 이력 (논문 Fig.4)
+├─ make_paper_figures.py         ← 인장 그림 (Fig.11/13/15, Table 3)
+├─ make_fig4_cooling.py          ← 냉각 그림 (Fig.4, 여러 실행 겹침)
+├─ make_odb_images.py            ← 상별 컨투어 (Fig.3/5/7, abaqus viewer)
 │
 ├─ Try_1300\                     23 C 계열 (완료)
 │    CSIC_t23_gf.odb                     V2_6 GF1T
