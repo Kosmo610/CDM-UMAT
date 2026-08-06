@@ -295,7 +295,7 @@ $$A = \frac{2 g_0 l_e}{G_f - g_0 l_e}, \qquad g_0 = \frac{X^2}{2E}$$
 
 **적용 시 반드시 확인해야 할 조건이 있다.** 분모가 양이려면
 $l_e < G_f/g_0$ 이어야 하며, 이를 넘는 요소는 스냅백(snap-back)을 일으켜 수렴하지
-않는다. 본 연구의 기지 물성($X_t$ = 310 MPa, $E$ = 350 GPa, $G_f$ = 0.031 N/mm)에서
+않는다. 본 연구의 기지 물성($X_t$ = 310 MPa, $E$ = 350 GPa, $G_f$ = 0.031 N/mm — **Zhang 등[5] Table 2이 다른 논문 셋에서 빌려온 값이며 그들이 시험한 시편의 측정값이 아니다**, 캡션 *"Material properties of the matrix [35–37]"*)에서
 이 한계는 $l_e \approx 0.22$ mm이다. **메시 생성 시 이 값을 상한으로 강제한다.**
 
 ### 2.5.3 단방향(unilateral) 거동 — 균열 닫힘
@@ -598,7 +598,10 @@ C/SiC는 면내와 두께방향의 $k$ 이방성이 크므로, 이 자체가 결
 | Q. Zhang 등[30] (2026) | 2D C/SiC | 반복 기계하중 | 균일 | — | — | **진폭 증가** |
 | Yang 등[20] (2024) | CMC 라미네이트 | 열구배·과도 | **비균일** | — | — | 없음 |
 | S. Zhang 등[15] (2026) | 3D C/SiC | 단조 인장/압축 | 균일 | — | **XRD 실측** | 없음 |
-| Yang & Liu[01] (2020) | 산화물/산화물 CMC, 단일 스케일 | 열충격 후 기계 피로 | — | — | 없음 | 있음 |
+| Yang & Liu[01a] (2020) | 산화물/산화물 CMC, 단일 스케일 | **반복 열충격**(손상은 모듈러스 저하로 정량) | — | — | 없음 | 있음 |
+| Yang & Liu[01b] (2020) | 산화물/산화물 CMC, 단일 스케일 | 열충격 후 기계 피로 | — | — | 없음 | 있음 |
+| **Li 등[60] (2015, Part II)** | **2D 평직 C/SiC, 거시 UMAT** | 단조 인장·압축·전단 | 균일 | — | 없음 | 없음 |
+| Wu 등[64] (2026) | 2.5D 직조 C/SiC, 다중스케일 | 하중–제하 | 균일 | 온도의존 | 없음 | 산화 노출 |
 | **본 연구** | **2D C/SiC, 2-스케일** | **반복 열충격** | **비균일(과도 급랭)** | **온도의존** | **3케이스 비교** | **100회+** |
 
 **가장 위험한 선행연구는 P. Zhang 등[17]이다.** 다중스케일 프레임워크, 반복 열충격,
@@ -618,6 +621,40 @@ C/SiC는 면내와 두께방향의 $k$ 이방성이 크므로, 이 자체가 결
 > 즉 구배가 중요함을 알면서 뺀 것이다. 본 연구가 구배를 푸는 것은 "그들이 몰랐던 것"이
 > 아니라 **"그들이 미룬 것"** 이다. 선행연구를 깎아내리는 서술은 심사에서 역효과이므로,
 > 그렇게 쓰지 않는다.
+
+### 2.8.1-a 균열 닫힘에 관해서는 [60]이 본 연구보다 정교하다
+
+**`refs/[28]`에는 짝이 있다.** 본 연구가 C3의 근거로 인용하는 Li 등[28]은
+*Part I — Experiment and analysis*이고, 같은 저자들의 *Part II — Material model
+and numerical implementation*[60]이 그 실험을 구성모델로 만들어 **UMAT으로 구현**하였다.
+재료도 본 연구와 같은 **2D 평직 C/SiC**이다.
+
+[60]이 균열 닫힘을 다루는 방식은 본 연구보다 정교하다.
+
+> *"the tension and/or shear damage generated in the loading history will be
+> gradually deactivated during compression, and the **biaxial compression
+> stresses yield a faster damage deactivation rate than the uniaxial**
+> compression condition."*
+> *"…damage deactivation behavior during the compression loading is described
+> by a **continuous function**…"*
+
+**이것은 본 연구에 두 방향으로 작용하며, 둘 다 명시한다.**
+
+**첫째, C3를 강화한다.** §1.4의 C3는 *"강성 회복 기구가 이축 압축에서 가속된다"*를
+[28]의 **실험**에만 근거하고 있었다. [60]은 같은 저자들이 그 기구를 **정식화**까지
+하였음을 보인다. 따라서 급가열 반사이클의 표면 응력상태(이축 압축)에서 손상
+비활성화가 빨라진다는 본 연구의 논지는 **실험과 모델 양쪽**에서 받쳐진다.
+
+**둘째, 본 연구의 균열 닫힘 구현이 [60]보다 단순함을 인정해야 한다.**
+본 연구는 $d_{\text{eff}} = d\,(1 - H_{clo})$ 로 **상수 계수 하나**를 쓴다(제3장 §3.4.2).
+[60]은 **연속함수 + 응력상태 의존 속도**를 쓴다. 즉 본 연구는 단축/이축을 구분하지
+않는다. **이는 한계이며 제3장에 그렇게 적는다.** 다만 본 연구의 기여는 균열 닫힘
+정식화 자체가 아니라 **그것이 반복 열충격에서 사이클 수에 대해 어떻게 누적되는가**
+이므로, 이 단순화가 주 주장을 무너뜨리지는 않는다 — [60]은 **단조 하중만** 다룬다.
+
+> **[60]을 본 연구가 대체하지 않는다.** [60]은 우리보다 나은 균열 닫힘 모델을
+> 단조 하중에 대해 제시하였고, 본 연구는 더 단순한 균열 닫힘을 **반복 열충격**으로
+> 가져간다. 두 논문은 겹치지 않으며, 심사에서 물으면 그렇게 답한다.
 
 ### 2.8.2 shakedown에 관한 정확한 서술
 
@@ -766,7 +803,9 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [5] | Q. Zhang, J. Ge, L. Zhang, Y. He, Z. Wu, J. Liang, *Effect of thermal residual stress on the tensile properties and damage process of C/SiC composites at high temperatures*, **Ceram. Int. 48 (2022) 3109–3124** |
 | [5b] | R. Skinner, A. Chattopadhyay, *Multiscale temperature-dependent ceramic matrix composite damage model with thermal residual stresses and manufacturing-induced damage*, **Compos. Struct. 268 (2021) 114006** |
 | [06] | L. L. Snead, T. Nozawa, Y. Katoh, T.-S. Byun, S. Kondo, D. A. Petti, *Handbook of SiC properties for fuel performance modeling*, **J. Nucl. Mater. 371 (2007) 329–377** |
+| [07] | **C. Pradère, C. Sauder**, *Transverse and longitudinal coefficient of thermal expansion of carbon fibers at high temperatures (300–2500 K)*, **Carbon 46 (2008) 1874–1884**, doi:`10.1016/j.carbon.2008.07.035` — 제3·4장 섬유 CTE |
 | [09] | C. Pradère, J.-C. Batsale, J.-M. Goyhénèche, R. Pailler, S. Dilhaire, *Thermal properties of carbon fibers at very high temperature*, **Carbon 47 (2009) 737–743** |
+| [13] | **Y. Katoh, T. Nozawa, L. L. Snead, T. Hinoki, A. Kohyama**, *Property tailorability for advanced CVI silicon carbide composites for fusion*, **Fusion Eng. Des. 81 (2006) 937–944**, doi:`10.1016/j.fusengdes.2005.08.045` — 제4장 $\bar k$ 대조 |
 | [15] | S. Zhang, D. Zhang, J. Zhou, F. Du, K. Guan, Z. Guan, W. J. Cantwell, *Quantification of thermal residual stresses and their effects on the mechanical behavior of 3D C/SiC composites*, **Compos. Part A 207 (2026) 109796** |
 | [17] | P. Zhang, L. Zhu, Y. Tong, Y. Li, Y. Xing, H. Lan, Y. Sun, X. Liang, *Revealing thermal shock behaviors and damage mechanism of 3D needled C/C–SiC composites based on multi-scale analysis*, **J. Mater. Res. Technol. 29 (2024) 2016–2034** |
 | [20] | Z. Yang, J. Wang, R. Yang, J. Jiao, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **Int. J. Solids Struct. 300 (2024) 112927** |
@@ -775,32 +814,52 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [24] | J. Ge, et al., **Compos. Sci. Technol. 157 (2018) 86–98** — 본 연구 구성모델의 원 모델 |
 | [27] | Z. Yang, J. Jiao, J. Wang, W. Huang, Y. Guo, **Compos. Part A 77 (2015) 181** |
 | [30] | Q. Zhang, J. Ge, B. Li, S. Zhao, Z. Liu, J. Liang, *Investigation of mechanical behavior and damage process of 2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. Part B 313 (2026) 113395** |
+| [31] | **W. Shi, C. Zhang, B. Wang, M. Li, C. Zhang**, *Mode I interlaminar fracture toughness of two-dimensional continuous fiber reinforced ceramic matrix composites using wedge-loaded double cantilever beam method*, **Compos. Part A 168 (2023) 107466**, doi:`10.1016/j.compositesa.2023.107466` — 제4장 얀 $G_{tt}$ 출처 |
 | [33] | Z. Yang, J. Jiao, Y. Guo, *(D-criterion 원전)*, **Theor. Appl. Mech. Lett. 4 (2014) 021007** |
 | [35] | H. Yan, C. Zhang, Y. Qiao, X. Li, D. Han, *(고온 면내 전단)*, **Mater. Des. 32 (2011) 3504** |
-| [01] | Z. Yang, X. Liu, *A continuum fatigue damage model for the cyclic thermal shocked CMC*, **Int. J. Fatigue 134 (2020) 105507**; 및 *A CDM model for 2-D woven oxide/oxide CMC under cyclic thermal shocks*, **Ceram. Int. 46 (2020) 6029–6037** |
-| **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: Part I — Experiment and analysis*, **Chin. J. Aeronaut. 27(6) (2014) 1586–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
-| **[43]** | **H. Mei** 등, 반복 열싸이클 하 C/SiC (아르곤 분위기), **`refs/[43]`** — §2.5.4의 산화 대조군 |
+| [01a] | Z. Yang, X. Liu, *A continuum damage mechanics model for 2-D woven oxide/oxide CMC under cyclic thermal shocks*, **Ceram. Int. 46 (2020) 6029–6037** — 한 번호에 논문 두 편이 있던 것을 분리(`refs/README.md`). 파일은 `refs/[01] A continuum damage mechanics model...` |
+| [01b] | Z. Yang, X. Liu, *A continuum fatigue damage model for the cyclic thermal shocked CMC*, **Int. J. Fatigue 134 (2020) 105507** — 파일은 `refs/[01] yang2020 S.pdf` |
+| **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: **Part I** — Experiment and analysis*  ⚠️ **Part II는 `[60]`**, **Chin. J. Aeronaut. 27(6) (2014) 1586–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
+| **[58]** | **D. Cojocaru, A. M. Karlsson**, *A simple numerical method of cycle jumps for cyclically loaded structures*, **Int. J. Fatigue 28 (2006) 1677–1689**, doi:`10.1016/j.ijfatigue.2006.01.010` — **적응형** cycle jump(점프 폭 자동 제어) |
+| **[59]** | **G. Camus, L. Guillaumat, S. Baste**, *Development of damage in a 2D woven C/SiC composite under mechanical loading: I. Mechanical characterisation*, **Compos. Sci. Technol. 56 (1996) 1363–1372** — 열잔류응력이 응력–변형률 원점을 압축 영역으로 미는 것과 압축 시 제조 열균열 닫힘을 **실측** |
+| **[60]** | **J. Li, G. Q. Jiao, B. Wang 등**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: **Part II** — Material model and numerical implementation*, **Chin. J. Aeronaut. 28(1) (2015) 314–326**, doi:`10.1016/j.cja.2014.10.027` — **`[28]`(Part I)의 모델링 짝.** 손상 비활성화를 연속함수로 두고 **이축 압축이 단축보다 빠름**을 정식화 |
+| **[61]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, J. Zhang**, *Behavior of 2D C/SiC composites subjected to thermal cycling in controlled environments*, **Carbon 44 (2006) 121–127**, doi:`10.1016/j.carbon.2005.07.003` — 700↔1200 °C 사이클, 물성표(밀도 2.0 · $E$ 70 GPa · 강도 248 MPa · 공극률 13 % · CTE 4점) |
+| **[62]** | **S. Baste**, *Inelastic behaviour of ceramic-matrix composites*, **Compos. Sci. Technol. 61 (2001) 2285–2297** — 초음파로 이방성 손상을 모드별로 분리 |
+| **[63]** | **H. Mei, L. Cheng, L. Zhang, Y. Xu**, *Modeling the effects of thermal and mechanical load cycling on a C/SiC composite in oxygen/argon mixtures*, **Carbon 45 (2007) 2195–2204**, doi:`10.1016/j.carbon.2007.06.051` — 변형률을 열·기계·**기저(손상)** 로 분해. ⚠️ Zhang [5]가 기지 카드의 출처로 든 세 편(그 논문 참고문헌 36번) 중 하나이기도 함 |
+| **[64]** | **T. Wu, Y. Wang, W. Qi, X. Luo, P. Luo, X. Gao, Y. Song**, *Predictive constitutive modelling of oxidation-induced degradation in 2.5D woven C/SiC composites*, **Materials 19(2) (2026) 307**, doi:`10.3390/ma19020307` — 최신 경쟁 논문. **2.5D · 산화 구동 · 하중–제하**이므로 본 연구(2D · 열충격 · 정진폭)와 겹치지 않음 |
+| **[65]** | **Y. Wei, J. Lan, Y. Yu, L. Huang, D. Ye, Z. Fu**, *Properties evolution and damage mechanism of SiC/SiC composites after thermal shock at 1300 °C*, **Ceram. Int. 50 (2024) 34442–34451**, doi:`10.1016/j.ceramint.2024.06.263` — ⚠️ SiC/SiC(섬유가 다름) |
+| **[66]** | **M. H. Hamza, J. J. Schichtel, A. Chattopadhyay**, *Multiphysics model of thermomechanical oxidative degradation in SiC/SiC ceramic matrix composite microstructures*, **J. Eur. Ceram. Soc. 45 (2025) 117335**, doi:`10.1016/j.jeurceramsoc.2025.117335` — **`[5b]`와 같은 그룹의 후속작** |
+| **[67]** | **H. Mei, L. F. Cheng**, *Strain response of C/SiC composite to thermal and mechanical load cycling in oxidising atmosphere*, **Mater. Sci. Technol. (2008)**, doi:`10.1179/174367608X263296` — 열(1173–1473 K)+기계(60±20 MPa) 동시 사이클. 기저변형률 0.354→0.670 % |
+| **[68]** | **H. Mei, L. Cheng, L. Zhang**, *Thermal cycling damage mechanisms of C/SiC composites in displacement constraint and oxidizing atmosphere*, **J. Am. Ceram. Soc. 89(7) (2006) 2330–2334**, doi:`10.1111/j.1551-2916.2006.01012.x` — **변위 구속** 하 열사이클 |
+| **[69]** | **J. Shen, M. R. T. Arruda**, *State of art in regularization methods for numerical analysis of structures with softening*, **Int. J. Damage Mech. (2026)**, doi:`10.1177/10567895251329946` — ★ **특성요소길이의 published 공식**: 사면체 $h_e=(12V_e)^{1/3}$, 삼각형 $h_e=\sqrt{2A_e}$ (식 23, Kurumatani 2016) |
+| **[70]** | *Smooth Lagrangian crack band model (slCBM)*, **Int. J. Non-Linear Mech. 186 (2026) 105340**, doi:`10.1016/j.ijnonlinmec.2026.105340` — 고전 균열대의 메시 편향을 FPZ 세분화로 푸는 최신 대안 |
+| **[71]** | *In situ characterization of residual stress evolution during heat treatment* (SiC/SiC MI CMC, 방사광 XRD), **J. Am. Ceram. Soc. (2020)**, doi:`10.1111/jace.17493` — Si 상 ≈300 MPa 압축 |
+| **[72]** | *Measuring the effects of heat treatment on SiC/SiC ceramic matrix composite residual stresses* (Raman), **J. Am. Ceram. Soc. (2019)**, doi:`10.1111/jace.16724` — 900–1300 °C 노출 **전·중·후** TRS 변화 |
+| **[51]** | **Z. Hashin, A. Rotem**, *A fatigue failure criterion for fiber reinforced materials*, **J. Compos. Mater. 7(4) (1973) 448–464**, doi:`10.1177/002199837300700404` — 사이클 손상 법칙의 고전 기준 |
+| **[54]** | **J.-L. Chaboche, P.-M. Lesne, J.-F. Maire**, *Continuum damage mechanics, anisotropy and damage deactivation for brittle materials like concrete and ceramic composites*, **Int. J. Damage Mech. 4(1) (1995) 5–22**, doi:`10.1177/105678959500400102` — 균열 닫힘(damage deactivation)을 **CMC에 적용한** 편. 스캔본을 **OCR로 전문 판독**(2026-08-06, 18면): ① 닫힘 시 **부호가 바뀐 수직 변형률의 대각 강성항만** 수정해야 연속성이 보장된다(식 16) — 본 연구가 전단 손상을 회복시키지 않는 선택의 원전. ② 닫힘 가중계수 **η ∈ [0,1] 전 범위**가 출판된 형태 — `HCLO` 슬롯의 직접 근거. ③ 닫힘점은 0이 아니라 **C/SiC에서 관측되는 잔류변형률**에 묶인다 — 본 연구는 $\varepsilon_n=0$에서 닫으며 이는 기록된 한계. C/SiC 인장-압축 실측 재현 포함 |
+| **[47]** | **M. Jirásek, M. Bauer**, *Numerical aspects of the crack band approach*, **Comput. Struct. 110–111 (2012) 60–78**, doi:`10.1016/j.compstruc.2012.06.006` — ⚠️ **요소 체적의 세제곱근으로 균열대 폭을 잡는 방식(Abaqus `CELENT`)이 파괴에너지를 50 % 이상 어긋나게 할 수 있다**고 명시. 제4장 §4.9 균열대 정규화의 한계 근거 |
+| **[43]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, P. Fang, J. Zhang**, *Thermal shock behavior of two-dimensional C/SiC composites in controlled atmospheres*, **J. Mater. Sci. 40 (2005) 4261–4265** — §2.5.4의 산화 대조군. 초록이 아르곤 50회 후 **98.90 %** 유지를 명시한다 |
 
 **기법 원전 — 본 논문이 이름으로 부르는 문헌 (전 장 공통 `[S*]` 목록).**
-아래는 보유 45편에 포함되어 있지 않아 **확보 대상**이며, 제3·4·5장의 `[S*]` 표기도
+제3·4·5장의 `[S*]` 표기가 가리키는 기법 원전 목록이다. **2026-08-06에 `[S1]`~`[S8]`·`[S10]` 원문 9편을 확보하였다**(각 행에 `refs/` 번호 표시). 나머지는 아직 확보 대상이며, 이 표는
 이 표를 가리킨다. 서지는 Crossref로 대조·확정하였다
 (`data/literature/refs_candidates.csv`, `verification/verify_bibliography.ps1`).
 
-| 키 | 서지 | DOI |
-|---|---|---|
-| [S1] | Z. P. Bažant, B. H. Oh, *Crack band theory for fracture of concrete*, **Mater. Struct. 16(93) (1983) 155–177** | `10.1007/BF02486267` |
-| [S2] | Z. Hashin, *Failure criteria for unidirectional fiber composites*, **J. Appl. Mech. 47(2) (1980) 329–334** | `10.1115/1.3153664` |
-| [S3] | S. W. Tsai, E. M. Wu, *A general theory of strength for anisotropic materials*, **J. Compos. Mater. 5(1) (1971) 58–80** | `10.1177/002199837100500106` |
-| [S4] | K.-S. Liu, S. W. Tsai, *A progressive quadratic failure criterion for a laminate*, **Compos. Sci. Technol. 58(7) (1998) 1023–1032** | `10.1016/S0266-3538(96)00141-8` |
-| [S5] | A. Matzenmiller, J. Lubliner, R. L. Taylor, *A constitutive model for anisotropic damage in fiber-composites*, **Mech. Mater. 20(2) (1995) 125–152** | `10.1016/0167-6636(94)00053-0` |
-| **[S6]** | **C. C. Chamis**, *Simplified Composite Micromechanics Equations for Hygral, Thermal and Mechanical Properties*, **NASA TM-83320 (1983)** — NTRS 19830011546, 무료 전문. 병기: *SAMPE Quarterly* **15**(3) (1984) 14–23 | 없음(NTRS ID) |
-| **[S7]** | **R. A. Schapery**, *Thermal expansion coefficients of composite materials based on energy principles*, **J. Compos. Mater. 2(3) (1968) 380–404** | `10.1177/002199836800200308` |
-| [S8] | W. Van Paepegem, J. Degrieck, P. De Baets, *Finite element approach for modelling fatigue damage in fibre-reinforced composite materials*, **Compos. Part B 32(7) (2001) 575–588** — cycle jump | `10.1016/S1359-8368(01)00038-5` |
-| [S9] | J.-L. Chaboche, *Development of continuum damage mechanics for elastic solids sustaining anisotropic and unilateral damage*, **Int. J. Damage Mech. 2(4) (1993) 311–329** | `10.1177/105678959300200401` |
-| [S10] | J.-L. Chaboche, *Damage induced anisotropy: on the difficulties associated with the active/passive unilateral condition*, **Int. J. Damage Mech. 1(2) (1992) 148–171** | `10.1177/105678959200100201` |
-| **[S11]** | **W. D. Kingery**, *Factors affecting thermal stress resistance of ceramic materials*, **J. Am. Ceram. Soc. 38(1) (1955) 3–15** | `10.1111/j.1151-2916.1955.tb14545.x` |
-| **[S12]** | **D. P. H. Hasselman**, *Elastic energy at fracture and surface energy as design criteria for thermal shock*, **J. Am. Ceram. Soc. 46(11) (1963) 535–540** | `10.1111/j.1151-2916.1963.tb14605.x` |
-| **[S13]** | **D. P. H. Hasselman**, *Unified theory of thermal shock fracture initiation and crack propagation in brittle ceramics*, **J. Am. Ceram. Soc. 52(11) (1969) 600–604** | `10.1111/j.1151-2916.1969.tb15848.x` |
+| 키 | 서지 | DOI | 원문 |
+|---|---|---|---|
+| [S1] | Z. P. Bažant, B. H. Oh, *Crack band theory for fracture of concrete*, **Mater. Struct. 16(93) (1983) 155–177** | `10.1007/BF02486267` | **보유 `refs/[46]`** |
+| [S2] | Z. Hashin, *Failure criteria for unidirectional fiber composites*, **J. Appl. Mech. 47(2) (1980) 329–334** | `10.1115/1.3153664` | **보유 `refs/[49]`** |
+| [S3] | S. W. Tsai, E. M. Wu, *A general theory of strength for anisotropic materials*, **J. Compos. Mater. 5(1) (1971) 58–80** | `10.1177/002199837100500106` | **보유 `refs/[50]`** |
+| [S4] | K.-S. Liu, S. W. Tsai, *A progressive quadratic failure criterion for a laminate*, **Compos. Sci. Technol. 58(7) (1998) 1023–1032** | `10.1016/S0266-3538(96)00141-8` | **보유 `refs/[48]`** |
+| [S5] | A. Matzenmiller, J. Lubliner, R. L. Taylor, *A constitutive model for anisotropic damage in fiber-composites*, **Mech. Mater. 20(2) (1995) 125–152** | `10.1016/0167-6636(94)00053-0` | | **보유 `refs/[52]`** |
+| **[S6]** | **C. C. Chamis**, *Simplified Composite Micromechanics Equations for Hygral, Thermal and Mechanical Properties*, **NASA TM-83320 (1983)** — NTRS 19830011546, 무료 전문. 병기: *SAMPE Quarterly* **15**(3) (1984) 14–23 | 없음(NTRS ID) | | **보유 `refs/[55]`** |
+| **[S7]** | **R. A. Schapery**, *Thermal expansion coefficients of composite materials based on energy principles*, **J. Compos. Mater. 2(3) (1968) 380–404** | `10.1177/002199836800200308` | | **보유 `refs/[56]`** |
+| [S8] | W. Van Paepegem, J. Degrieck, P. De Baets, *Finite element approach for modelling fatigue damage in fibre-reinforced composite materials*, **Compos. Part B 32(7) (2001) 575–588** — cycle jump | `10.1016/S1359-8368(01)00038-5` | | **보유 `refs/[57]`** |
+| [S9] | J.-L. Chaboche, *Development of continuum damage mechanics for elastic solids sustaining anisotropic and unilateral damage*, **Int. J. Damage Mech. 2(4) (1993) 311–329** | `10.1177/105678959300200401` | |
+| [S10] | J.-L. Chaboche, *Damage induced anisotropy: on the difficulties associated with the active/passive unilateral condition*, **Int. J. Damage Mech. 1(2) (1992) 148–171** | `10.1177/105678959200100201` | | **보유 `refs/[53]`** |
+| **[S11]** | **W. D. Kingery**, *Factors affecting thermal stress resistance of ceramic materials*, **J. Am. Ceram. Soc. 38(1) (1955) 3–15** | `10.1111/j.1151-2916.1955.tb14545.x` | |
+| **[S12]** | **D. P. H. Hasselman**, *Elastic energy at fracture and surface energy as design criteria for thermal shock*, **J. Am. Ceram. Soc. 46(11) (1963) 535–540** | `10.1111/j.1151-2916.1963.tb14605.x` | |
+| **[S13]** | **D. P. H. Hasselman**, *Unified theory of thermal shock fracture initiation and crack propagation in brittle ceramics*, **J. Am. Ceram. Soc. 52(11) (1969) 600–604** | `10.1111/j.1151-2916.1969.tb15848.x` | |
 
 **스케일 간 메시 객관성 — 제4장 §4.6.1이 부르는 문헌 (`[C*]`).** 제4장은 **연화까지
 포함한** 거시 카드를 RVE에서 뽑는다. "연화가 시작되면 RVE가 정의되지 않을 수 있다"는
@@ -820,7 +879,7 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 
 > **⚠️ 서지 확정 전 반드시 할 일.**
 > **저자 성(姓)의 순서, 학술지명, 권·연도·페이지는 `refs/README.md`에서 확인된 것**이나,
-> **이름의 이니셜은 상당수가 추정**이다([2], [5], [5b], [27], [33], [35], [01]).
+> **이름의 이니셜은 상당수가 추정**이다([2], [5], [5b], [27], [33], [35], [01a], [01b]).
 > 또 [22]와 [23]은 제목이 축약형으로만 기록되어 있다.
 > **제출 전에 `refs/`의 각 PDF 첫 페이지에서 저자 전체 이름과 정확한 제목을 확인하고
 > 확정할 것.** 이니셜 오류는 심사에서 즉시 지적되는 종류의 실수이다.

@@ -83,7 +83,71 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 | **17** | **P. Zhang, Zhu, Tong 외**, *Revealing thermal shock behaviors and damage mechanism of 3D needled C/C–SiC composites based on multi-scale analysis*, **JMRT 29 (2024) 2016–2034** | ⚠️ **가장 위험한 선행연구.** 다중스케일+반복 열충격을 이미 함. 단 (a) **균일 온도장**으로 단순화 명시, (b) **온도무관 물성** 가정, (c) TRS 처리 1가지 → **이 셋이 우리 자리** |
 | **15** | **S. Zhang, D. Zhang, J. Zhou 외**, *Quantification of thermal residual stresses and their effects on the mechanical behavior of 3D C/SiC composites*, **Compos. A 207 (2026) 109796** | ★ **XRD 실측 TRS**: 매트릭스 +114.7/+40.3 MPa, 얀 −68.7/−23.9 MPa. "TRS는 매트릭스 균열이 생겨야 강성에 영향" + **인장/압축 비대칭** → 새 노벨티 C3의 근거 |
 | **30** | **Q. Zhang, J. Ge, Liang 외**, *…2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. B 313 (2026) 113395** | **우리 기반 논문과 같은 그룹의 2026 후속작.** 단 **진폭 증가** 기계 반복이라 shakedown이 안 생김 → 우리 문제와 다름을 명시할 근거 |
-| **20**=**21** | **Z. Yang, J. Wang, R. Yang, J. Jiao**, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **IJSS 300 (2024) 112927** | 급랭 문제에 가장 가까움. 단 **ERR 기반 균열 개시**(누적손상 아님) + 라미네이트 1D |
+| **20** | **Z. Yang, J. Wang, R. Yang, J. Jiao**, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **IJSS 300 (2024) 112927** | 급랭 문제에 가장 가까움. 단 **ERR 기반 균열 개시**(누적손상 아님) + 라미네이트 1D |
+
+> **⚠️ 폐번 2개 — PDF 45편이 곧 논문 45편이다 (2026-08-05 정리).**
+> 같은 논문이 두 번 들어와 있던 것을 통합했다. **통합 후 중복은 없다.**
+>
+> | 폐번 | 통합처 | 논문 |
+> |---|---|---|
+> | `[21]` | **`[20]`** | Yang, Wang, Yang, Jiao, IJSS **300** (2024) 112927 |
+> | `[39]` | **`[32]`** | Jain & Koch, J. Compos. Sci. **4**(4) (2020) 183 |
+>
+> **폐번 21·39는 다시 쓰지 않는다.** 새 논문은 46번부터 매긴다.
+> `[39]`쪽이 특히 위험했다 — `docs/REFS_36_45_ASSESSMENT.md`가 이것을
+> '지금까지 원문 없이 인용하던 D-기준 1차 출처를 새로 확보' 라고 적고
+> 있었는데, 원문은 처음부터 `[32]`로 있었다. 그 서술은 정정했다.
+> 판정기: `python3 data/literature/refs_audit.py --check`
+
+> **⚠️ 고분자 기지 논문 7편이 섞여 있다 — 카드값 출처로 쓰면 안 된다.**
+> `[24]`(탄소/페놀), `[25]`(탄소/에폭시), `[26]`(에폭시), `[37]`·`[38]`·`[40]`·`[41]`(에폭시).
+> 이 중 `[25]`·`[26]`은 파일명이 '3D C-SiC 물성'이라 특히 위험하다.
+> **기법(균질화·주기경계조건) 인용은 정당하고, 물성 인용만 금지**된다.
+> 실제로 `[24]`에서 얀 $G_{1t}$·$G_{1c}$와 횡방향 강도가 넘어온 적이 있다.
+
+### ★ 3차 입고분 `[46]`–`[56]` (2026-08-06) — 기법 원전 8편 + 신규 3편
+
+| # | 서지 | 위치 |
+|---|---|---|
+| **46** | **Bažant & Oh**, *Crack band theory for fracture of concrete*, **Mater. Struct. 16(93) (1983) 155–177** | **`[S1]` 원문** — 균열대 이론 원전. $w_c \approx 3d_a$ 를 *"about the minimum admissible from the viewpoint of continuum smoothing"* 로 규정 |
+| **47** | **Jirásek & Bauer**, *Numerical aspects of the crack band approach*, **Comput. Struct. 110–111 (2012) 60–78**, doi:`10.1016/j.compstruc.2012.06.006` | ⚠️ **목록에 없던 신규.** 우리 구현에 직접 걸린다 — 아래 참조 |
+| **48** | **Liu & Tsai**, *A progressive quadratic failure criterion for a laminate*, **CST 58 (1998) 1023–1032** | **`[S4]` 원문** — 강도비 $R$(하중 배수 정규화)의 출처 |
+| **49** | **Hashin**, *Failure criteria for unidirectional fiber composites*, **J. Appl. Mech. 47(2) (1980) 329–334** | **`[S2]` 원문** — 우리 UMAT 파손기준 원전 |
+| **50** | **Tsai & Wu**, *A general theory of strength for anisotropic materials*, **JCM 5(1) (1971) 58–80** | **`[S3]` 원문** — 상호작용항 제약 $F_{12}^2 \le F_{11}F_{22}$ 로 파손면이 쌍곡면이 되는 것을 막는다 |
+
+> **⚠️ `[47]`이 우리 균열대 구현을 직접 건드린다.**
+> 우리 UMAT 은 `CELENT`(Abaqus 가 주는 요소 특성길이)를 $l_e$ 로 그대로 쓴다.
+> `[47]`은 그 방식을 이렇게 평가한다 — *"the cubic root of the element volume
+> (for three-dimensional elements). This rule, implemented in many commercial
+> finite element packages, is easy to apply but it can induce a large error for
+> elongated elements, and even for square or cube elements if the crack band is
+> not aligned with the mesh."* 오차 크기는 *"comparable to a misprediction of
+> the fracture energy by 50 % or even more"*.
+> 권고는 **주변형률 주축에 요소를 투영**해 폭을 잡되 **요소 중심(또는 평균)에서**
+> 주변형률을 평가하는 것이다. 반대로 **1차(선형) 요소를 쓰라**는 권고는 우리 C3D4
+> 선택을 뒷받침한다 — *"higher-order elements are not suitable for crack band
+> simulations, and the simplest (multi)linear elements should be preferred."*
+> 우리 RVE 는 26 452개 중 **1 185개가 뒤틀린 요소**이므로 이 오차가 가장 커지는
+> 조건에 해당한다. 판정은 코드 쪽(a2) 영역이라 `a1-0013`으로 넘겼다.
+
+> **2차 업로드 `[51]`–`[56]`.** 파일명의 S번호는 `docs/DOWNLOAD_LIST.md`
+> S등급 표와 정확히 일치한다.
+>
+> | # | 서지 | 위치 |
+> |---|---|---|
+> | **51** | **Hashin & Rotem**, *A fatigue failure criterion for fiber reinforced materials*, **JCM 7(4) (1973) 448–464** | 목록의 S24. **사이클 손상 법칙의 고전 기준** |
+> | **52** | **Matzenmiller, Lubliner, Taylor**, **Mech. Mater. 20 (1995) 125–152** | **`[S5]` 원문** — 우리 손상 정식화의 계보 |
+> | **53** | **Chaboche**, *Damage induced anisotropy…*, **IJDM 1(2) (1992) 148–171** | **`[S10]` 원문** — 균열 닫힘의 능동/수동 조건 |
+> | **54** | **Chaboche, Lesne, Maire**, **IJDM 4(1) (1995) 5–22** | 목록의 S20. 균열 닫힘을 **CMC에 적용**한 편. ⚠️ **스캔본 — 텍스트 추출 불가(1.3 kB)** |
+> | **55** | **Chamis**, **NASA TM-83320 (1983)** | **`[S6]` 원문** — 얀 물성 유도의 출처. 아래 참조 |
+> | **56** | **Schapery**, **JCM 2(3) (1968) 380–404** | **`[S7]` 원문** — 얀 CTE 유도의 출처 |
+>
+> **`[55]` Chamis 로 우리 마이크로역학 *식 자체*를 처음 검증했다.**
+> 식은 그림 이미지라 추출되지 않지만 저자의 **Example 8.1** 은 텍스트로 남아 있다:
+> $k_f$=0.60, $E_m$=0.272e6 psi, $E_{f22}$=2.0e6 psi → $E_{122}$=0.822e6 psi.
+> 우리 횡방향 식 $E_{22}=E_m/[1-\sqrt{k_f}(1-E_m/E_{f22})]$ 은 **0.8224** 를 준다
+> (**0.046 % 차이**). 지금까지 `micromech_check.py` 는 카드를 *우리 구현*과
+> 대조했을 뿐인데, 이제 **구현을 Chamis 원문과** 대조한 것이다.
 
 **파손기준 세트** (`[27]`,`[32]`,`[33]`,`[34]`,`[35]`,`[28]`) — D-criterion 계열.
 `[33]` Yang, Jiao, Guo, *TAML* 4 (2014) 021007이 원전. `[35]` Yan 외, *Mater. Des.* 32 (2011)
