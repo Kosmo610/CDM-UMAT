@@ -54,20 +54,20 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `card_gap_triage.py --check` | GUESS 14개의 knob/도출/공백 분류와 얀 물성 독립대조 | 69 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
-| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 + 고아 분류 + [S13] 미보유 검증 | 117 |
+| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 + 고아 분류 + [S12]·[S13] 미보유 검증 | 124 |
 | `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 | 30 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도·정의 취약성·선형구간 비 | 43 |
 | `cte_composite_targets.py --check` | refs/[61]의 복합재 CTE 4점과 그 한계 | 32 |
 | `modulus_definition.py --check` | 대조 모듈러스 — 한 곡선이 3.13배를 걸친다 | 25 |
 | `crack_band_simplex.py --check` | refs/[47]의 2D $\sqrt2$와 a2의 3D $6^{1/3}$ 대조 + refs/[69] published 공식 + 부등부피 일반형 + refs/[46] w_c 대입 | 51 |
-| `thermal_cycling_dataset.py --check` | 반복 열충격 전 데이터·심각도 역설·임계온도 공백 | 31 |
+| `thermal_cycling_dataset.py --check` | 반복 열충격 전 데이터·심각도 역설·임계온도 공백 + [68] 전문 정정·논문 수 | 51 |
 | `cycle_jump_provenance.py --check` | cycle jump 기준의 출처 — refs/[57] 손상증분 대 refs/[58] 변화율 + 1 %/3 % 앵커 | 40 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
 | `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부) | 131 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
-| `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 | 27 |
+| `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 (T5 정정 포함) | 34 |
 | `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출 포함) | 63 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 199 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
@@ -79,7 +79,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종·산포·선형분율 | 30 |
 | `extract_probe.py --selftest` | E(N) 프로브 판독 산식 (cycle-jump 선행검증의 소비자) | 5 |
 | `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 (1 %/3 % 문턱) | 5 |
-| **합계** | | **2085** |
+| **합계** | | **2119** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

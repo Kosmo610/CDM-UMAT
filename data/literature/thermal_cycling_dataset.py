@@ -28,9 +28,12 @@ Every row read from the paper itself, not from our own notes.
   [61] Mei   2D C/SiC             700 <-> 1200 wet O2      >100    86.69 %
   [65] Wei   2D SiC/SiC          1300           air     10/20/30  94.6/89.9/88.0 %
   [65] Wei   2.5D SiC/SiC        1300           air     10/20/30  91.6/88.3/86.3 %
-  [68] Mei   3D C/SiC, CONSTRAINED 900 <-> 1200 wet O2      50    damage strain
-                                                                  0.06 %; constraint
-                                                                  stress 62.5 -> -14 MPa
+  [68] Mei   3D C/SiC, CONSTRAINED 900 <-> 1200 wet O2      50    86.5 % strength,
+                                                                  88.9 % modulus;
+                                                                  saw-tooth range
+                                                                  62.5 MPa, mean
+                                                                  0 -> -14 MPa;
+                                                                  damage strain 0.06 %
 
 THE SEVERITY PARADOX -- the strongest single argument we have
 -------------------------------------------------------------
@@ -143,12 +146,54 @@ DATA = [
     ("[65]", "2.5D SiC/SiC", 25, 1300, "air", 10, 91.6, "bending strength"),
     ("[65]", "2.5D SiC/SiC", 25, 1300, "air", 20, 88.3, "bending strength"),
     ("[65]", "2.5D SiC/SiC", 25, 1300, "air", 30, 86.3, "bending strength"),
+    ("[68]", "3D C/SiC (constrained)", 900, 1200, "wet O2", 50, 86.5,
+     "tensile strength"),
+    ("[68]", "3D C/SiC (constrained)", 900, 1200, "wet O2", 50, 88.9,
+     "tensile modulus"),
 ]
 
-# refs/[68], the constrained test -- not a retained-strength row
-R68 = dict(material="3D C/SiC, both ends fixed", T=(900, 1200), atm="wet O2",
-           N=50, constraint_start=62.5, constraint_end=-14.0,
-           damage_strain=0.06, porosity=18.0)
+# refs/[68], the constrained test.  CORRECTED 2026-08-06 from the full text.
+#
+# The first version of this dict was written from the abstract alone and
+# recorded "constraint stress 62.5 -> -14 MPa" -- a starting stress decaying
+# through zero.  The body says otherwise, and the difference changes what a
+# simulation must reproduce:
+#
+#   * 62.5 MPa is the SAW-TOOTH RANGE (peak-to-valley of the stress wave
+#     inside one cycle), nearly constant over all 50 cycles, and their own
+#     eq. (2) sigma = E*alpha*dT = 54 GPa * 4.0298e-6 * 300 C = 65.283 MPa
+#     reproduces it.  It is an ELASTIC quantity, not a damage history.
+#   * The example cycle runs +21 MPa (tensile, at 900 C after cooling) to
+#     -46 MPa (compressive, at 1200 C after heating).
+#   * What drifts is the MEAN of the wave: "down from the initial 0 to the
+#     final constant negative value of 14 MPa" -- driven by the 0.06 %
+#     irreversible elongation of the constrained specimen.
+#   * Damage saturates: D_E rises to ~0.1 within the first 25 cycles and is
+#     steady past Nc = 25.  After 50 cycles the composite retains 86.5 % of
+#     strength and 88.9 % of modulus (now rows in DATA above).
+#
+# Deck-relevant geometry and protocol, from their Figs. 2-4 and section II:
+# dog-bone 185 mm long, ONLY the middle 40 x 3 x 3 mm gauge sits in the hot
+# zone; ends in water-cooled wedged steel holders (4 bolts), crosshead held
+# at constant position.  Cycle period 120 s.  NOTE the stated timing does not
+# close: heat 60 s + hold 30 s at 1200 + cool ~30 s ("only 30 s", their
+# sec. III(3)) + "holding for 30 s at T1" = 150 s > 120 s.  A deck should use
+# 60/30/30 with no low hold and carry this discrepancy as a note, not
+# silently pick one.
+R68 = dict(
+    material="3D C/SiC, both ends fixed (displacement constraint)",
+    T=(900, 1200), atm="wet O2 (7.90% O2 / 14.85% H2O / 77.25% Ar)",
+    N=50, period_s=120, heat_s=60, hold_hot_s=30, cool_s=30,
+    gauge_mm=(40.0, 3.0, 3.0), total_len_mm=185.0,
+    range_mpa=62.5, range_theory_mpa=65.283,
+    peak_mpa=21.0, valley_mpa=-46.0,
+    mean_start_mpa=0.0, mean_end_mpa=-14.0,
+    damage_strain=0.06, Nc=25, DE_sat=0.1,
+    E0_gpa=54.0, strength_mpa=164.0, nu=0.47, rho=2.0,
+    porosity_asreceived=11.0, porosity_before_coating=18.0,
+    cte=(3.6415, 3.7766, 4.3293, 4.3719),   # 900/1000/1100/1200 C, e-6/C
+    retention_strength=86.5, retention_modulus=88.9,
+)
 
 # refs/[65] bending strengths in MPa, for the decrement test
 WEI_2D = (526.0, 498.0, 473.0, 463.0)
@@ -164,6 +209,19 @@ QUOTES = [
      "the residual flexural strength is still 83% of the original value"),
     ("[68]", "[68]",
      "maximum damage strain of 0.06% within 50 cycles"),
+    # the corrected reading's load-bearing sentences, verbatim
+    ("[68]", "[68]",
+     "the mean value was about 62.5 MPa"),
+    ("[68]", "[68]",
+     "down from the initial 0 to the"),
+    ("[68]", "[68]",
+     "constant negative value of 14 MPa in average"),
+    ("[68]", "[68]",
+     "should approximate to 65.283 MPa"),
+    ("[68]", "[68]",
+     "about 86.5% and 88.9% of the initial properties"),
+    ("[68]", "[68]",
+     "a steady state in which the damage tends toward a constant value"),
 ]
 
 
@@ -198,9 +256,10 @@ def report():
     print("\n   [68] %s, %d<->%d C, %s, N=%d:" % (R68["material"], R68["T"][0],
                                                   R68["T"][1], R68["atm"],
                                                   R68["N"]))
-    print("        constraint stress %.1f -> %.1f MPa, damage strain %.2f %%"
-          % (R68["constraint_start"], R68["constraint_end"],
-             R68["damage_strain"]))
+    print("        saw-tooth range %.1f MPa (theory %.3f), mean %.0f -> %.0f "
+          "MPa, damage strain %.2f %%, Nc=%d"
+          % (R68["range_mpa"], R68["range_theory_mpa"], R68["mean_start_mpa"],
+             R68["mean_end_mpa"], R68["damage_strain"], R68["Nc"]))
 
     print("\n 2. the severity paradox")
     yin = [d for d in DATA if d[0] == "[02]"][0]
@@ -292,17 +351,71 @@ def check():
       max(r43.values()) - min(r43.values()) > 9.0,
       "%.2f points" % (max(r43.values()) - min(r43.values())))
 
-    print("\n E. the constrained test, refs/[68]")
-    t("the constraint stress reverses sign",
-      R68["constraint_start"] > 0 > R68["constraint_end"],
-      "%.1f -> %.1f MPa" % (R68["constraint_start"], R68["constraint_end"]))
-    t("a swing of 76.5 MPa over 50 cycles",
-      abs((R68["constraint_start"] - R68["constraint_end"]) - 76.5) < 0.1,
-      "%.1f MPa" % (R68["constraint_start"] - R68["constraint_end"]))
-    t("with a damage strain of 0.06 %", abs(R68["damage_strain"] - 0.06) < 1e-9)
-    t("this is the only CONSTRAINED dataset we hold",
-      "CONSTRAINED" in " ".join(x[1] for x in [("", R68["material"])]).upper()
-      or True, "both ends fixed -- the structural case")
+    print("\n E. the constrained test, refs/[68] -- corrected full-text read")
+    # The retraction itself is an assertion: the wrong reading must stay
+    # impossible to reintroduce.  76.5 MPa (the "swing" 62.5-(-14)) mixed a
+    # range with a mean and must never come back.
+    t("the old '+62.5 -> -14' reading is retracted in this file",
+      "written from the abstract alone" in open(__file__, encoding="utf-8")
+      .read() and "constraint_start" not in R68)
+    t("62.5 MPa is the saw-tooth range, an elastic quantity",
+      abs(R68["range_mpa"] - 62.5) < 1e-9)
+    e_alpha_dt = (R68["E0_gpa"] * 1e3
+                  * (sum(R68["cte"]) / 4.0) * 1e-6
+                  * (R68["T"][1] - R68["T"][0]))
+    t("  their eq.(2) E*alpha*dT re-derives to 65.283 MPa",
+      abs(e_alpha_dt - 65.283) < 0.01, "%.3f MPa" % e_alpha_dt)
+    t("  and their 'mean CTE' is the mean of all four table points",
+      abs(sum(R68["cte"]) / 4.0 - 4.0298) < 1e-3,
+      "%.4f e-6" % (sum(R68["cte"]) / 4.0))
+    t("  theory and measured range agree within 5 %",
+      abs(e_alpha_dt / R68["range_mpa"] - 1.0) < 0.05,
+      "%.1f vs %.1f" % (e_alpha_dt, R68["range_mpa"]))
+    t("example cycle: +21 tensile at 900 C, -46 compressive at 1200 C",
+      R68["peak_mpa"] > 0 > R68["valley_mpa"]
+      and abs((R68["peak_mpa"] - R68["valley_mpa"]) - 67.0) < 1e-9,
+      "peak-to-valley 67 MPa, vs 62.5 mean over all cycles")
+    t("what drifts is the MEAN: 0 -> -14 MPa compressive",
+      R68["mean_start_mpa"] == 0.0 and R68["mean_end_mpa"] == -14.0)
+    t("  driven by an irreversible damage strain of 0.06 %",
+      abs(R68["damage_strain"] - 0.06) < 1e-9)
+    t("modulus damage saturates: D_E ~ 0.1, Nc = 25",
+      R68["Nc"] == 25 and abs(R68["DE_sat"] - 0.1) < 1e-9,
+      "T_max 1200 C wet O2 -- the saturating side, as B/C predict")
+    ret = {d[7]: d[6] for d in DATA if d[0] == "[68]"}
+    t("after 50 cycles: strength 86.5 %, modulus 88.9 % (DATA rows)",
+      ret.get("tensile strength") == 86.5
+      and ret.get("tensile modulus") == 88.9)
+    t("  modulus retention is consistent with D_E saturation",
+      abs((1.0 - ret["tensile modulus"] / 100.0) - R68["DE_sat"]) < 0.02,
+      "1 - 0.889 = 0.111 vs D_E ~ 0.1")
+    t("hot zone is only the 40 x 3 x 3 mm gauge of a 185 mm dog-bone",
+      R68["gauge_mm"] == (40.0, 3.0, 3.0) and R68["total_len_mm"] == 185.0,
+      "the deck must not heat the whole specimen")
+    t("the stated cycle timing does not close -- flagged, not resolved",
+      R68["heat_s"] + R68["hold_hot_s"] + R68["cool_s"] == R68["period_s"]
+      and "silently pick one" in open(__file__, encoding="utf-8").read(),
+      "60+30+30 = 120 s; the extra 'hold 30 s at T1' cannot fit")
+    t("as-received porosity 11 % (Table I); 18 % is BEFORE coating",
+      R68["porosity_asreceived"] == 11.0
+      and R68["porosity_before_coating"] == 18.0)
+
+    print("\n E2. the paper count the chapters state matches DATA")
+    # This counter has drifted once already ("two datasets" -> five -> six).
+    # Derive it from DATA and hold both chapters to it.
+    papers = sorted(set(d[0] for d in DATA))
+    t("DATA holds six distinct papers", len(papers) == 6,
+      " ".join(papers))
+    for tag, path in (("Ch.1", "docs/CH1_INTRODUCTION.md"),
+                      ("Ch.2", "docs/CH2_LITERATURE_REVIEW.md")):
+        doc = open(os.path.join(ROOT, path), encoding="utf-8").read()
+        t("%s says six papers, three groups" % tag,
+          "여섯 편" in doc and "세 연구그룹" in doc)
+    t("the three-group split is stated with its members",
+      "[2]·[43]·[61]·[68]이 한 그룹" in
+      open(os.path.join(ROOT, "docs/CH2_LITERATURE_REVIEW.md"),
+           encoding="utf-8").read(),
+      "NPU Cheng/Zhang lab; [3] Qiao lab; [65] Wei")
 
     print("\n F. the hole is admitted, not hidden")
     sat_T = set(d[3] for d in DATA if d[0] != "[03]")

@@ -74,15 +74,37 @@ def main():
     check("T4: Wei 2D curve quoted exactly",
           "526" in txt and "498" in txt and "473" in txt and "463" in txt
           and tuple(tcd.WEI_2D) == (526.0, 498.0, 473.0, 463.0))
-    check("T5: constrained stresses match R68",
-          abs(tcd.R68["constraint_start"] - 62.5) < 1e-9
-          and abs(tcd.R68["constraint_end"] - (-14.0)) < 1e-9
-          and "62.5" in txt and "14.0" in txt)
+    # T5 was CORRECTED on 2026-08-06: 62.5 MPa is the saw-tooth range (an
+    # elastic quantity), the MEAN drifts 0 -> -14 MPa, and the old "swing
+    # 76.5 MPa" mixed the two.  The chapter must carry the corrected picture
+    # and must not resurrect the old one.
+    check("T5: 62.5 is the range and the chapter says so",
+          abs(tcd.R68["range_mpa"] - 62.5) < 1e-9 and "톱니 진폭" in txt)
+    check("T5: the mean drift 0 -> -14 MPa is the first-rank verdict",
+          tcd.R68["mean_start_mpa"] == 0.0
+          and tcd.R68["mean_end_mpa"] == -14.0
+          and "평균응력" in txt and "−14" in txt)
+    check("T5: the elastic theory value 65.283 survives into the chapter",
+          abs(tcd.R68["range_theory_mpa"] - 65.283) < 1e-9
+          and "65.283" in txt)
     check("T5: damage strain 0.06 % quoted",
           abs(tcd.R68["damage_strain"] - 0.06) < 1e-9 and "0.06 %" in txt)
-    check("T5: swing 76.5 MPa is start minus end",
-          "76.5" in txt and abs((tcd.R68["constraint_start"]
-                                 - tcd.R68["constraint_end"]) - 76.5) < 1e-9)
+    # 76.5 may survive only inside the retraction sentence that explains it.
+    lines765 = [l for l in txt.splitlines() if "76.5" in l]
+    check("T5: 76.5 survives only as a recorded misreading",
+          bool(lines765) and all("오독" in l for l in lines765),
+          "%d line(s), all retraction" % len(lines765) if lines765 else "gone")
+    check("T5: saturation Nc = 25 / D_E ~ 0.1 quoted",
+          tcd.R68["Nc"] == 25 and "$N_c$" in txt and "0.1" in txt)
+    check("T5: retention rows exist and are quoted",
+          {d[6] for d in tcd.DATA if d[0] == "[68]"} == {86.5, 88.9}
+          and "86.5" in txt and "88.9" in txt)
+    check("T5: the deck facts are in the chapter (gauge-only hot zone)",
+          "40 × 3 × 3" in txt and "185 mm" in txt and "120 s" in txt)
+    check("T5: the timing contradiction is flagged, not resolved",
+          "주기와\n  모순" in txt or "주기와 모순" in txt)
+    check("T5: the correction is declared as a correction",
+          "정정(2026-08-06" in txt)
     atm = {r[4]: r[6] for r in tcd.DATA if r[0] == "[43]"}
     check("T6: all four [43] atmospheres quoted with dataset values",
           all(("%.2f" % v) in txt for v in atm.values()) and len(atm) == 4)

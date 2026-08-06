@@ -504,6 +504,29 @@ def check():
         t("  [%s] carries a verdict of its own" % key,
           ("`[%s]`" % key) in ch2txt and verdict in ch2txt, verdict[:24])
 
+    # [S12] Hasselman 1963, verified the same way as [S13] on 2026-08-06.
+    # The direction check is algebra, not trust: the paper's stated low-
+    # damage criteria (high E, high nu, high surface energy, LOW strength)
+    # must be the monotonicities of the R'''' the chapter prints.
+    print("\n D3. [S12] Hasselman 1963 -- verified without holding it")
+    t("bibliography matches the record",
+      "46(11) (1963) 535–540" in ch2txt
+      and "10.1111/j.1151-2916.1963.tb14605.x" in ch2txt)
+
+    def r4p(E, g, s, nu):
+        return E * g / (s ** 2 * (1.0 - nu))
+    base = r4p(1.0, 1.0, 1.0, 0.2)
+    t("R'''' rises with E and surface energy",
+      r4p(2.0, 1.0, 1.0, 0.2) > base and r4p(1.0, 2.0, 1.0, 0.2) > base)
+    t("  falls with strength", r4p(1.0, 1.0, 2.0, 0.2) < base)
+    t("  rises with Poisson's ratio", r4p(1.0, 1.0, 1.0, 0.3) > base)
+    t("  which is exactly the 1963 low-damage criteria set",
+      "낮은 강도" in ch2txt and "저장 탄성에너지가 균열 전파의 구동력" in ch2txt)
+    t("so the 1963-vs-1969 attribution box is now backed, not asserted",
+      "귀속 정정(1963 대 1969)이 지지" in ch2txt)
+    t("and the remaining unknown is narrowed to the spherical derivation",
+      "구형 시편 유도의 세부뿐" in ch2txt)
+
     # [S13] is paywalled and stays unheld, so what CAN be verified without it
     # was verified against independent secondary sources and pinned here.
     # Doing that turned up an error in 2.4.4 that had nothing to do with
