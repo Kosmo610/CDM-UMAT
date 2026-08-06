@@ -782,11 +782,13 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [35] | H. Yan, C. Zhang, Y. Qiao, X. Li, D. Han, *(고온 면내 전단)*, **Mater. Des. 32 (2011) 3504** |
 | [01] | Z. Yang, X. Liu, *A continuum fatigue damage model for the cyclic thermal shocked CMC*, **Int. J. Fatigue 134 (2020) 105507**; 및 *A CDM model for 2-D woven oxide/oxide CMC under cyclic thermal shocks*, **Ceram. Int. 46 (2020) 6029–6037** |
 | **[28]** | **J. Li, G. Q. Jiao, B. Wang, C. P. Yang, G. Wang**, *Damage characteristics and constitutive modeling of the 2D C/SiC composite: Part I — Experiment and analysis*, **Chin. J. Aeronaut. 27(6) (2014) 1586–1597**, doi:`10.1016/j.cja.2014.10.026` (오픈액세스) |
+| **[51]** | **Z. Hashin, A. Rotem**, *A fatigue failure criterion for fiber reinforced materials*, **J. Compos. Mater. 7(4) (1973) 448–464**, doi:`10.1177/002199837300700404` — 사이클 손상 법칙의 고전 기준 |
+| **[54]** | **J.-L. Chaboche, P.-M. Lesne, J.-F. Maire**, *Continuum damage mechanics, anisotropy and damage deactivation for brittle materials like concrete and ceramic composites*, **Int. J. Damage Mech. 4(1) (1995) 5–22**, doi:`10.1177/105678959500400102` — 균열 닫힘(damage deactivation)을 **CMC에 적용한** 편. ⚠️ 스캔본이라 본문 텍스트 추출 불가 |
 | **[47]** | **M. Jirásek, M. Bauer**, *Numerical aspects of the crack band approach*, **Comput. Struct. 110–111 (2012) 60–78**, doi:`10.1016/j.compstruc.2012.06.006` — ⚠️ **요소 체적의 세제곱근으로 균열대 폭을 잡는 방식(Abaqus `CELENT`)이 파괴에너지를 50 % 이상 어긋나게 할 수 있다**고 명시. 제4장 §4.9 균열대 정규화의 한계 근거 |
 | **[43]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, P. Fang, J. Zhang**, *Thermal shock behavior of two-dimensional C/SiC composites in controlled atmospheres*, **J. Mater. Sci. 40 (2005) 4261–4265** — §2.5.4의 산화 대조군. 초록이 아르곤 50회 후 **98.90 %** 유지를 명시한다 |
 
 **기법 원전 — 본 논문이 이름으로 부르는 문헌 (전 장 공통 `[S*]` 목록).**
-제3·4·5장의 `[S*]` 표기가 가리키는 기법 원전 목록이다. **2026-08-06에 `[S1]`·`[S2]`·`[S3]`·`[S4]` 원문을 확보하였다**(각 행에 `refs/` 번호 표시). 나머지는 아직 확보 대상이며, 이 표는
+제3·4·5장의 `[S*]` 표기가 가리키는 기법 원전 목록이다. **2026-08-06에 `[S1]`~`[S7]`·`[S10]` 원문 8편을 확보하였다**(각 행에 `refs/` 번호 표시). 나머지는 아직 확보 대상이며, 이 표는
 이 표를 가리킨다. 서지는 Crossref로 대조·확정하였다
 (`data/literature/refs_candidates.csv`, `verification/verify_bibliography.ps1`).
 
@@ -796,12 +798,12 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [S2] | Z. Hashin, *Failure criteria for unidirectional fiber composites*, **J. Appl. Mech. 47(2) (1980) 329–334** | `10.1115/1.3153664` | **보유 `refs/[49]`** |
 | [S3] | S. W. Tsai, E. M. Wu, *A general theory of strength for anisotropic materials*, **J. Compos. Mater. 5(1) (1971) 58–80** | `10.1177/002199837100500106` | **보유 `refs/[50]`** |
 | [S4] | K.-S. Liu, S. W. Tsai, *A progressive quadratic failure criterion for a laminate*, **Compos. Sci. Technol. 58(7) (1998) 1023–1032** | `10.1016/S0266-3538(96)00141-8` | **보유 `refs/[48]`** |
-| [S5] | A. Matzenmiller, J. Lubliner, R. L. Taylor, *A constitutive model for anisotropic damage in fiber-composites*, **Mech. Mater. 20(2) (1995) 125–152** | `10.1016/0167-6636(94)00053-0` | |
-| **[S6]** | **C. C. Chamis**, *Simplified Composite Micromechanics Equations for Hygral, Thermal and Mechanical Properties*, **NASA TM-83320 (1983)** — NTRS 19830011546, 무료 전문. 병기: *SAMPE Quarterly* **15**(3) (1984) 14–23 | 없음(NTRS ID) | |
-| **[S7]** | **R. A. Schapery**, *Thermal expansion coefficients of composite materials based on energy principles*, **J. Compos. Mater. 2(3) (1968) 380–404** | `10.1177/002199836800200308` | |
+| [S5] | A. Matzenmiller, J. Lubliner, R. L. Taylor, *A constitutive model for anisotropic damage in fiber-composites*, **Mech. Mater. 20(2) (1995) 125–152** | `10.1016/0167-6636(94)00053-0` | | **보유 `refs/[52]`** |
+| **[S6]** | **C. C. Chamis**, *Simplified Composite Micromechanics Equations for Hygral, Thermal and Mechanical Properties*, **NASA TM-83320 (1983)** — NTRS 19830011546, 무료 전문. 병기: *SAMPE Quarterly* **15**(3) (1984) 14–23 | 없음(NTRS ID) | | **보유 `refs/[55]`** |
+| **[S7]** | **R. A. Schapery**, *Thermal expansion coefficients of composite materials based on energy principles*, **J. Compos. Mater. 2(3) (1968) 380–404** | `10.1177/002199836800200308` | | **보유 `refs/[56]`** |
 | [S8] | W. Van Paepegem, J. Degrieck, P. De Baets, *Finite element approach for modelling fatigue damage in fibre-reinforced composite materials*, **Compos. Part B 32(7) (2001) 575–588** — cycle jump | `10.1016/S1359-8368(01)00038-5` | |
 | [S9] | J.-L. Chaboche, *Development of continuum damage mechanics for elastic solids sustaining anisotropic and unilateral damage*, **Int. J. Damage Mech. 2(4) (1993) 311–329** | `10.1177/105678959300200401` | |
-| [S10] | J.-L. Chaboche, *Damage induced anisotropy: on the difficulties associated with the active/passive unilateral condition*, **Int. J. Damage Mech. 1(2) (1992) 148–171** | `10.1177/105678959200100201` | |
+| [S10] | J.-L. Chaboche, *Damage induced anisotropy: on the difficulties associated with the active/passive unilateral condition*, **Int. J. Damage Mech. 1(2) (1992) 148–171** | `10.1177/105678959200100201` | | **보유 `refs/[53]`** |
 | **[S11]** | **W. D. Kingery**, *Factors affecting thermal stress resistance of ceramic materials*, **J. Am. Ceram. Soc. 38(1) (1955) 3–15** | `10.1111/j.1151-2916.1955.tb14545.x` | |
 | **[S12]** | **D. P. H. Hasselman**, *Elastic energy at fracture and surface energy as design criteria for thermal shock*, **J. Am. Ceram. Soc. 46(11) (1963) 535–540** | `10.1111/j.1151-2916.1963.tb14605.x` | |
 | **[S13]** | **D. P. H. Hasselman**, *Unified theory of thermal shock fracture initiation and crack propagation in brittle ceramics*, **J. Am. Ceram. Soc. 52(11) (1969) 600–604** | `10.1111/j.1151-2916.1969.tb15848.x` | |

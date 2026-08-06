@@ -69,7 +69,27 @@ What the audit found, and what was done about it
 
 7. refs/[10] answers a2-0003, and had already been transcribed into Ch.4.
 
-8. THIRD BATCH, 2026-08-06: [46]-[50].  Four are the [S1]-[S4] method primary
+8. THIRD BATCH, 2026-08-06: [46]-[56], eleven papers in two uploads.  EIGHT
+   close an [S*] gap -- S1, S2, S3, S4, S5, S6, S7, S10 -- i.e. every method
+   primary source the thesis had been citing without holding, except S8, S9
+   and S11-S13.  Three are new numbered references: [47] (S21), [51] (S24),
+   [54] (S20).  Their filenames match docs/DOWNLOAD_LIST.md exactly.
+
+   [55] is Chamis NASA TM-83320, which micromech_check.py claims to reproduce.
+   The equations are figure images and do not extract, but the report's own
+   Example 8.1 does, and it validates the FORMULA rather than just our card:
+
+       kf = 0.60, Em = 0.272e6 psi, Ef22 = 2.0e6 psi  ->  E122 = 0.822e6 psi
+
+   Our transverse form E22 = Em / (1 - sqrt(kf)(1 - Em/Ef22)) returns 0.8224,
+   which is 0.046 % away.  Until now the yarn card had been checked against
+   our own implementation of Chamis; this checks the implementation against
+   Chamis.
+
+   [54] is a SCANNED pdf with no text layer (1.3 kB extracts).  It is recorded
+   and cannot be quote-verified; anything taken from it must be read by eye.
+
+8b. THIRD BATCH, first upload: [46]-[50].  Four are the [S1]-[S4] method primary
    sources the thesis had been citing without holding -- Bazant & Oh, Hashin,
    Tsai & Wu, Liu & Tsai.  They are now held and the [S*] table records it.
 
@@ -98,6 +118,7 @@ Run:  python3 data/literature/refs_audit.py --check
 from __future__ import print_function
 
 import hashlib
+import math
 import os
 import re
 import subprocess
@@ -163,21 +184,33 @@ MUST_BE_LISTED = {
           "4261-4265",
 }
 
-N_PDF = 50
-N_DISTINCT = 50
-N_NUMBERS = 48   # [01] and [05] each carry two different papers
-NEXT_FREE = 51   # 21 and 39 are retired, never reused
+N_PDF = 56
+N_DISTINCT = 56
+N_NUMBERS = 54   # [01] and [05] each carry two different papers
+NEXT_FREE = 57   # 21 and 39 are retired, never reused
 
 # Third batch, 2026-08-06.  Four of the five close [S*] gaps -- method primary
 # sources the thesis had been citing without holding the originals.
 THIRD_BATCH = {
     46: ("S1", "Bazant & Oh, Mater. Struct. 16(93) (1983) 155-177"),
-    47: (None, "Jirasek & Bauer, Comput. Struct. 110-111 (2012) 60-78 -- NOT "
-               "on any prior list; bears directly on our CELENT-based l_e"),
+    47: (None, "Jirasek & Bauer, Comput. Struct. 110-111 (2012) 60-78 -- bears "
+               "directly on our CELENT-based l_e"),
     48: ("S4", "Liu & Tsai, Compos. Sci. Technol. 58 (1998) 1023-1032"),
     49: ("S2", "Hashin, J. Appl. Mech. 47(2) (1980) 329-334"),
     50: ("S3", "Tsai & Wu, J. Compos. Mater. 5(1) (1971) 58-80"),
+    51: (None, "Hashin & Rotem, J. Compos. Mater. 7(4) (1973) 448-464"),
+    52: ("S5", "Matzenmiller, Lubliner, Taylor, Mech. Mater. 20 (1995) 125"),
+    53: ("S10", "Chaboche, Int. J. Damage Mech. 1(2) (1992) 148-171"),
+    54: (None, "Chaboche, Lesne, Maire, Int. J. Damage Mech. 4(1) (1995) 5-22 "
+               "-- SCANNED, no text layer"),
+    55: ("S6", "Chamis, NASA TM-83320 (1983)"),
+    56: ("S7", "Schapery, J. Compos. Mater. 2(3) (1968) 380-404"),
 }
+
+# Chamis NASA TM-83320 Example 8.1, transcribed from the report.  The
+# equations themselves are figure images and cannot be extracted, but this
+# worked example can -- and it validates the FORMULA, not just our card.
+CHAMIS_EX81 = dict(kf=0.60, Em=0.272, Ef22=2.0, E122=0.822)   # 1e6 psi
 
 # Numbers that legitimately hold two DIFFERENT papers, and whether the thesis
 # can tell them apart.  "resolved" means the reference list separates them.
@@ -397,11 +430,11 @@ def check():
     t("where refs/[24] IS used, it is graded DEV or GUESS, never IN",
       not re.search(r'"IN",\s*\n\s*"[^"]*refs/\[24\]', src))
 
-    print("\n G2. third batch [46]-[50]")
+    print("\n G2. third batch [46]-[56]")
     for n, (skey, cite) in sorted(THIRD_BATCH.items()):
         t("refs/[%02d] is on the shelf" % n, n in by_n, cite[:44])
     got = [k for _, (k, _) in THIRD_BATCH.items() if k]
-    t("four of the five close an [S*] gap", len(got) == 4,
+    t("eight of the eleven close an [S*] gap", len(got) == 8,
       ", ".join(sorted(got)))
     ch2 = open(CH2, encoding="utf-8").read()
     for n, (skey, _) in sorted(THIRD_BATCH.items()):
@@ -412,6 +445,23 @@ def check():
       "[47]" in ch2 and "compstruc.2012.06.006" in ch2)
     t("and its CELENT warning is carried into the reference row",
       "CELENT" in ch2)
+    for n in (51, 54):
+        t("[%d] is listed as a numbered reference" % n, "[%d]" % n in ch2)
+    t("[54] is flagged as a scan with no text layer",
+      "\uc2a4\uce94\ubcf8" in ch2 and "SCANNED pdf with no text layer" in __doc__)
+
+    print("\n G3. Chamis Example 8.1 validates the FORMULA, not just the card")
+    e = CHAMIS_EX81
+    got_e = e["Em"] / (1.0 - math.sqrt(e["kf"]) * (1.0 - e["Em"] / e["Ef22"]))
+    t("our transverse Chamis form reproduces the report's own example",
+      abs(got_e - e["E122"]) / e["E122"] < 2e-3,
+      "%.4f vs %.3f e6 psi  (%.3f %%)"
+      % (got_e, e["E122"], 100 * abs(got_e - e["E122"]) / e["E122"]))
+    mm = os.path.join(ROOT, "verification", "micromech_check.py")
+    src = open(mm).read() if os.path.exists(mm) else ""
+    t("micromech_check.py uses the same sqrt(Vf) form", "math.sqrt(Vf)" in src)
+    t("so the card check and the formula check are now independent",
+      bool(src) and "Example 8.1" not in src)
 
     print("\n G. no orphans")
     body = ""

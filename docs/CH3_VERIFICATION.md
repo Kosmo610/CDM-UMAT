@@ -54,7 +54,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `card_gap_triage.py --check` | GUESS 14개의 knob/도출/공백 분류와 얀 물성 독립대조 | 69 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
-| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·3차 입고분 | 59 |
+| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 | 75 |
 | `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 | 30 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도와 척도 규칙 | 30 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
@@ -68,7 +68,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 40 |
-| **합계** | | **1599** |
+| **합계** | | **1615** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

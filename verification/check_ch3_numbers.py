@@ -141,7 +141,7 @@ CASES = [
      count_bracketed, 30),
     ("refs_audit.py --check",
      "python3 data/literature/refs_audit.py --check",
-     count_bracketed, 59),
+     count_bracketed, 75),
     ("gf_temperature.py --check",
      "python3 data/literature/gf_temperature.py --check",
      count_bracketed, 30),
