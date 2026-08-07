@@ -947,6 +947,29 @@ def selftest():
                 "%.6g cycles/s x 15 s x 4 steps = %.6g cycles"
                 % (_rate(q[0]), _rate(q[0]) * 15.0 * 4))
 
+    # ---- the *Depvar names are what the Viewer shows
+    # An unnamed entry appears as "SDV9"; a named one as "SDV_D1".  The real
+    # card comes from homogenize.py, which names all 29, so the placeholder
+    # must too -- otherwise a placeholder run and a real run put damage under
+    # DIFFERENT variable names and a saved Viewer session silently plots
+    # nothing.  The names are cross-read from homogenize.py rather than
+    # duplicated by hand, so a rename there cannot drift away from here.
+    hp = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "postprocess", "homogenize.py")
+    htxt = open(hp).read()
+    m = re.search(r'names = \[(.*?)\]\n', htxt, re.S)
+    hnames = re.findall(r'"([A-Z0-9]+)"', m.group(1)) if m else []
+    pnames = re.findall(r'^(\d+), ([A-Z0-9]+), \2$', PLACEHOLDER_CARD,
+                        re.M)
+    expect_true("the placeholder names every one of the 29 macro SDVs",
+                [int(i) for i, _n in pnames] == list(range(1, 30)),
+                "named %d of 29" % len(pnames))
+    expect_true("and uses homogenize.py's names, so the two cards agree",
+                [n for _i, n in pnames] == hnames,
+                "%d names read from homogenize.py" % len(hnames))
+    expect_true("SDV9/SDV10 are the damage pair postprocess/damage_map.py "
+                "reads", [n for _i, n in pnames][8:10] == ["D1", "DT"])
+
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
         return 1
@@ -1001,6 +1024,28 @@ PLACEHOLDER_CARD = """** PLACEHOLDER macro card -- replace with the RVE output
 *Material, Name=CSIC_MACRO_CDM
 *Depvar
 29,
+1, D1T, D1T
+2, D1C, D1C
+3, DTT, DTT
+4, DTC, DTC
+5, R1T, R1T
+6, R1C, R1C
+7, RTT, RTT
+8, RTC, RTC
+9, D1, D1
+10, DT, DT
+11, MODE, MODE
+12, TINIT, TINIT
+13, DJUMP, DJUMP
+14, CUTREQ, CUTREQ
+15, TJUMP, TJUMP
+16, RJUMP, RJUMP
+17, DCYC, DCYC
+18, NCUM, NCUM
+19, RDRV, RDRV
+20, D1MONO, D1MONO
+21, DTMONO, DTMONO
+22, CLOFLG, CLOFLG
 23, FITW, FITW
 24, FIDC, FIDC
 25, NFLAG, NFLAG
