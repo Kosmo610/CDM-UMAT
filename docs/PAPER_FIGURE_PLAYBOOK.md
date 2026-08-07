@@ -70,11 +70,14 @@ python make_paper_figures.py Try_1300 Try_1430 Try_C Try_P0 Try_P1 Try_P2 --out 
 
 ### 5) 인장 단계점 컨투어 Fig.12 + 히스토그램 Fig.A1 — 순차 (find→render)
 ```bat
-:: (a) 단계점 프레임 찾기 (논문 A/B/C ~= 최대점의 1/3, 2/3, 최대점)
-python find_frames.py Try_C\tension_damage_LONG.csv --strains 0.09,0.17,0.26
+:: (a) 단계점 프레임 찾기 (최대점의 5/35/70/100 %)
+::     --paperstage 를 같이 주면 "논문 Fig.A1 최대점 손상상태에
+::     해당하는 프레임" 도 같이 나온다. 우리 최대점과 다르면
+::     그 차이 자체가 결과다 (§5.16C).
+python find_frames.py Try_P0\tension_damage_P0.csv --stages --paperstage 23
 :: (b) 나온 --frames 줄을 그대로:
-abaqus cae noGUI=make_odb_images.py -- Try_C\CSIC_t23_long.odb --step Tension_23C --fig damage --frames <a에서 나온 번호들>
-abaqus python extract_damage_histogram.py Try_C\CSIC_t23_long.odb --frames <같은 번호들> --tag _LONG
+abaqus cae noGUI=make_odb_images.py -- Try_P0\CSIC_t23_p0.odb --step Tension_23C --fig damage --frames <a에서 나온 번호들>
+abaqus python extract_damage_histogram.py Try_P0\CSIC_t23_p0.odb --frames <같은 번호들> --tag _P0
 ```
 
 ## 주의

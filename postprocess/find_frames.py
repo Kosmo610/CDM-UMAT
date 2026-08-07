@@ -22,6 +22,14 @@ find_frames.py  --  변형률/온도 -> odb 프레임 번호 찾기
              비율을 바꾸려면 --fracs 0.05,0.5,1.0
   --strains  변형률 [%] 목록  (tension_damage*.csv 에서)
   --temps    온도 [C] 목록    (cooling/heating_damage*.csv 에서)
+  --paperstage 23|500|1000
+             **논문 Fig.A1~A3 의 최대점 손상상태와 가장 가까운
+             프레임**을 찾는다. "우리 최대점"(--stages) 과 서로
+             다를 수 있고, 다르다면 그 자체가 결과다: 논문과 같은
+             손상상태에 도달하는 변형률이 우리는 몇 배인가.
+             다섯 값(기지 / 워프 종·횡 / 위프 종·횡)의 L1 오차로
+             고른다. 워프·위프는 마지막 프레임의 종방향 손상률로
+             자동 판별한다 (하중방향 얀이 워프).
 
 출력: 각 목표값의 프레임 번호 + 실제값 + 그대로 붙여넣을 --frames 줄.
       (tension_stress_strain*.csv 는 Increment 단위라 프레임 번호가
@@ -34,6 +42,12 @@ import re
 import csv
 
 DEFAULT_FRACS = (0.05, 0.35, 0.70, 1.00)
+
+# 논문 Fig.11/13/15 최대점의 손상요소율 [%]  (make_paper_figures.py 와 동일)
+#   온도 : (최대점 변형률[%], 기지, 워프 종, 워프 횡, 위프 종, 위프 횡)
+PAPER_STAGE = {23: (0.32, 100.0, 60.67, 99.77, 2.40, 99.29),
+               500: (0.26, 100.0, 44.38, 95.83, 3.38, 99.59),
+               1000: (0.31, 100.0, 32.12, 89.06, 14.28, 99.17)}
 
 
 def fnum(s):
@@ -92,6 +106,85 @@ def sibling_ss(dmg_path):
     return p if os.path.exists(p) else None
 
 
+def damage_state(rows):
+    """tension_damage 행들 -> {frame: (eps%, 기지, 워프종, 워프횡,
+    위프종, 위프횡)}.
+
+    워프/위프는 마지막 프레임의 종방향 손상률로 가른다. 하중은 x
+    방향이므로 종방향이 손상되는 얀이 워프다. 얀 세트 개수가 홀수면
+    큰 쪽 절반을 워프로 본다.
+    """
+    per = {}
+    for r in rows:
+        fr = fnum(r.get('Frame'))
+        if fr is None:
+            continue
+        per.setdefault(int(fr), {})[str(r.get('ElementSet', '')).upper()] = r
+    if not per:
+        return {}
+    last = per[max(per)]
+    yarns = sorted(k for k in last if k.startswith('YARN'))
+    if not yarns:
+        return {}
+    yarns.sort(key=lambda k: -(fnum(last[k].get('PctDamaged_Long')) or 0.0))
+    nw = max(1, len(yarns) // 2)
+    warp, weft = yarns[:nw], yarns[nw:] or yarns[:nw]
+
+    def avg(d, keys, col):
+        v = [fnum(d[k].get(col)) for k in keys if k in d]
+        v = [x for x in v if x is not None]
+        return sum(v) / len(v) if v else None
+
+    out = {}
+    for fr in sorted(per):
+        d = per[fr]
+        m = d.get('MATRIX')
+        if m is None:
+            continue
+        e = fnum(m.get('eps_xx_mech'))
+        vals = (fnum(m.get('PctDamaged')),
+                avg(d, warp, 'PctDamaged_Long'),
+                avg(d, warp, 'PctDamaged_Trans'),
+                avg(d, weft, 'PctDamaged_Long'),
+                avg(d, weft, 'PctDamaged_Trans'))
+        if e is None or any(v is None for v in vals):
+            continue
+        out[fr] = (e * 100.0,) + vals
+    return out
+
+
+def report_paperstage(rows, T):
+    """논문 최대점 손상상태에 가장 가까운 프레임. 반환: frame or None."""
+    if T not in PAPER_STAGE:
+        print('[error] --paperstage 는 23 / 500 / 1000 만 된다.')
+        return None
+    st = damage_state(rows)
+    if not st:
+        print('[error] tension_damage*.csv 에서 상별 손상률을 못 읽었다.')
+        return None
+    tgt = PAPER_STAGE[T][1:]
+    lab = ('matrix', 'warpL', 'warpT', 'weftL', 'weftT')
+    best = min(st, key=lambda f: sum(abs(st[f][i + 1] - tgt[i])
+                                     for i in range(5)))
+    # 논문 최대점 변형률에 해당하는 프레임 (같은 변형률 비교용)
+    pe = PAPER_STAGE[T][0]
+    same = min(st, key=lambda f: abs(st[f][0] - pe))
+    print('paper stage (%d C, Fig.A1~A3 최대점)' % T)
+    print('  %-26s %8s %7s %7s %7s %7s %7s'
+          % (('', 'eps%') + lab))
+    print('  %-26s %8.4f %7.2f %7.2f %7.2f %7.2f %7.2f'
+          % (('paper', pe) + tgt))
+    for tag, f in (('ours @ same strain', same),
+                   ('ours @ closest state', best)):
+        print('  %-26s %8.4f %7.2f %7.2f %7.2f %7.2f %7.2f   frame %d'
+              % ((tag,) + st[f] + (f,)))
+    r = st[best][0] / pe if pe else float('nan')
+    print('')
+    print('  -> 논문과 같은 손상상태에 도달하는 변형률 = 논문의 %.2f 배'
+          % r)
+    return best
+
+
 def main():
     args = sys.argv[1:]
     strains = temps = None
@@ -105,6 +198,10 @@ def main():
     if '--temps' in args:
         i = args.index('--temps')
         temps = [float(x) for x in args[i + 1].split(',')]
+    pstage = None
+    if '--paperstage' in args:
+        i = args.index('--paperstage')
+        pstage = int(float(args[i + 1]))
     paths = [a for a in args if a.lower().endswith('.csv')]
     if not paths:
         print(__doc__)
@@ -133,6 +230,19 @@ def main():
               % (', '.join('%.4f%%' % s for s in strains),
                  ', '.join('%d%%' % (100 * f) for f in fracs)))
         print('')
+
+    # ---- --paperstage: 논문 최대점 손상상태와 가장 가까운 프레임 --------
+    if pstage is not None:
+        with open(path, 'r') as f:
+            prows = [r for r in csv.DictReader(f)]
+        pf = report_paperstage(prows, pstage)
+        if pf is None:
+            return 2
+        print('')
+        print('  --frames %d      (논문 손상상태 대응 프레임)' % pf)
+        print('')
+        if strains is None and temps is None:
+            return 0
 
     if strains is None and temps is None:
         print(__doc__)
