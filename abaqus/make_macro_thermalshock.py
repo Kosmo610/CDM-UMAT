@@ -640,7 +640,7 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
         msg.append("  pass allow_total_gf=True if this card really was "
                    "measured at le(macro).")
         raise SystemExit("\n".join(msg))
-    return dict(nprops=n, nt=nt, ndepvar=ndep, gf=gf,
+    return dict(nprops=n, nt=nt, ndepvar=ndep, gf=gf, props=p,
                 criteria=(n == 56 + 8 * nt and
                           int(round(p[47 + 8 * nt])) > 0))
 
@@ -970,6 +970,24 @@ def selftest():
     expect_true("SDV9/SDV10 are the damage pair postprocess/damage_map.py "
                 "reads", [n for _i, n in pnames][8:10] == ["D1", "DT"])
 
+    # ---- --hclo, the crack-closure control job (a1-0027 item 2)
+    base_h = check_macro_card(PLACEHOLDER_CARD, "hclo-base")["props"][36]
+    off = patch_card(PLACEHOLDER_CARD, 37, 0.0)
+    expect_true("--hclo writes macro slot 37, the closure fraction",
+                check_macro_card(off, "hclo-off")["props"][36] == 0.0
+                and base_h != 0.0,
+                "card ships H_clo = %g, control job forces 0" % base_h)
+    expect_true("and changes nothing else on the card",
+                [k for k, (a, b) in enumerate(zip(
+                    check_macro_card(PLACEHOLDER_CARD, "a")["props"],
+                    check_macro_card(off, "b")["props"])) if a != b] == [36])
+    expect_true("the control job's H_clo=0 is what V1_0 did, so the "
+                "difference is the new model alone",
+                "HCLO=0 reproduces V1_0" in open(os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(
+                        __file__))), "src",
+                    "UMAT_CSIC_THERMSHOCK_V3_0.for")).read())
+
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
         return 1
@@ -1084,6 +1102,14 @@ def main():
     ap.add_argument("--thermal", help="homogenised *Conductivity/*Density/*Specific Heat")
     ap.add_argument("--sev", nargs="+", default=["M"], choices=sorted(SEVERITIES))
     ap.add_argument("--trs", nargs="+", default=list(TRS_CASES), choices=TRS_CASES)
+    ap.add_argument("--hclo", type=float, default=None,
+                    help="force the crack-closure recovery fraction, macro "
+                         "card slot 37, instead of using the card's own "
+                         "value.  --hclo 0 writes the CONTROL job for the "
+                         "half-cycle-asymmetry claim (C3): identical in every "
+                         "other respect, so the difference between the two is "
+                         "the closure model alone.  The value goes in the job "
+                         "name so it cannot overwrite the job it controls.")
     ap.add_argument("--checkpoints", type=int, nargs="+",
                     default=None,
                     help="cycle counts at which to probe E and write a restart")
@@ -1203,6 +1229,9 @@ def main():
         write("%s_HEAT_S%s.inp" % (args.prefix, sev), parts)
 
     # ---------------- mechanical jobs ------------------------------------
+    # The control job must not overwrite the job it is a control FOR, so the
+    # forced closure fraction goes in the file name.
+    hclo_tag = "" if args.hclo is None else "_HCLO%g" % args.hclo
     probe_steps = {}
     for sev in args.sev:
         heatjob = "%s_HEAT_S%s" % (args.prefix, sev)
@@ -1210,6 +1239,14 @@ def main():
             # TRS B: damage live only during the cooldown (step 1), frozen
             # afterwards.  A and C keep damage live throughout.
             this_card = patch_card(card, 26, 1.0) if trs == "B" else card
+            # --hclo: the crack-closure control job (a1-0027 item 2).  C3, the
+            # half-cycle asymmetry claim, is a DIFFERENCE between H_clo on and
+            # off, and the 3 x 3 matrix contains only "on".  One extra job with
+            # slot 37 forced to 0 supplies the other half of that difference;
+            # nothing else in the deck changes, so the difference is the
+            # closure model and only the closure model.
+            if args.hclo is not None:
+                this_card = patch_card(this_card, 37, args.hclo)
             body = [this_card]
             if trs != "A":
                 body.append(expan)
@@ -1238,13 +1275,14 @@ def main():
                 sev, trs, max(args.checkpoints), args.checkpoints,
                 args.t_quench, args.t_dwell, heatjob, args.cycle_jump, Lx)
             parts[-1] = body_steps
-            write("%s_MECH_S%s_TRS%s.inp" % (args.prefix, sev, trs), parts)
+            write("%s_MECH_S%s_TRS%s%s.inp"
+                  % (args.prefix, sev, trs, hclo_tag), parts)
             probe_steps[(sev, trs)] = probe_step
 
     # ---------------- residual-strength continuations --------------------
     for sev in args.sev:
         for trs in args.trs:
-            base = "%s_MECH_S%s_TRS%s" % (args.prefix, sev, trs)
+            base = "%s_MECH_S%s_TRS%s%s" % (args.prefix, sev, trs, hclo_tag)
             for cp in args.checkpoints:
                 kp = probe_steps[(sev, trs)][cp]
                 parts = ["*Heading",
@@ -1264,8 +1302,8 @@ def main():
                          _mech_field(0.0),
                          _mech_output(restart=False),
                          "*End Step"]
-                write("%s_RESID_S%s_TRS%s_N%d.inp"
-                      % (args.prefix, sev, trs, cp), parts)
+                write("%s_RESID_S%s_TRS%s%s_N%d.inp"
+                      % (args.prefix, sev, trs, hclo_tag, cp), parts)
 
     print("\n" + CHECKS)
     return 0

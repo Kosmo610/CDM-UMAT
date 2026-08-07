@@ -105,7 +105,7 @@ EXACT = [
     ("yarn volume fraction", "0.4982", ["Ch.1", "Ch.4"]),
     ("RVE volume [mm^3]", "5.390", ["Ch.1", "Ch.4"]),
     ("Biot for refs/[2]", "0.0277", ["Ch.1", "Ch.4", "Ch.5"]),
-    ("automated verification item count", "2194", ["Ch.1", "Ch.3"]),
+    ("automated verification item count", "2255", ["Ch.1", "Ch.3"]),
     # The [28] page range was once corrupted to "1784-1597" by a blind
     # replace of the verification counter (1784 was the counter's value at
     # the time; 1586 had been an EARLIER value of the same counter, which is

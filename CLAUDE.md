@@ -381,6 +381,7 @@ python3 verification/check_ch3_numbers.py             # Ch.3 검증 개수 vs �
 python3 verification/check_ch4_numbers.py             # Ch.4 수치 vs 1차 출처 (검증 1회차)
 python3 verification/check_ch5_numbers.py             # Ch.5 vs 덱 생성기 실제값 (검증 1회차)
 python3 verification/check_ch6_numbers.py             # Ch.6 검증표적 vs 사이클 데이터셋 (검증 1회차)
+python3 verification/check_ch7_numbers.py             # Ch.7 결론 경계 — 결과 없는 결론만 (검증 1회차)
 python3 verification/check_chapter_consistency.py     # 장 간 모순 (검증 2회차)
 python3 verification/check_chapter_claims.py          # 장이 부른 파일·명령 (검증 3회차, 느림)
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
@@ -400,7 +401,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 56개를 전부 통과시킨다.**
+**커밋 전에 위 57개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

@@ -1,7 +1,7 @@
 {
   "agent": "a1",
   "branch": "claude/paper-reference-research-pksw5p",
-  "merged_from_a2_upto": "28792e8",
+  "merged_from_a2_upto": "a5ca7c1",
   "note": "read = a2의 메시지 중 '반영까지 끝낸' id. PROTOCOL.md §4. merged_from_a2_upto 는 마지막으로 병합한 a2 커밋(2026-08-06, 병합 03a4c42).",
   "read": [
     "a2-0001",
@@ -26,6 +26,7 @@
     "a2-0020",
     "a2-0021",
     "a2-0022",
-    "a2-0023"
+    "a2-0023",
+    "a2-0024"
   ]
 }
