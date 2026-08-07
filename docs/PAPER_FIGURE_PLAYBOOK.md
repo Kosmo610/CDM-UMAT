@@ -15,7 +15,7 @@
 | Fig.9/10 | 승온(500→1000) 응력/손상 컨투어 | `make_odb_images.py --step Heating_1000C` | t1000 경유 |
 | Fig.11/13/15 | 응력-변형률 + 손상률 이중축 | `make_paper_figures.py` (`fig11_style_*.png`) | 인장 CSV (23/500/1000 확보) |
 | Fig.12/14/16 | 인장 단계점 손상 컨투어 | `find_frames.py` → `make_odb_images.py --frames` | 인장 odb |
-| Fig.A1~A3 | 단계점 손상변수 히스토그램 | `find_frames.py` → `extract_damage_histogram.py` | 인장 odb |
+| Fig.A1~A3 | 단계점 손상변수 히스토그램 | `find_frames.py` → `extract_damage_histogram.py` → `make_fig_a1_histogram.py` | 인장 odb |
 | Table 3 | 강도 3온도 | `make_paper_figures.py` (기존) | 인장 CSV |
 
 온도 세트 (논문 그대로):
@@ -78,7 +78,12 @@ python find_frames.py Try_P0\tension_damage_P0.csv --stages --paperstage 23
 :: (b) 나온 --frames 줄을 그대로:
 abaqus cae noGUI=make_odb_images.py -- Try_P0\CSIC_t23_p0.odb --step Tension_23C --fig damage --frames <a에서 나온 번호들>
 abaqus python extract_damage_histogram.py Try_P0\CSIC_t23_p0.odb --frames <같은 번호들> --tag _P0
+:: (c) 히스토그램 그림 (일반 python, 순차 -- (b) 가 끝나야 함)
+python make_fig_a1_histogram.py Try_P0 --out E:\LTH
 ```
+→ `figA1_hist_P0.png` (단계 x 상·모드 격자),
+`figA1_shape_P0.png` (평균 d / 저손상 비율 추이),
+`damage_hist_shape_P0.csv`
 
 ## 주의
 
