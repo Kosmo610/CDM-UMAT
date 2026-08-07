@@ -97,8 +97,9 @@ def main():
           "[71]" in s and "[72]" in s)
     check("  4: the 2.34x is a completed cooldown measurement",
           "2.34배" in s)
-    check("  5: the L1/L2 separation claim points at Ch.3",
-          "원인" in s and "2133" in s)
+    check("  5: the L1/L2 separation claim carries no counter snapshot",
+          "원인" in s and "전수 통과" in s
+          and not re.search(r"\d{3,}\s*항목", s))
     check("  6: band width is declared macro-only via 6.6.1",
           "6.6.1" in s)
     check("no pending slot inside 7.2.1", "[결과 대기" not in s)

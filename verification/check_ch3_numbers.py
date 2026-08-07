@@ -108,7 +108,7 @@ CASES = [
      count_bracketed, 12),
     ("make_rve_conductivity.py --check",
      "python3 abaqus/make_rve_conductivity.py --check",
-     count_bracketed, 37),
+     count_bracketed, 39),
     ("check_card_ranges.py",
      "python3 verification/check_card_ranges.py",
      count_plain, 94),
@@ -182,9 +182,13 @@ CASES = [
      "python3 postprocess/md_to_pdf.py --selftest",
      lambda s: len(__import__("re").findall(
          r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 11),
+    ("md_to_docx.py --selftest",
+     "python3 postprocess/md_to_docx.py --selftest",
+     lambda s: len(__import__("re").findall(
+         r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 10),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
-     count_bracketed, 12),
+     count_bracketed, 20),
     ("extract_probe.py --selftest",
      "python3 postprocess/extract_probe.py --selftest",
      count_bracketed, 5),

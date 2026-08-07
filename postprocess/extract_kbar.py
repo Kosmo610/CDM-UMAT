@@ -173,6 +173,64 @@ def kbar(path, dT=1.0):
         odb.close()
 
 
+#: RVE phase fractions, from data/properties/porosity_stiffness.py.
+VY_RVE = 0.4982                 # yarn volume fraction of the cell
+#: Dense-phase conductivities the decks are built from (W/(m.K)).
+K_MATRIX_DENSE = 25.0
+K_YARN_LONG_DENSE = 11.5370     # P00 header
+K_YARN_TRANS_DENSE = 3.8847     # P00 header
+
+
+def voigt_bounds(vp_matrix):
+    """(bound1, bound2, bound3) W/(m.K) for a given MATRIX porosity.
+
+    Parallel (Voigt) sum of the phases as the deck builds them: half the
+    yarns run along x and half along y, so an in-plane direction sees one
+    set axially and the other transversely, while z sees both
+    transversely.  Porosity scales the solid conductivities the same way
+    the deck's own header does, and pores carry nothing.
+
+    This is a CEILING, not a model.  Its whole job is to catch a number
+    that cannot be right for any microstructure -- which is what the
+    2026-08-07 run produced (kbar2 = 56.27 against a ceiling of 16.39).
+    """
+    if vp_matrix is None:
+        return None
+    f = 1.0 - vp_matrix          # solid fraction of the matrix phase
+    km = K_MATRIX_DENSE * f
+    kl = K_YARN_LONG_DENSE * f
+    kt = K_YARN_TRANS_DENSE * f
+    inplane = 0.5 * VY_RVE * kl + 0.5 * VY_RVE * kt + (1.0 - VY_RVE) * km
+    through = VY_RVE * kt + (1.0 - VY_RVE) * km
+    return (inplane, inplane, through)
+
+
+def write_csv(path, rows):
+    """One row per deck.  The CSV is the deliverable, the console is a log."""
+    import csv as _csv
+    with open(path, "w") as fh:
+        w = _csv.writer(fh)
+        w.writerow(["deck", "matrix_porosity", "kbar1_WmK", "kbar2_WmK",
+                    "kbar3_WmK", "k1_over_k3", "voigt_inplane", "voigt_through",
+                    "kbar1_admissible", "kbar2_admissible", "kbar3_admissible"])
+        for name, k, vp, _kf in rows:
+            hi = voigt_bounds(vp)
+            def adm(i):
+                if k[i] is None or hi is None:
+                    return ""
+                return "yes" if k[i] <= hi[i] * 1.02 else "NO"
+            w.writerow([
+                name,
+                "" if vp is None else "%.4f" % vp,
+                "" if k[0] is None else "%.4f" % k[0],
+                "" if k[1] is None else "%.4f" % k[1],
+                "" if k[2] is None else "%.4f" % k[2],
+                "" if not (k[0] and k[2]) else "%.4f" % (k[0] / k[2]),
+                "" if hi is None else "%.4f" % hi[0],
+                "" if hi is None else "%.4f" % hi[2],
+                adm(0), adm(1), adm(2)])
+
+
 def report(paths, dT=1.0):
     print("=" * 76)
     print("extract_kbar.py -- homogenised conductivity")
@@ -222,6 +280,34 @@ def report(paths, dT=1.0):
         r = ("%9.2f" % (k[0] / k[2])) if (k[0] and k[2]) else "%9s" % "-"
         print("  %-28s %s %s %s %s" % (name[:28], a, b, c, r))
 
+    print("\n  CHECK 0 -- is the number even possible?  (Voigt upper bound)")
+    print("    A composite cannot conduct better than a parallel bundle of")
+    print("    its own phases.  This bound needs no symmetry argument and no")
+    print("    literature: exceed it and the number is wrong, full stop.")
+    nbad = 0
+    for name, k, vp, _kf in rows:
+        hi = voigt_bounds(vp)
+        if hi is None:
+            print("    %-28s  no variant header, bound not computed" % name[:28])
+            continue
+        for ax in range(3):
+            if k[ax] is None:
+                continue
+            lim = hi[ax]
+            if k[ax] > lim * 1.02:          # 2 % for discretisation
+                nbad += 1
+                print("    %-28s  kbar%d = %.4f  >  bound %.4f   ** IMPOSSIBLE"
+                      " (%.2fx) **" % (name[:28], ax + 1, k[ax], lim,
+                                       k[ax] / lim))
+    if nbad == 0:
+        print("    OK: every reported kbar is under its own Voigt bound.")
+    else:
+        print("    %d value(s) above the bound.  Nothing downstream of them" % nbad)
+        print("    may be quoted -- not the anisotropy, not the porosity")
+        print("    verdict.  Fix the deck or the extraction first.")
+        print("    First suspect: boundary conditions carried over between")
+        print("    steps (Abaqus keeps them unless *Boundary says op=NEW).")
+
     print("\n  CHECK 1 -- the balanced weave: kbar1 must equal kbar2")
     worst, worst_at = -1.0, "nothing comparable"
     for name, k, _vp, _kf in rows:
@@ -260,6 +346,16 @@ def report(paths, dT=1.0):
             print("    %-28s %8.2f" % (name[:28], k[0] / k[2]))
 
     verdict(rows)
+
+    # The CSV is what gets sent on; the console text is a log of how it was
+    # reached.  Written unconditionally, including when CHECK 0 failed --
+    # the admissible columns are how a reader sees WHICH rows to ignore.
+    out = os.path.join(os.path.dirname(os.path.abspath(paths[0])) or ".",
+                       "kbar_summary.csv")
+    write_csv(out, rows)
+    print("\n  CSV written: %s" % out)
+    print("  (send this file, not a screenshot -- it carries the Voigt")
+    print("   bounds and an admissible yes/NO per direction)")
     print("=" * 76)
 
 
@@ -389,6 +485,30 @@ def selftest():
     ck("4.5 % would be incompatible with it by more than 7x",
        STIFFNESS_MATRIX_POROSITY / 0.045 > 7.0,
        "%.1fx" % (STIFFNESS_MATRIX_POROSITY / 0.045))
+
+    print("\n CHECK 0's bound, and the CSV that carries it")
+    hi = voigt_bounds(0.0)
+    ck("a zero-porosity cell's in-plane ceiling is 16.39 W/(m.K)",
+       abs(hi[0] - 16.3865) < 1e-3, "%.4f" % hi[0])
+    ck("through-thickness ceiling is lower than in-plane",
+       hi[2] < hi[0], "%.4f < %.4f" % (hi[2], hi[0]))
+    ck("the 2026-08-07 kbar2 = 56.27 is caught by it",
+       56.2701 > hi[0] * 1.02, "%.2fx the bound" % (56.2701 / hi[0]))
+    ck("  while kbar1 = 15.47 and kbar3 = 12.70 pass",
+       15.4686 <= hi[0] * 1.02 and 12.7047 <= hi[2] * 1.02)
+    ck("porosity lowers the ceiling", voigt_bounds(0.324)[0] < hi[0],
+       "%.4f at 32.4 %%" % voigt_bounds(0.324)[0])
+    ck("no bound without a variant header", voigt_bounds(None) is None)
+    import csv as _csv
+    import tempfile
+    f = os.path.join(tempfile.mkdtemp(), "t.csv")
+    write_csv(f, [("A.odb", [15.4686, 56.2701, 12.7047], 0.0, None)])
+    got = list(_csv.DictReader(open(f)))[0]
+    ck("the CSV marks the impossible column NO and the others yes",
+       got["kbar1_admissible"] == "yes" and got["kbar2_admissible"] == "NO"
+       and got["kbar3_admissible"] == "yes")
+    ck("  and carries the bounds so a reader can re-check the call",
+       abs(float(got["voigt_inplane"]) - hi[0]) < 1e-3)
 
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))

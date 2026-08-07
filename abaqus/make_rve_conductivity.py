@@ -202,13 +202,31 @@ def thermal_materials(porosity, k_matrix, k1_f, k2_f):
 
 
 def steps(dt=DT):
+    """Three steady conductions, one per axis, each on a CLEAN slate.
+
+    `op=NEW` is the whole point of this function.  Abaqus carries boundary
+    conditions forward from step to step unless a step replaces them, so a
+    bare `*Boundary` in step 2 does not remove step 1's x-gradient -- it
+    ADDS a y-gradient on top of it, and step 3 then runs with all three
+    imposed at once.  Corner nodes end up with two conflicting prescribed
+    temperatures, and the reaction fluxes stop meaning what the extractor
+    thinks they mean.
+
+    That is not hypothetical.  The 2026-08-07 run produced kbar2 = 56.27
+    W/(m.K) on a cell whose stiffest conducting phase is 25, which is
+    impossible for any arrangement of the constituents -- and only kbar1,
+    the FIRST step, was trustworthy.  make_macro_thermalshock.py already
+    carried this rule in a comment; this file did not have it.
+    """
     S = []
     for ax, name in enumerate("XYZ"):
         S += ["*Step, Name=kbar_dir%d, inc=100" % (ax + 1),
               "Steady conduction along %s; other four faces adiabatic" % name,
               "*Heat Transfer, steady state",
               "1.0, 1.0",
-              "*Boundary",
+              # op=NEW: drop the PREVIOUS axis's gradient.  Without it the
+              # second and third steps solve a superposition, not this axis.
+              "*Boundary, op=NEW",
               "FACE_%sLO, 11, 11, 0.0" % name,
               "FACE_%sHI, 11, 11, %.6g" % (name, dt),
               "*Output, field",
@@ -417,6 +435,24 @@ def selftest():
        "conductivity() looks for KBAR_DIR<n>")
     ck("no face is both heated and insulated in the same step",
        out.count("11, 11,") == 6)
+    # 2026-08-07: this is the check that was missing, and its absence cost a
+    # whole run.  Abaqus carries boundary conditions across steps, so every
+    # *Boundary after the first must REPLACE rather than add -- otherwise
+    # step 2 solves x+y and step 3 solves x+y+z.  The run that exposed it
+    # returned kbar2 = 56.27 W/(m.K) on a cell whose best conductor is 25.
+    # Only STEP-level boundaries need op=NEW.  A model-data *Boundary (the
+    # assembled deck fixes its PBC master node) must stay bare -- op= is a
+    # step parameter -- so the check keys on the FACE_ data line, not on a
+    # bare count, which would false-positive on that one.
+    import re as _re
+    step_bc = _re.findall(r"\*Boundary(, op=NEW)?\nFACE_", out)
+    ck("every step-level *Boundary replaces the previous step's",
+       len(step_bc) == 3 and all(b == ", op=NEW" for b in step_bc),
+       "%d step boundaries, %d with op=NEW"
+       % (len(step_bc), sum(1 for b in step_bc if b)))
+    ck("  and the reason is written down where the steps are built",
+       "carries boundary" in steps.__doc__
+       and "conditions forward" in steps.__doc__)
 
     print("\n E. the physics inputs are the audited ones")
     tp = info["tp"]["_meta"]

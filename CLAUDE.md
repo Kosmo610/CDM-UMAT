@@ -241,6 +241,33 @@ Abaqus는 `.odb`만 만든다. **CSV·그림은 저절로 나오지 않는다.**
 - **후처리에는 `cpus`/`memory`를 붙이지 않는다.** 단일 스레드 · 수 초짜리다.
 - **잡 하나가 끝날 때마다 바로 돌릴 수 있다고 알려준다.** 3개를 다 기다릴 필요 없다.
 
+### 3-2. ★ 결과는 **CSV로 뽑고 그 파일을 주고받는다** (사용자 지정, 2026-08-07)
+
+**후처리 스크립트는 콘솔 출력만 하고 끝내지 않는다. 반드시 CSV를 쓴다.**
+사용자는 그 CSV를 채팅에 올리고, 나는 그것을 읽는다.
+
+왜 이 규칙이 생겼나 — 2026-08-07 `extract_kbar` 결과를 **화면 캡처**로 받았다.
+읽히기는 했지만 그 방식은 세 가지가 나쁘다:
+
+1. **숫자를 다시 타이핑해야 한다.** 이 프로젝트가 계속 잡아온 사고가 전사
+   오류다(Snead 부호, Pradère 단위, [28] 페이지 절단).
+2. **잘린다.** 캡처는 창 크기에서 끝나고, 잘린 자리가 하필 판정줄일 수 있다.
+3. **재계산이 안 된다.** CSV면 내가 그 자리에서 상한·비율을 다시 셀 수 있다.
+
+지켜야 할 것:
+
+- **후처리 스크립트는 `<무엇>_summary.csv` 를 무조건 쓴다.** 판정이 실패했을
+  때도 쓴다 — 어느 행을 버려야 하는지가 그 파일에 있어야 한다.
+- **CSV에는 판정에 쓴 근거를 같은 행에 담는다.** 값만 담지 않는다.
+  예: `kbar1, voigt_inplane, kbar1_admissible` 처럼 **값·기준·판정**이 나란히
+  있어야 사용자도 나도 다시 확인할 수 있다.
+- **`RUN_ME.md`에 "이 CSV를 채팅에 올려 주세요"를 명시한다.** 어떤 파일인지
+  이름으로 적는다.
+- 콘솔 출력은 **없애지 않는다.** 사람이 그 자리에서 읽는 로그로 남기되,
+  **전달물은 CSV다.**
+
+---
+
 ### 4. 사용자 워크스테이션 사양에 맞춰 명령을 낸다
 
 **사용자 실행 환경: CPU 32코어 / RAM 256 GB.**
@@ -363,6 +390,7 @@ python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
+python3 postprocess/md_to_docx.py --selftest           # 논문 초안 워드(.docx) 합본 생성기
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 python3 postprocess/extract_kbar.py --selftest        # kbar 공극률 판정 산식
 python3 postprocess/extract_pls.py --selftest         # 비례한도(PLS) 추출 정의 4종
@@ -373,7 +401,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 56개를 전부 통과시킨다.**
+**커밋 전에 위 57개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이
