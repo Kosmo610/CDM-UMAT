@@ -31,13 +31,13 @@
 ### 0) 프레임↔온도 확인 (odb 안에서 직접 검증) — 순차, 몇 초
 ```bat
 cd /d E:\LTH\Try_P0
-abaqus viewer noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --list
+abaqus cae noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --list
 ```
 
-### 1) 냉각 컨투어 Fig.3+5 — 순차 권장 (뷰어 라이선스 1개)
+### 1) 냉각 컨투어 Fig.3+5 — 순차 권장 (CAE 토큰 1개)
 ```bat
-abaqus viewer noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --fig stress --temps 1050,750,500,250,23
-abaqus viewer noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --fig damage --temps 1050,750,500,250,23
+abaqus cae noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --fig stress --temps 1050,750,500,250,23
+abaqus cae noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --fig damage --temps 1050,750,500,250,23
 ```
 
 ### 2) 승온 추출 Fig.6 — 병렬 가능 (다른 odb, 창 2개)
@@ -52,11 +52,11 @@ abaqus python ..\extract_cooling_damage.py CSIC_t1000.odb --step Heating_1000C -
 ### 3) 승온 컨투어 Fig.7/8, 9/10 — 순차 권장
 ```bat
 :: t500 폴더
-abaqus viewer noGUI=..\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig stress --temps 23,125,250,375,500
-abaqus viewer noGUI=..\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig damage --temps 23,125,250,375,500
+abaqus cae noGUI=..\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig stress --temps 23,125,250,375,500
+abaqus cae noGUI=..\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig damage --temps 23,125,250,375,500
 :: t1000 폴더
-abaqus viewer noGUI=..\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig stress --temps 500,625,750,875,1000
-abaqus viewer noGUI=..\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig damage --temps 500,625,750,875,1000
+abaqus cae noGUI=..\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig stress --temps 500,625,750,875,1000
+abaqus cae noGUI=..\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig damage --temps 500,625,750,875,1000
 ```
 
 ### 4) 곡선 그림 Fig.4/6/11/13/15 + Table 3 — 순차 (CSV 필요), 일반 python
@@ -73,7 +73,7 @@ python make_paper_figures.py Try_1300 Try_1430 Try_C Try_P0 Try_P1 Try_P2 --out 
 :: (a) 단계점 프레임 찾기 (논문 A/B/C ~= 최대점의 1/3, 2/3, 최대점)
 python find_frames.py Try_C\tension_damage_LONG.csv --strains 0.09,0.17,0.26
 :: (b) 나온 --frames 줄을 그대로:
-abaqus viewer noGUI=make_odb_images.py -- Try_C\CSIC_t23_long.odb --step Tension_23C --fig damage --frames <a에서 나온 번호들>
+abaqus cae noGUI=make_odb_images.py -- Try_C\CSIC_t23_long.odb --step Tension_23C --fig damage --frames <a에서 나온 번호들>
 abaqus python extract_damage_histogram.py Try_C\CSIC_t23_long.odb --frames <같은 번호들> --tag _LONG
 ```
 
@@ -85,4 +85,7 @@ abaqus python extract_damage_histogram.py Try_C\CSIC_t23_long.odb --frames <같�
   냉각 끝 그림과 같아 보이는 것이 정상.
 - 인장 스텝은 온도 일정 → `--temps` 불가, `--frames` 사용
   (`find_frames.py` 가 번호를 준다).
-- 뷰어 렌더링은 컨테이너에서 검증 불가. 첫 장에서 시점·범례 확인.
+- 렌더링은 컨테이너에서 검증 불가. 첫 장에서 시점·범례 확인.
+- **`abaqus viewer noGUI=` 는 쓰지 말 것** -- 그 커널에는
+  `displayGroupOdbToolset` 이 없어 ImportError 로 죽는다 (6.18 확인).
+  반드시 `abaqus cae noGUI=`. 인자는 동일.

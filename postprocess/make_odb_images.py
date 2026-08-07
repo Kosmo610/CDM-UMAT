@@ -10,7 +10,8 @@
 Fig.3/7/9 는 S11 잔류응력, Fig.5/8/10 은 손상 3행(기지/종/횡)이다.
 
 실행 (GUI 없이):
-    abaqus viewer noGUI=make_odb_images.py -- <job>.odb [옵션]
+    abaqus cae noGUI=make_odb_images.py -- <job>.odb [옵션]
+    (viewer 커널에는 displayGroupOdbToolset 이 없다. 반드시 cae)
 
 옵션:
     --fig stress    S11 을 기지/얀으로 (논문 Fig.3/7/9). 범례 논문값 고정
@@ -37,7 +38,7 @@ Fig.3/7/9 는 S11 잔류응력, Fig.5/8/10 은 손상 3행(기지/종/횡)이다
 논문 범례 고정값: 기지 S11 -160~+310 / 얀 S11 -600~+270 / 손상 0~1.
 범례를 고정해야 온도끼리 색이 비교된다.
 
-주의: 렌더링은 Abaqus Viewer 커널에서만 돈다. 여기서는 프레임 선택
+주의: 렌더링은 Abaqus CAE 커널에서만 돈다. 여기서는 프레임 선택
 로직만 검증했고 실제 그림은 워크스테이션에서 확인해야 한다.
 """
 from __future__ import print_function
@@ -135,7 +136,7 @@ def main():
         args = args[args.index('--') + 1:]
     paths = [a for a in args if a.lower().endswith('.odb')]
     if not paths:
-        print('usage: abaqus viewer noGUI=make_odb_images.py -- <job>.odb '
+        print('usage: abaqus cae noGUI=make_odb_images.py -- <job>.odb '
               '[--fig stress|damage] [--step NAME] '
               '[--temps 1050,750,500,250,23] [--trange A,B] '
               '[--frames 0,25] [--var S11] [--out DIR] [--list] [--auto]')
@@ -154,7 +155,22 @@ def main():
     from abaqus import session
     from abaqusConstants import (CONTOURS_ON_DEF, INTEGRATION_POINT,
                                  COMPONENT, INVARIANT, OFF, ON, PNG)
-    import displayGroupOdbToolset as dgo
+    # displayGroupOdbToolset 는 CAE 커널 모듈이다. `abaqus viewer noGUI=`
+    # 로 띄운 축소 커널에는 없는 설치본이 있으므로(6.18 에서 확인됨)
+    # 실패하면 조용히 죽지 말고 정확한 대안을 알려준다.
+    try:
+        import displayGroupOdbToolset as dgo
+    except ImportError:
+        print('')
+        print('[error] displayGroupOdbToolset 를 불러올 수 없다.')
+        print('        Abaqus/Viewer 커널에는 이 모듈이 없다.')
+        print('        같은 명령을 viewer 대신 cae 로 실행할 것:')
+        print('')
+        print('          abaqus cae noGUI=make_odb_images.py -- '
+              '<job>.odb ...')
+        print('')
+        print('        (인자는 완전히 동일하다. CAE 토큰 1개를 쓴다.)')
+        return 3
 
     odb = session.openOdb(path=path, readOnly=True)
     print('odb   : %s' % os.path.basename(path))
