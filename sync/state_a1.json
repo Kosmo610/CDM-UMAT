@@ -1,8 +1,8 @@
 {
   "agent": "a1",
   "branch": "claude/paper-reference-research-pksw5p",
-  "merged_from_a2_upto": "",
-  "note": "read = a2의 메시지 중 '반영까지 끝낸' id. PROTOCOL.md §4. merged_from_a2_upto 는 아직 a2 브랜치를 병합하지 않아 비어 있다.",
+  "merged_from_a2_upto": "28792e8",
+  "note": "read = a2의 메시지 중 '반영까지 끝낸' id. PROTOCOL.md §4. merged_from_a2_upto 는 마지막으로 병합한 a2 커밋(2026-08-06, 병합 03a4c42).",
   "read": [
     "a2-0001",
     "a2-0002",
@@ -14,9 +14,18 @@
     "a2-0008",
     "a2-0009",
     "a2-0010",
+    "a2-0011",
     "a2-0012",
     "a2-0013",
+    "a2-0014",
+    "a2-0015",
+    "a2-0016",
+    "a2-0017",
     "a2-0018",
-    "a2-0019"
+    "a2-0019",
+    "a2-0020",
+    "a2-0021",
+    "a2-0022",
+    "a2-0023"
   ]
 }

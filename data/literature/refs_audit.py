@@ -527,6 +527,35 @@ def check():
     t("and the remaining unknown is narrowed to the spherical derivation",
       "구형 시편 유도의 세부뿐" in ch2txt)
 
+    # C5-C7 are the cohesive-fatigue precedents 2.5.4 leans on.  Same
+    # treatment: verify what can be verified without the papers, and CHANGE
+    # THE ATTRIBUTION where the draft claimed more than that supports.
+    print("\n D4. C5-C7 cohesive-fatigue precedents -- attribution narrowed")
+    t("the three bibliographies are stated with volume and pages",
+      "**70** (2003) 209–232" in ch2txt
+      and "**32** (2010) 158–165" in ch2txt
+      and "**110** (2001) 351–369" in ch2txt)
+    t("Roe & Siegmund's DIAGNOSIS attribution is retracted",
+      "확인 안 됨" in ch2txt and "명시적 서술" in ch2txt)
+    t("  and replaced by what is verified -- the PRESCRIPTION",
+      "단조 응집강도를 사이클마다 열화" in ch2txt and "문턱" in ch2txt)
+    t("Hochard's additive-decomposition attribution is retracted too",
+      "분해의 형태는 확인 안 됨" in ch2txt)
+    t("Nguyen is marked unverified rather than quietly kept",
+      "미확인" in ch2txt)
+    # The diagnosis needs no citation: 2.5.4 already calls it algebra.
+    t("the diagnosis is claimed as algebra, not as a literature finding",
+      "구성식의 수학적 성질이지 문헌의" in ch2txt
+      and "문헌적 발견이 아니라 구성식의 수학적 성질이다" in ch2txt)
+    # And the payoff: our own law has the verified structure.
+    t("our Delta_d_cyc is shown to share the verified structure",
+      "본 연구의 $\\Delta d_{cyc}$가 정확히 그 구조다" in ch2txt
+      and "Macaulay" in ch2txt)
+    t("  which is a stronger claim than the draft made",
+      "형태에는 선례가 있으며" in ch2txt)
+    t("no quotation marks are used while the papers are unheld",
+      "원문 확보 전까지 인용부호는 쓰지 않는다" in ch2txt)
+
     # [S13] is paywalled and stays unheld, so what CAN be verified without it
     # was verified against independent secondary sources and pinned here.
     # Doing that turned up an error in 2.4.4 that had nothing to do with

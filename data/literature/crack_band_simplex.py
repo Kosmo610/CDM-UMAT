@@ -159,6 +159,22 @@ not read the band width as a prediction -- does not depend on the choice at
 all.  Quoting it as a range makes it stronger than quoting 3.84 mm, because
 it can no longer be attacked by disputing the substitution.
 
+Two further points, both from a2 (a2-0023), both kept because they bound what
+the statement applies to:
+
+  * The w_c FLOOR does not collide with the snap-back CEILING on l_e.  They
+    constrain different quantities -- the ceiling is numerical and applies to
+    the element, the floor is physical and applies to the material's band.
+    Bazant & Oh themselves prescribe rescaling the softening slope when
+    elements are finer than w_c (the normal case), which is exactly what
+    KABAND's A(g0, l_e, Gf) does.  So the floor is already absorbed by the
+    implementation and never limits l_e.
+  * The limitation is MACRO-ONLY.  At the RVE scale the material is the SiC
+    matrix phase and the d_a analogue is pores and grains -- microns -- so
+    w_c falls BELOW our element size there and the ordering reverses.  Ch.4's
+    damage distributions are therefore not subject to this caveat; Ch.6's
+    band widths are.
+
 Run:  python3 data/literature/crack_band_simplex.py --check
 """
 from __future__ import print_function
@@ -439,6 +455,19 @@ def check():
       "does not depend on the choice at all" in " ".join(__doc__.split()))
     t("  and the substitution is marked as ours, not refs/[46]'s",
       "WHAT d_a IS FOR A WOVEN CMC IS OURS" in __doc__)
+    t("  the floor does not collide with the snap-back ceiling",
+      "never limits l_e" in " ".join(__doc__.split()),
+      "different quantities; A-scaling already absorbs the floor")
+    t("  and the caveat is marked MACRO-ONLY (RVE reverses the ordering)",
+      "The limitation is MACRO-ONLY" in __doc__)
+    ch6 = os.path.join(ROOT, "docs", "CH6_RESULTS_DISCUSSION.md")
+    c6 = open(ch6, encoding="utf-8").read() if os.path.exists(ch6) else ""
+    t("  Ch.6 carries the range, not the 3.84 mm point",
+      "1.20 mm" in c6 and "5.25 mm" in c6 and "3.84 mm" in c6)
+    t("  and forbids reading the band width as a result",
+      "폭은 예측이 아니므로" in c6)
+    t("  while exempting the RVE scale explicitly",
+      "미시 RVE에는 이 제약이 없다" in c6)
 
     print("\n E. this does not restate a2's work as ours")
     t("a2 is credited for the 3D derivation and the measurement",
