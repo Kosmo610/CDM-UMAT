@@ -149,6 +149,32 @@ def main():
     check("the one-atmosphere limitation is stated",
           "분위기" in txt and "재보정" in txt)
 
+    # ------------------------------------------------------------------ D2
+    print("\n D2. the 6.2.3 settlement table is complete and honest")
+    m = re.search(r"(?ms)^### 6\.2\.3 .*?(?=^## 6\.3 )", txt)
+    seg = m.group(0) if m else ""
+    check("6.2.3 exists", bool(seg))
+    for tgt in ("T1", "T2", "T2′", "T3", "T3′", "T4", "T5", "T6",
+                "PLS", "H_{clo}", "cycle-jump"):
+        check("  row for %s" % tgt, tgt in seg)
+    # the two known gaps must be DECLARED as gaps, with an owner
+    check("exactly two rows are marked unresolved",
+          seg.count("미확정 1건") == 2)
+    check("  the bending-probe gap names 5.9-3 and a2",
+          "굽힘 프로브 미구현" in seg and "담당 a2" in seg)
+    check("  the H_clo control-job gap names the matrix hole",
+          "계상되어 있지 않다" in seg)
+    check("T1 is barred from reappearing in the validation table",
+          "검증표에 재등장 금지" in seg)
+    check("the independence caveat is stated, not hidden",
+          "완전한 독립은 아니다" in seg and "같은 연구그룹" in seg)
+    check("T2' shape target carries the two-regime numbers",
+          "−21 %" in seg and "+3.6 %" in seg)
+    check("T4 is qualitative-only with the SiC/SiC reason",
+          "SiC/SiC" in seg and "정량 부적법" in seg)
+    check("the tolerance anchor for T2 is [10], not [3]",
+          "[3]은 산포를 싣지 않는다" in seg)
+
     # ------------------------------------------------------------------ E
     print("\n E. every bare citation is listed in Chapter 2's table")
     ch2 = open(os.path.join(DOCS, "CH2_LITERATURE_REVIEW.md"),
