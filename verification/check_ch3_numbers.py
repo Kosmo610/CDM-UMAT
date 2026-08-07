@@ -202,7 +202,7 @@ CASES = [
      count_bracketed, 30),
     ("damage_map.py --selftest",
      "python3 postprocess/damage_map.py --selftest",
-     count_bracketed, 35),
+     count_bracketed, 37),
 ]
 
 

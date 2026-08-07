@@ -81,10 +81,10 @@ import argparse
 
 try:
     from odbAccess import openOdb
-    from abaqusConstants import SCALAR, CENTROID
+    from abaqusConstants import SCALAR, CENTROID, INTEGRATION_POINT
 except ImportError:                       # plain python: selftest only
     openOdb = None
-    SCALAR = CENTROID = None
+    SCALAR = CENTROID = INTEGRATION_POINT = None
 
 
 # --------------------------------------------------------------------------
@@ -551,14 +551,21 @@ def gather(frame, phase, region, cent):
     return pts, sorted(missing)
 
 
-def inject(frame, inst, labels, damg, dmode, dadd, suffix):
-    """Write DAMG / DMODE / DADD into the frame at CENTROID position.
+def inject(frame, inst, labels, damg, dmode, dadd, suffix,
+           position=None):
+    """Write DAMG / DMODE / DADD into the frame.
 
-    CENTROID, not INTEGRATION_POINT, on purpose.  A centroid field draws as a
-    quilt -- one flat colour per element -- so the Viewer's default nodal
-    averaging cannot smear the peak of a one-element-wide softening band into
-    its neighbours.  That averaging is the single most common way a damage
+    CENTROID by default, not INTEGRATION_POINT, on purpose.  A centroid field
+    draws as a quilt -- one flat colour per element -- so the Viewer's default
+    nodal averaging cannot smear the peak of a one-element-wide softening band
+    into its neighbours.  That averaging is the single most common way a damage
     picture ends up understating its own hot spot.
+
+    `--position integration` is the fallback for a Viewer that will not contour
+    a centroid field.  It is only valid where each element has ONE integration
+    point, which is true of the RVE's C3D4 tets and false of the macro model's
+    C3D8 hexes, so main() refuses it rather than writing eight elements' worth
+    of labels for one value.
     """
     made = []
     for name, data, desc in (
@@ -574,8 +581,8 @@ def inject(frame, inst, labels, damg, dmode, dadd, suffix):
             made.append((name, "exists, left alone"))
             continue
         fo = frame.FieldOutput(name=name, description=desc, type=SCALAR)
-        fo.addData(position=CENTROID, instance=inst, labels=labels,
-                   data=[[v] for v in data])
+        fo.addData(position=position or CENTROID, instance=inst,
+                   labels=labels, data=[[v] for v in data])
         made.append((name, "written"))
     return made
 
@@ -594,6 +601,12 @@ def main(argv):
                          "(default: the first step, i.e. the cooldown)")
     ap.add_argument("--no-write-field", action="store_true",
                     help="do not modify the odb; write the csv only")
+    ap.add_argument("--position", default="centroid",
+                    choices=("centroid", "integration"),
+                    help="where the new fields live.  centroid (default) "
+                         "draws as an unaveraged quilt; integration is the "
+                         "fallback if the Viewer will not contour a centroid "
+                         "field, and is refused on multi-point elements.")
     ap.add_argument("--suffix", default="",
                     help="append to the new field names, to re-run without "
                          "colliding with an earlier pass")
@@ -612,8 +625,17 @@ def main(argv):
 
     axis = "xyz".index(a.axis)
     write = not a.no_write_field
+    pos = INTEGRATION_POINT if a.position == "integration" else CENTROID
     odb = openOdb(a.odb, readOnly=not write)
     inst, regions = find_regions(odb)
+    if a.position == "integration":
+        multi = sorted(set(e.type for e in inst.elements
+                           if not e.type.upper().startswith(("C3D4", "C3D6"))))
+        if multi:
+            sys.exit("--position integration writes one value per element, "
+                     "which is only right where an element has one "
+                     "integration point.  This instance holds %s.  Use the "
+                     "default centroid position." % ", ".join(multi))
     cent = centroids(inst)
 
     print("=" * 74)
@@ -712,7 +734,8 @@ def main(argv):
 
         if write:
             for nm, what in inject(fr, inst, labels, dv, mv,
-                                   av if refmap else None, a.suffix):
+                                   av if refmap else None, a.suffix,
+                                   position=pos):
                 print("  field %-8s %s" % (nm, what))
 
     if write:
@@ -880,6 +903,17 @@ def selftest():
             [(s, n) for s, n in PHASES["Matrix"]["mag"]]).get(9) is None
        and dict(PHASES["Yarn"]["mag"]).get(9) == "DY1",
        "matrix slot 9 is EQPS and is deliberately NOT in the matrix table")
+    # ---- H. the odb-side behaviour, which no test here can exercise.
+    # These pin the SOURCE instead: the fallback must stay optional, and the
+    # guard that makes it safe must stay attached to it.
+    src = open(__file__).read()
+    ck("centroid is the position used when nothing is asked for",
+       'default="centroid"' in src)
+    ck("the integration fallback is refused on multi-point elements",
+       "C3D4" in src.split("multi = ")[1][:220]
+       and "sys.exit" in src.split("multi = ")[1][:600],
+       "the guard names the one-point element types and stops the run")
+
     ck("no phase reuses another phase's DMODE codes",
        len(set(PHASES[p]["base"] + i
                for p in PHASES for _s, _n, i, _l in PHASES[p]["comp"]))
