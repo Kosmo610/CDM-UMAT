@@ -482,6 +482,60 @@ def part_cycle_fences():
           guide.count("### 제약") == 4 and "아르곤" in guide
           and "T_max" in guide)
 
+    # ---- T5: the target that was wrong, and the deck facts (a1-0024) ----
+    # The constrained-cycling target from refs/[68] was read off the
+    # abstract and was wrong in a way that would have produced a deck
+    # chasing the wrong quantity.  Pinned here because m6's successor
+    # stage builds that deck.
+    print("""
+ T5 -- READ [A3-b] BEFORE BUILDING THE CONSTRAINED-CYCLING DECK.
+ The retracted target was "constraint stress +62.5 -> -14 MPa, swing 76.5,
+ sign reversal is the first-class verdict".  62.5 is not a starting
+ stress: it is the AMPLITUDE of the within-cycle sawtooth, near constant
+ over all cycles, and the paper's own elastic estimate E*alpha*dT =
+ 54 GPa * 4.0298e-6 * 300 = 65.283 MPa confirms it is elastic, not
+ history.  What drifts is the sawtooth's MEAN, 0 -> -14 MPa, saturating
+ near cycle 25, driven by the constrained specimen's irreversible
+ elongation.  76.5 = 62.5 - (-14) mixed an amplitude with a mean.
+
+ So the verdict splits three ways and each measures something else:
+   amplitude ~ 62.5 MPa     card health (stiffness, CTE, constraint).
+                            Missing it indicts the CARD, not the damage law.
+   mean drift 0 -> -14 MPa  THE damage-physics verdict: without irreversible
+                            strain there is no drift at all.
+   scale D_E ~ 0.1,         calibration quality; 0.1 is self-consistent
+   damage strain 0.06 %     with the 88.9 % residual modulus.
+
+ Deck facts that change the geometry: only the 40x3x3 mm GAUGE is heated
+ (water-cooled steel grips at both ends), so a whole-specimen thermal deck
+ is simply wrong; the 120 s period is 60 heat / 30 hold / 30 cool; and the
+ material is a 3D braid, so nothing from its Table I may be transplanted
+ into our card -- the deck exists to reproduce a CONSTRAINT boundary
+ condition, not to borrow properties.""")
+    ta = open(os.path.join(ROOT, "docs", "TO_ANALYSIS.md"),
+              encoding="utf-8").read()
+    check("[A3-b] deck-fact table exists and is the authority", "[A3-b]" in ta)
+    check("the elastic amplitude check is reproducible here",
+          abs(54.0e3 * 4.0298e-6 * 300.0 - 65.283) < 0.01,
+          "%.3f MPa vs measured 62.5" % (54.0e3 * 4.0298e-6 * 300.0))
+    check("the retracted 76.5 is an amplitude-minus-mean artefact",
+          abs(62.5 - (-14.0) - 76.5) < 1e-9)
+    check("gauge-only heating is recorded, so no whole-specimen deck",
+          "게이지" in ta and "40 × 3 × 3" in ta)
+    check("the 3D-braid card-transplant ban is recorded",
+          "카드 이식 금지" in ta)
+    guide2 = open(os.path.join(ROOT, "verification",
+                               "CALIBRATION_GUIDE.md"), encoding="utf-8").read()
+    check("CALIBRATION_GUIDE carries the retraction, not the old target",
+          "폐기됐다" in guide2 and "65.283" in guide2)
+    # The retracted phrase may survive INSIDE the retraction that quotes
+    # it -- that is how a correction is written -- but nowhere else.  a1's
+    # check_ch6_numbers.py guards "76.5" the same way.
+    bad = [l for l in guide2.splitlines()
+           if "부호 반전이 1급 판정" in l and "폐기" not in l]
+    check("  the old verdict phrase survives only inside the retraction",
+          not bad, bad[0][:50] if bad else "quoted once, in the retraction")
+
     # The comparison-modulus fork (a1-0014 [4]): same CVI 2D C/SiC, same
     # density, two published moduli 1.84x apart.  M6's target is decided
     # HERE, once: Yang, because Yang states the convention (initial

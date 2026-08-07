@@ -71,15 +71,15 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출 포함) | 63 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 | 199 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
-| `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 | 22 |
+| `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 + T5 표적 정정 | 29 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식(해석 전 검증) | 12 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
 | `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 (발표 계열 대조 포함) | 35 |
 | `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종·산포·선형분율 | 30 |
 | `extract_probe.py --selftest` | E(N) 프로브 판독 산식 (cycle-jump 선행검증의 소비자) | 5 |
-| `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 (1 %/3 % 문턱) | 5 |
-| **합계** | | **2133** |
+| `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 + refs/[57]·[58] 역할 분리와 10배 격차 | 11 |
+| **합계** | | **2146** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

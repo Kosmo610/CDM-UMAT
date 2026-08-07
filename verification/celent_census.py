@@ -119,13 +119,29 @@ for elements finer than w_c -- the normal case -- Bazant & Oh themselves
 adjust the softening slope so the energy over the band is preserved,
 which is precisely what KABAND's A(g0, le, Gf) does.  So there is no
 collision between the snap-back CEILING on le (numerical, active, section
-E) and the w_c FLOOR (physical, absorbed by the A-scaling).  What
-survives is a statement, not a check: at the macro scale d_a is the yarn
-width 1.28 mm, so w_c = 3.84 mm, while the macro elements run 0.68-0.94
-mm -- the model lets damage localise into a band 4-5.6x narrower than
-the material's own process zone.  Energy is right by construction; the
-WIDTH of the localised zone is not a prediction, and Ch.6 must not read
-it as one.
+E) and the w_c FLOOR (physical, absorbed by the A-scaling).
+
+What survives is a statement, not a check -- and it is stated as a RANGE
+(a1-0022).  The factor 3 is refs/[46]'s; the d_a is OURS.  That paper is
+about concrete, where d_a is the maximum aggregate size, and it says
+nothing about what plays that role in a woven CMC.  Three candidates come
+off our own mesh:
+
+    yarn thickness  0.399 mm  ->  w_c = 1.20 mm
+    yarn width      1.280 mm  ->  w_c = 3.84 mm
+    yarn period     1.750 mm  ->  w_c = 5.25 mm
+
+Quoting 3.84 alone would read as a published result when only the 3 is.
+The range is also the stronger claim: macro elements run 0.68-0.94 mm, so
+even the SMALLEST candidate exceeds the largest element and the verdict
+does not depend on which substitution one prefers.  The model lets damage
+localise into a band narrower than the material's own process zone;
+energy is right by construction, the WIDTH of the localised zone is not a
+prediction, and Ch.6 (section 6.6.1) says so.
+
+Macro only.  At the RVE scale the d_a analogue is the pore or grain size,
+microns, so w_c falls BELOW the element size and the ordering reverses --
+Ch.4's damage distributions are not touched by this.
 
     python3 verification/celent_census.py
     python3 verification/celent_census.py --check

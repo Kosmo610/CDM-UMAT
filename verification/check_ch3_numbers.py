@@ -174,7 +174,7 @@ CASES = [
      count_plain, 81),
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
-     count_plain, 22),
+     count_plain, 29),
     ("md_to_pdf.py --selftest",
      "python3 postprocess/md_to_pdf.py --selftest",
      lambda s: len(__import__("re").findall(
@@ -187,7 +187,7 @@ CASES = [
      count_bracketed, 5),
     ("compare_cyclejump.py --selftest",
      "python3 postprocess/compare_cyclejump.py --selftest",
-     count_bracketed, 5),
+     count_bracketed, 11),
     ("sync_check.py --selftest",
      "python3 sync/sync_check.py --selftest",
      count_bracketed, 46),

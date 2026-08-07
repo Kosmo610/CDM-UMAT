@@ -9,12 +9,45 @@ The production matrix runs with cycle jump (one increment stands for
 several cycles).  verify_thermshock.py T6 bounds the MATERIAL-POINT error
 at 0.03 % for a x10 jump, but a structure adds what a point cannot see:
 damage at one element changes the stress at its neighbours, and the jump
-coarsens that redistribution.  refs/[58] (Cojocaru & Karlsson) solves this
-with adaptive jump control; our answer (a2-0020) is to keep the fixed
+coarsens that redistribution.  Our answer (a2-0020) is to keep the fixed
 interval and MEASURE the error once on the real mesh -- this file is that
-measurement.  If it comes back large, adaptive control gets implemented;
-if small, refs/[57][58] are cited and the fixed interval is a documented,
-quantified choice.
+measurement.
+
+THE TWO CITATIONS DO DIFFERENT JOBS (a1-0021, corrected 2026-08-06)
+-------------------------------------------------------------------
+This file first put refs/[57] and refs/[58] together as "adaptive control
+we did not implement".  That is right for [58] and wrong for [57].
+
+refs/[57] section 6.1 sets its jump from an ALLOWED INCREASE OF THE DAMAGE
+VARIABLE -- D(N + NJUMP) = D(N) + (dD/dN)|_N * NJUMP -- which is the same
+criterion as our max_djump.  So [57] is the SOURCE of the criterion we
+use, not an alternative to it.  What differs is the mechanism:
+
+                bounds            picks the jump width
+    refs/[57]   damage increment  FORWARD, from dD/dN        (adaptive)
+    refs/[58]   change of RATE    from a relative error q_y  (adaptive)
+    ours        damage increment  FIXED; cuts back on exceed (reactive)
+
+A reactive cutback holds the per-increment damage inside the tolerance but
+cannot CHOOSE the jump width.  That one sentence is the limitation's exact
+shape -- and refs/[58], which bounds the change of the rate by linear
+extrapolation from the previous two cycles, is the "better method, not
+implemented" citation.  Neither we nor [57] do that.
+
+AND OUR TOLERANCE IS 10x LOOSER, WHICH HAS TO BE SAID
+------------------------------------------------------
+    refs/[57] example    dD <= 0.01     (D in [0,1])
+    ours, D_DJUMP        dD <= 0.10     (abaqus/retune_deck.py)
+
+Writing "we used a fixed interval" without that ratio understates the gap.
+data/literature/cycle_jump_provenance.py reads D_DJUMP straight out of
+retune_deck.py, so the number follows if the card changes.
+
+One constraint survives adaptivity: refs/[57] notes a finite element run
+can carry only ONE global jump width while local demands "can be very
+contradictory".  Our matrix and yarn damage at very different rates, so
+that is exactly our case -- the single interval is not our simplification,
+and adaptivity would only change who picks its value.
 
 VERDICT SCALE
 -------------
@@ -78,8 +111,10 @@ def verdict(rows):
         return None, "no shared post-cycling checkpoint -- nothing compared"
     w = max(es)
     if w < THRESH_OK:
-        return w, ("OK: %.2f %% -- below the experiment's own scatter; "
-                   "the fixed jump stands, cite refs/[57][58]" % (100 * w))
+        return w, ("OK: %.2f %% -- under refs/[10]'s smallest published "
+                   "modulus scatter (1.40 %%); the fixed jump stands, with "
+                   "refs/[57] as the criterion's source and refs/[58] as "
+                   "the unimplemented better method" % (100 * w))
     if w < THRESH_WARN:
         return w, ("ACCEPTABLE: %.2f %% -- quote this number beside every "
                    "E(N) result" % (100 * w))
@@ -117,6 +152,21 @@ def selftest():
     w, v = verdict(compare(only0, only0))
     ck("N=0-only overlap says so instead of declaring victory",
        w is None and "nothing compared" in v)
+
+    # a1-0021: the two citations do different jobs, and the tolerance gap
+    # is a number that must not quietly go missing from the limitation.
+    ck("refs/[57] is named the criterion's SOURCE, not an alternative",
+       "SOURCE of the criterion we" in __doc__ and "same\ncriterion" in __doc__)
+    ck("refs/[58] is named the unimplemented better method",
+       "better method, not" in __doc__)
+    ck("the 10x tolerance gap is stated with both numbers",
+       "dD <= 0.01" in __doc__ and "dD <= 0.10" in __doc__)
+    ck("the single-global-jump constraint is attributed to [57], not to us",
+       "not our simplification" in __doc__)
+    ck("the 1 % anchor cites refs/[10]'s scatter, not [03]'s absent bars",
+       "publishes NO error bars" in __doc__ and "1.40 %" in __doc__)
+    ck("the tolerance the error was measured at is read from the generator",
+       abs(_djump() - 0.10) < 1e-12, "max_djump = %g" % _djump())
     print("   %d passed" % n[0])
     return 0
 
@@ -135,7 +185,26 @@ def main(argv):
         print("%-6g %-11s %12.6f %12.6f %9.3f %%" % (nn, key, a, b, 100 * e))
     w, v = verdict(rows)
     print("\n" + v)
+    print("\nCONDITIONAL ON THE DAMAGE-INCREMENT TOLERANCE.  This error was")
+    print("measured with max_djump = %g (retune_deck.py D_DJUMP), the cap the"
+          % _djump())
+    print("reactive cutback enforces.  refs/[57] sets its ADAPTIVE jump from")
+    print("the same quantity but with an example tolerance of 0.01 -- ours is")
+    print("10x looser, so quote the number above together with the tolerance")
+    print("it was measured at, never on its own.")
     return 0 if w is not None and w < THRESH_WARN else 1
+
+
+def _djump(default=0.10):
+    """D_DJUMP straight from the deck generator, so the caveat cannot drift."""
+    import os
+    import re
+    p = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "abaqus", "retune_deck.py")
+    if not os.path.exists(p):
+        return default
+    m = re.search(r"^D_DJUMP = ([0-9.]+)", open(p).read(), re.M)
+    return float(m.group(1)) if m else default
 
 
 if __name__ == "__main__":
