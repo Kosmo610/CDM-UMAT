@@ -10,9 +10,16 @@ find_frames.py  --  변형률/온도 -> odb 프레임 번호 찾기
 
 사용법  (일반 python, abaqus 불필요)
 ------
+  python find_frames.py tension_damage_P0.csv --stages
   python find_frames.py tension_damage_P0.csv --strains 0.05,0.12,0.26
   python find_frames.py cooling_damage_P0.csv --temps 1050,750,500,250,23
 
+  --stages   **논문 A/B/C(/D) 단계점을 자동으로.** 옆에 있는
+             tension_stress_strain*.csv 에서 최대점(첫 하중강하)을
+             찾아, 그 변형률의 5/35/70/100 % 지점을 고른다.
+             논문 Fig.11 의 단계 경계가 최대점의 약 35 % / 95 %
+             부근이므로 같은 자리를 잡는다.
+             비율을 바꾸려면 --fracs 0.05,0.5,1.0
   --strains  변형률 [%] 목록  (tension_damage*.csv 에서)
   --temps    온도 [C] 목록    (cooling/heating_damage*.csv 에서)
 
@@ -22,7 +29,11 @@ find_frames.py  --  변형률/온도 -> odb 프레임 번호 찾기
 """
 from __future__ import print_function
 import sys
+import os
+import re
 import csv
+
+DEFAULT_FRACS = (0.05, 0.35, 0.70, 1.00)
 
 
 def fnum(s):
@@ -33,9 +44,61 @@ def fnum(s):
     return None if v != v else v
 
 
+def local_peak(sig, win=25, dropfrac=0.03):
+    """첫 하중 급강하 직전의 국부최대 index. 없으면 None.
+    extract_tension.py / make_paper_figures.py 와 같은 판정."""
+    n = len(sig)
+    if n < 2 * win + 2:
+        return None
+    for i in range(win, n - win):
+        if sig[i] <= 0.0:
+            continue
+        if sig[i] == max(sig[i - win:i + win + 1]):
+            if min(sig[i:]) < sig[i] * (1.0 - dropfrac):
+                return i
+    return None
+
+
+def peak_strain(path):
+    """tension_stress_strain*.csv -> (최대점 변형률[%], 강도, 확정여부).
+
+    국부최대가 있으면 그것이 강도(연화 진입). 없으면 곡선 끝이
+    강도의 하한이므로 확정여부 False.
+    """
+    eps, sig = [], []
+    with open(path, 'r') as f:
+        for r in csv.DictReader(f):
+            e, s = fnum(r.get('eps_xx_mech')), fnum(r.get('sigma_xx_MPa'))
+            if e is None or s is None:
+                continue
+            eps.append(e * 100.0)
+            sig.append(s)
+    if not sig:
+        return None
+    k = local_peak(sig)
+    if k is not None:
+        return (eps[k], sig[k], True)
+    k = max(range(len(sig)), key=lambda i: sig[i])
+    return (eps[k], sig[k], False)
+
+
+def sibling_ss(dmg_path):
+    """tension_damage<TAG>.csv 옆의 tension_stress_strain<TAG>.csv."""
+    d, b = os.path.split(os.path.abspath(dmg_path))
+    m = re.match(r'tension_damage(.*)\.csv$', b, re.I)
+    if not m:
+        return None
+    p = os.path.join(d, 'tension_stress_strain%s.csv' % m.group(1))
+    return p if os.path.exists(p) else None
+
+
 def main():
     args = sys.argv[1:]
     strains = temps = None
+    fracs = DEFAULT_FRACS
+    if '--fracs' in args:
+        i = args.index('--fracs')
+        fracs = tuple(float(x) for x in args[i + 1].split(','))
     if '--strains' in args:
         i = args.index('--strains')
         strains = [float(x) for x in args[i + 1].split(',')]
@@ -43,10 +106,37 @@ def main():
         i = args.index('--temps')
         temps = [float(x) for x in args[i + 1].split(',')]
     paths = [a for a in args if a.lower().endswith('.csv')]
-    if not paths or (strains is None and temps is None):
+    if not paths:
         print(__doc__)
         return 1
     path = paths[0]
+
+    # ---- --stages: 옆 CSV 에서 최대점을 찾아 단계점 변형률을 만든다 ------
+    if '--stages' in args:
+        ss = sibling_ss(path)
+        if ss is None:
+            print('[error] tension_stress_strain*.csv 를 %s 옆에서'
+                  ' 못 찾았다.' % os.path.basename(path))
+            print('        --strains 로 직접 지정할 것.')
+            return 2
+        pk = peak_strain(ss)
+        if pk is None:
+            print('[error] %s 에 유효한 곡선이 없다.'
+                  % os.path.basename(ss))
+            return 2
+        pe, ps, ok = pk
+        print('peak   : %.4f%%  %.2f MPa   %s'
+              % (pe, ps, '(연화 확인)' if ok else '(*** 상승중 -- 하한.'
+                 ' 단계점은 잠정 ***)'))
+        strains = [pe * fr for fr in fracs]
+        print('stages : %s  (최대점의 %s)'
+              % (', '.join('%.4f%%' % s for s in strains),
+                 ', '.join('%d%%' % (100 * f) for f in fracs)))
+        print('')
+
+    if strains is None and temps is None:
+        print(__doc__)
+        return 1
 
     with open(path, 'r') as f:
         rows = [r for r in csv.DictReader(f)]
@@ -85,10 +175,12 @@ def main():
     unit = 'C' if temps is not None else '%'
     print('csv    : %s  (%d frames: %d..%d)'
           % (path, len(frames), frames[0], frames[-1]))
+    stage = '--stages' in args
     print('')
-    print('  %-10s %-8s %-12s' % ('want', 'frame', 'actual'))
+    print('  %-6s %-10s %-8s %-12s'
+          % ('point' if stage else '', 'want', 'frame', 'actual'))
     picks = []
-    for wv in wants:
+    for j, wv in enumerate(wants):
         best, bd = None, None
         for fr in frames:
             d = abs(per[fr] * scale - wv)
@@ -100,9 +192,13 @@ def main():
             note = '  <- off by %.3f%%' % bd
         if unit == 'C' and bd is not None and bd > 25.0:
             note = '  <- off by %.0fC' % bd
-        print('  %-10s %-8d %-12s%s'
-              % ('%g%s' % (wv, unit), best,
+        lab = 'ABCDEFGH'[j] if (stage and j < 8) else ''
+        print('  %-6s %-10s %-8d %-12s%s'
+              % (lab, '%g%s' % (wv, unit), best,
                  '%.4f%s' % (per[best] * scale, unit), note))
+    if len(set(picks)) < len(picks):
+        print('  [warn] 중복 프레임이 있다 -- 출력 간격이 성기다.'
+              ' extract_tension 을 --stride 1 로 다시 뽑을 것.')
     print('')
     print('  --frames %s' % ','.join(str(p) for p in picks))
     print('  (make_odb_images.py / extract_damage_histogram.py 에 그대로)')
