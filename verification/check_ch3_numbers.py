@@ -141,7 +141,7 @@ CASES = [
      count_plain, 38),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
-     count_plain, 210),
+     count_plain, 206),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
      count_bracketed, 5),
@@ -186,6 +186,9 @@ CASES = [
      "python3 postprocess/md_to_docx.py --selftest",
      lambda s: len(__import__("re").findall(
          r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 10),
+    ("make_thesis_figures.py --check",
+     "python3 postprocess/make_thesis_figures.py --check",
+     count_bracketed, 26),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
      count_bracketed, 20),

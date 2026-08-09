@@ -141,6 +141,7 @@ def build_cover(chapter_paths, stamp):
         txt = open(p, encoding="utf-8").read()
         rows.append((first_heading(txt),
                      len(re.findall(r"\[결과 대기", txt)),
+                     len(re.findall(r"!\[[^\]]*\]\(figures/", txt)),
                      len(FIG_SLOT.findall(txt))))
         unresolved += txt.count("미확정 1건")
     lines = [
@@ -150,20 +151,23 @@ def build_cover(chapter_paths, stamp):
         "",
         "**생성:** %s (KST) · 브랜치 `%s` · CDM-UMAT" % (stamp, BRANCH),
         "",
-        "| 장 | `[결과 대기]` 자리 | 그림·표 자리 |",
-        "|---|---|---|",
+        "| 장 | `[결과 대기]` 자리 | 그림 (완성) | 그림 (자리만) |",
+        "|---|---|---|---|",
     ]
-    for title, n, nf in rows:
-        lines.append("| %s | %d | %d |" % (title, n, nf))
+    for title, n, done, slot in rows:
+        lines.append("| %s | %d | %d | %d |" % (title, n, done, slot))
     lines += [
         "",
         "- 해석 결과 수치는 아직 없다(M1 병목, 거시 매트릭스 실행 전). 결과가",
         "  들어갈 자리는 본문에 `[결과 대기 — …]`로 표시되어 있고, 위 표의",
         "  개수가 그 전부다. 그 밖의 모든 수치는 문헌·코드·덱에서 이미 확정된",
         "  값이다.",
-        "- 그림·그래프·표가 들어갈 자리는 본문에 `[그림 N.M 자리]` 상자로 표시했다.",
-        "  상자마다 **내용 / 재료(무엇으로 만드는지) / 제작 가능 시점**을 적었다 —",
-        "  \"지금 제작 가능\"은 해석 결과 없이도 만들 수 있는 그림이다.",
+        "- **그림 (완성)** 은 본문에 실제로 들어가 있다. 전부 `postprocess/"
+        "make_thesis_figures.py`가",
+        "  문헌 데이터·구성식·덱 생성기에서 **즉석 계산**해 그린 것이라, 손으로 적은",
+        "  수치가 없다. 측정이 아닌 곡선에는 그림 안에 \"모식\"이라고 적어 두었다.",
+        "- **그림 (자리만)** 은 해석 결과가 있어야 그릴 수 있는 것들이다. 본문에",
+        "  `[그림 N.M 자리]` 상자로 남아 있고, 상자마다 **내용 / 재료 / 제작 시점**을 적었다.",
     ]
     if unresolved:
         lines += [
@@ -188,19 +192,29 @@ def combine(chapter_paths, stamp):
     return fix_math(PAGE_BREAK.join(parts))
 
 
-def verify(path, nparts):
-    """Static checks on the produced docx; raises if it is not deliverable."""
+def verify(path, nparts, want_images=0):
+    """Static checks on the produced docx; raises if it is not deliverable.
+
+    Images are checked by COUNT, not by presence: pandoc drops an image whose
+    path it cannot resolve and still exits 0, so "the file was produced" says
+    nothing about whether the figures are in it.
+    """
     with zipfile.ZipFile(path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
+        media = [n for n in z.namelist() if n.startswith("word/media/")]
     text = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", xml))
     stats = dict(
         hangul=len(re.findall(u"[가-힣]", text)),
         breaks=xml.count('<w:br w:type="page"/>'),
         omath=xml.count("<m:oMath"),
         stray_dollar=text.count("$"),
+        images=len(media), want_images=want_images,
         kb=os.path.getsize(path) // 1024,
     )
     problems = []
+    if stats["images"] < stats["want_images"]:
+        problems.append("%d of %d figures did not reach the document"
+                        % (stats["images"], stats["want_images"]))
     if stats["hangul"] < 1000:
         problems.append("almost no Hangul survived (%d)" % stats["hangul"])
     if stats["breaks"] != nparts - 1:
@@ -222,11 +236,12 @@ def convert(name=None, stamp=None, outdir=None, chapter_paths=None):
         os.makedirs(outdir)
     chapter_paths = chapter_paths or find_chapters()
     out = os.path.join(outdir, "%s_%s.docx" % (name, stamp))
+    md = combine(chapter_paths, stamp)
+    want = len(set(re.findall(r"!\[[^\]]*\]\(([^)]+)\)", md)))
     pypandoc.convert_text(
-        combine(chapter_paths, stamp), "docx", format="markdown",
-        outputfile=out,
+        md, "docx", format="markdown", outputfile=out,
         extra_args=["--resource-path", os.path.join(ROOT, "docs")])
-    return out, verify(out, nparts=1 + len(chapter_paths))
+    return out, verify(out, nparts=1 + len(chapter_paths), want_images=want)
 
 
 # --------------------------------------------------------------------------
@@ -335,7 +350,8 @@ def main(argv):
     out, stats = convert(name=name, stamp=stamp)
     print("wrote %s" % out)
     print("  %(kb)d kB · hangul %(hangul)d · page breaks %(breaks)d · "
-          "equations %(omath)d · stray $ %(stray_dollar)d" % stats)
+          "equations %(omath)d · 그림 %(images)d/%(want_images)d · "
+          "stray $ %(stray_dollar)d" % stats)
     return 0
 
 
