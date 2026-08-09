@@ -132,11 +132,16 @@ def ledger_total(root=ROOT):
     return int(m.group(1)) if m else None
 
 
+FIG_SLOT = re.compile(r"\[(?:그림|표) \d+\.\w+ 자리\]")
+
+
 def build_cover(chapter_paths, stamp):
     rows, unresolved = [], 0
     for p in chapter_paths:
         txt = open(p, encoding="utf-8").read()
-        rows.append((first_heading(txt), len(re.findall(r"\[결과 대기", txt))))
+        rows.append((first_heading(txt),
+                     len(re.findall(r"\[결과 대기", txt)),
+                     len(FIG_SLOT.findall(txt))))
         unresolved += txt.count("미확정 1건")
     lines = [
         "# 논문 초안 — 제1–7장 합본",
@@ -145,17 +150,20 @@ def build_cover(chapter_paths, stamp):
         "",
         "**생성:** %s (KST) · 브랜치 `%s` · CDM-UMAT" % (stamp, BRANCH),
         "",
-        "| 장 | `[결과 대기]` 자리 |",
-        "|---|---|",
+        "| 장 | `[결과 대기]` 자리 | 그림·표 자리 |",
+        "|---|---|---|",
     ]
-    for title, n in rows:
-        lines.append("| %s | %d |" % (title, n))
+    for title, n, nf in rows:
+        lines.append("| %s | %d | %d |" % (title, n, nf))
     lines += [
         "",
         "- 해석 결과 수치는 아직 없다(M1 병목, 거시 매트릭스 실행 전). 결과가",
         "  들어갈 자리는 본문에 `[결과 대기 — …]`로 표시되어 있고, 위 표의",
         "  개수가 그 전부다. 그 밖의 모든 수치는 문헌·코드·덱에서 이미 확정된",
         "  값이다.",
+        "- 그림·그래프·표가 들어갈 자리는 본문에 `[그림 N.M 자리]` 상자로 표시했다.",
+        "  상자마다 **내용 / 재료(무엇으로 만드는지) / 제작 가능 시점**을 적었다 —",
+        "  \"지금 제작 가능\"은 해석 결과 없이도 만들 수 있는 그림이다.",
     ]
     if unresolved:
         lines += [

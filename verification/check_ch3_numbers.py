@@ -141,7 +141,7 @@ CASES = [
      count_plain, 38),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
-     count_plain, 199),
+     count_plain, 210),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
      count_bracketed, 5),

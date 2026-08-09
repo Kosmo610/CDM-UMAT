@@ -61,6 +61,12 @@ matrix composite, CMC)로, 1000 °C를 넘는 산화 분위기에서 비강도�
 
 ### 2.2.2 준취성(quasi-brittle) 거동과 손상 기구
 
+> **[그림 2.1 자리] 준취성 응력-변형률 곡선과 비례한도(PLS)**
+> 내용: 단일상 취성 세라믹(직선-즉시 파단)과 C/SiC(비례한도 이후 비선형 구간을
+> 거쳐 점진 파괴)의 응력-변형률 곡선 대조 모식. 비례한도(PLS) 위치와 기지 균열
+> 개시·계면 미끄럼 구간을 주석으로.
+> 재료: 모식 + 필요 시 [3] 곡선 디지타이즈(`digitize.py`). / 시점: **지금 제작 가능**
+
 단일상 세라믹과 달리 C/SiC는 최대하중 이후에도 하중을 지지하며, 응력–변형률 곡선이
 뚜렷한 비선형을 보인다. 손상 진행은 통상 다음 순서를 따른다.
 
@@ -149,6 +155,12 @@ RT/700/1200 °C로 보정한 뒤 1000 °C를 예측하여 검증하는 절차를
 
 ### 2.3.4 TRS는 열 노출만으로 영구히 풀리지 않는다 — [71]·[72]
 
+> **[그림 2.2 자리] TRS의 가열-냉각 가역성**
+> 내용: 온도-잔류응력 평면에서 in-situ 측정 경로 — 가열하면 감소, 냉각하면
+> 복귀(왕복 화살표). "열 노출만으로는 영구히 풀리지 않는다"([71]·[72])를 한 장으로.
+> 무응력 온도를 상수로 두는 본 연구 선택(제6장 §6.2.1)의 근거 그림.
+> 재료: [71]·[72] 보고 수치 기반 모식. / 시점: **지금 제작 가능**
+
 §2.3.1은 유효 무응력 온도가 제조 온도보다 낮다고 적었다. 그렇다면 자연히 따라오는
 질문이 있다 — **고온에 반복 노출되면 무응력 온도가 계속 내려가서 TRS가 점점 풀리는가?**
 반복 열충격을 다루는 본 연구에서 이 질문은 모델의 구조를 바꾼다. TRS가 사이클마다
@@ -203,6 +215,13 @@ $Bi \gtrsim 1$이면 구배가 지배한다. **즉 "열충격을 푼다"는 주�
 함께 제시되어야 하며, 그러려면 RVE에서 $\bar k$를 균질화해야 한다.**
 
 ### 2.4.2 실험 데이터 — 다섯 연구, 그리고 심각도로는 설명되지 않는 서열
+
+> **[그림 2.3 자리] 심각도 역설 — 본 연구 동기의 핵심 그림**
+> 내용: 가로축 ΔT, 세로축 "사이클당·K당 잔존율 저하율"(로그). [2](ΔT=1000 °C
+> ·100회)·[3](ΔT=600 °C·60회)·[43] 분위기 4점·[61]·[68]을 재료·분위기 라벨과
+> 함께 찍고, [3]/[2]의 6.0× 격차를 화살표로 표시. 심각도만으로는 서열이 설명되지
+> 않음을 보이는 그림.
+> 재료: `thermal_cycling_dataset.py`에서 직접 산출. / 시점: **지금 제작 가능**
 
 본 연구의 거시 모델 검증에 쓸 수 있는 공개 반복 열충격 데이터는 **세 연구그룹의
 여섯 편**이다([2]·[43]·[61]·[68]이 한 그룹, [3]이 한 그룹, [65]가 한 그룹).
@@ -482,6 +501,12 @@ $$d_{\text{eff}} = \begin{cases} d & \varepsilon_n \ge 0 \\ d\,(1-H_{clo}) & \va
 > 쓰며, 이를 §2.9에 한계로 기록한다.
 
 ### 2.5.4 사이클 의존 손상 누적 — 표준 CDM이 실패하는 지점
+
+> **[그림 2.4 자리] 표준 CDM의 정지 vs 사이클 손상 항**
+> 내용: 정진폭 반복 하중에서 손상 $d(N)$ 두 곡선 — 이력최대 구동(2사이클째부터
+> 수평, drift = 0)과 사이클 항 도입(문턱 위에서 계속 누적). §1.2.3의 논증을
+> 그림 하나로.
+> 재료: 단위시험 수치(`verify_thermshock.py` T5/T6). / 시점: **지금 제작 가능**
 
 **이 절의 명제는 문헌적 발견이 아니라 구성식의 수학적 성질이다.**
 
@@ -1004,6 +1029,7 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | **[72]** | *Measuring the effects of heat treatment on SiC/SiC ceramic matrix composite residual stresses* (Raman), **J. Am. Ceram. Soc. (2019)**, doi:`10.1111/jace.16724` — 900–1300 °C 노출 **전·중·후** TRS 변화 |
 | **[51]** | **Z. Hashin, A. Rotem**, *A fatigue failure criterion for fiber reinforced materials*, **J. Compos. Mater. 7(4) (1973) 448–464**, doi:`10.1177/002199837300700404` — 사이클 손상 법칙의 고전 기준 |
 | **[54]** | **J.-L. Chaboche, P.-M. Lesne, J.-F. Maire**, *Continuum damage mechanics, anisotropy and damage deactivation for brittle materials like concrete and ceramic composites*, **Int. J. Damage Mech. 4(1) (1995) 5–22**, doi:`10.1177/105678959500400102` — 균열 닫힘(damage deactivation)을 **CMC에 적용한** 편. 스캔본을 **OCR로 전문 판독**(2026-08-06, 18면): ① 닫힘 시 **부호가 바뀐 수직 변형률의 대각 강성항만** 수정해야 연속성이 보장된다(식 16) — 본 연구가 전단 손상을 회복시키지 않는 선택의 원전. ② 닫힘 가중계수 **η ∈ [0,1] 전 범위**가 출판된 형태 — `HCLO` 슬롯의 직접 근거. ③ 닫힘점은 0이 아니라 **C/SiC에서 관측되는 잔류변형률**에 묶인다 — 본 연구는 $\varepsilon_n=0$에서 닫으며 이는 기록된 한계. C/SiC 인장-압축 실측 재현 포함 |
+| **[46]** | **Z. P. Bažant, B. H. Oh**, *Crack band theory for fracture of concrete*, **Mater. Struct. 16(93) (1983) 155–177** — 균열대 이론 원전(구 키 `[S1]`, 보유 `refs/[46]`). $w_c \approx 3d_a$를 "about the minimum admissible from the viewpoint of continuum smoothing"으로 규정 — §2.5.2, 제6장 §6.6.1의 공정영역 폭 논거 |
 | **[47]** | **M. Jirásek, M. Bauer**, *Numerical aspects of the crack band approach*, **Comput. Struct. 110–111 (2012) 60–78**, doi:`10.1016/j.compstruc.2012.06.006` — ⚠️ **요소 체적의 세제곱근으로 균열대 폭을 잡는 방식(Abaqus `CELENT`)이 파괴에너지를 50 % 이상 어긋나게 할 수 있다**고 명시. 제4장 §4.9 균열대 정규화의 한계 근거 |
 | **[43]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, P. Fang, J. Zhang**, *Thermal shock behavior of two-dimensional C/SiC composites in controlled atmospheres*, **J. Mater. Sci. 40 (2005) 4261–4265** — §2.5.4의 산화 대조군. 초록이 아르곤 50회 후 **98.90 %** 유지를 명시한다 |
 
@@ -1027,6 +1053,8 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | **[S11]** | **W. D. Kingery**, *Factors affecting thermal stress resistance of ceramic materials*, **J. Am. Ceram. Soc. 38(1) (1955) 3–15** | `10.1111/j.1151-2916.1955.tb14545.x` | |
 | **[S12]** | **D. P. H. Hasselman**, *Elastic energy at fracture and surface energy as design criteria for thermal shock*, **J. Am. Ceram. Soc. 46(11) (1963) 535–540** | `10.1111/j.1151-2916.1963.tb14605.x` | |
 | **[S13]** | **D. P. H. Hasselman**, *Unified theory of thermal shock fracture initiation and crack propagation in brittle ceramics*, **J. Am. Ceram. Soc. 52(11) (1969) 600–604** | `10.1111/j.1151-2916.1969.tb15848.x` | |
+| **[S14]** | **ASME**, *Guide for Verification and Validation in Computational Solid Mechanics*, **ASME V&V 10-2006**, ANSI 승인(2006) — 검증 용어·위계만 인용(제3장 §3.1-a) | 없음(표준 문서, ISBN 079183042X) | |
+| **[S15]** | **I. Babuška, J. T. Oden**, *Verification and validation in computational engineering and science: basic concepts*, **Comput. Methods Appl. Mech. Engrg. 193(36–38) (2004) 4057–4066** | `10.1016/j.cma.2004.03.002` | |
 
 #### 미확보 `[S*]`의 처리 — 네 건, 셋으로 갈린다 (2026-08-06 정리)
 
@@ -1040,6 +1068,8 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | `[S11]` Kingery 1955 | 열충격 파라미터 $R$의 **정의** | **확보 불필요.** 이 관계식은 `refs/[61]`이 자기 논문 안에서 진술하며, 본 연구는 **`refs/[61]`의 진술로부터** 인용한다(`modulus_definition.py`가 그렇게 라벨링한다). Kingery를 원전으로 병기하되 값의 출처는 `refs/[61]`이다 |
 | `[S12]` Hasselman 1963 | $R''''$의 정의 | **확보 권장 — 서지·내용 방향은 2026-08-06 확인 완료.** 확인된 것: ① 서지 **J. Am. Ceram. Soc. 46 (1963) 535–540**, doi 일치 ② 그 논문의 명제 — 파괴 시 **저장 탄성에너지가 균열 전파의 구동력**, 유효표면에너지가 소산 기구, **저손상 조건 = 높은 $E$·높은 $\nu$·높은 표면에너지·낮은 강도** — 는 $R'''' = E\gamma_{wof}/[\sigma_u^2(1-\nu)]$의 증감 방향과 정확히 일치($E$·$\gamma$·$\nu$에 증가, $\sigma_u$에 감소) ③ "damage resistance parameters"를 제안한 것이 1963임이 확인되어 §2.4.4의 **귀속 정정(1963 대 1969)이 지지**된다. 원문이 있어야 확인되는 것: 구형 시편 유도의 세부뿐 |
 | `[S13]` Hasselman 1969 | $R_{st}$ — **안정 균열 성장을 다루는 유일한 고전 지표**(§2.4.4) | **서지·수식은 2026-08-06 확인 완료, 원문은 미확보(유료).** 확인된 것: ① 서지 **J. Am. Ceram. Soc. 52 (1969) 600–604**, doi `10.1111/j.1151-2916.1969.tb15848.x` ② $R_{st} = [\gamma_{wof}/(E\alpha^2)]^{1/2}$ 형태가 복수의 독립 2차 문헌과 일치 ③ 임계 $\Delta T$에서 **강도가 파국적으로 급락**한다는 예측과 알루미나 수급랭 검증. **이 확인 과정에서 §2.4.4의 가로축 오류를 찾아 정정하였다**(단회 $\Delta T$ 대 사이클 수). 남은 필요: 원문이 있어야 확인 가능한 것은 **$R_{st}$의 유도 조건**(삼축 구속·균일 냉각)이 우리 조건과 얼마나 다른가 하나뿐이다 |
+| `[S14]` ASME V&V 10-2006 | 검증 3층 구조가 표준 위계임(제3장 §3.1-a) | **확보 불필요 — 빌리는 것이 값이 아니라 용어·위계뿐.** 서지: *Guide for Verification and Validation in Computational Solid Mechanics*, ASME, 2006(ANSI 승인, 2026-08-07 확인). 용어는 ASME 공개 자료·위원회 개관으로 확인 — **code verification**("코드가 수학 모델을 정확히 푸는가"), **calculation verification**("메시 수렴을 다룬다"), **validation**("물리 표현이 맞는가"). 수치 인용 없음 |
+| `[S15]` Babuška & Oden 2004 | verification/validation 구분의 학술 정식화(제3장 §3.1-a) | **확보 권장 — 서지는 2026-08-07 확인 완료.** *Verification and validation in computational engineering and science: basic concepts*, **Comput. Methods Appl. Mech. Engrg. 193 (2004) 4057–4066**, doi:`10.1016/j.cma.2004.03.002`. [S14]와 같은 구분의 저널 정식화(병기용). 수치 인용 없음 |
 
 > **원칙.** 미확보 문헌은 세 갈래로만 처리한다 — ① 인용이 실질을 지탱하면 **확보**,
 > ② 보유 문헌이 같은 진술을 하면 **그쪽에서 인용**, ③ 아무것도 지탱하지 않으면
