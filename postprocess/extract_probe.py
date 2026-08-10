@@ -67,14 +67,47 @@ def probe_rows(odb):
                 if "XHI" in inst.nodeSets.keys():
                     nset = inst.nodeSets["XHI"]
         total = sum(v.data[0] for v in rf.getSubset(region=nset).values)
-        d17 = [v.data for v in frame.fieldOutputs["SDV17"].values]
-        d29 = [v.data for v in frame.fieldOutputs["SDV29"].values]
+        d17 = sdv_values(frame, 17, "DCYC")
+        d29 = sdv_values(frame, 29, "TWMAX")
         rows.append(dict(N=n, rf=total,
                          dcyc_mean=sum(d17) / max(1, len(d17)),
                          dcyc_max=max(d17) if d17 else 0.0,
                          twmax=max(d29) if d29 else 0.0))
     rows.sort(key=lambda r: r["N"])
     return rows
+
+
+class _Frame(object):
+    """Minimal stand-in for an odb frame: all resolve_sdv needs is keys()."""
+
+    def __init__(self, fo):
+        self.fieldOutputs = fo
+
+
+def resolve_sdv(frame, slot, name):
+    """The odb key for one state variable, whatever the deck called it.
+
+    A bare "SDV17" is what Abaqus writes when the *Depvar entry is UNNAMED.
+    Name it -- "17, DCYC, DCYC" -- and the field becomes "SDV_DCYC" and the
+    old key stops existing.  The macro card started naming all 29 slots on
+    2026-08-10, which turned this lookup into a KeyError on a job that had
+    otherwise run to completion.  Name first, number second, so decks from
+    either side of that change both read.
+    """
+    keys = frame.fieldOutputs.keys()
+    for cand in ("SDV_%s" % name, "SDV%d" % slot, "SDV_%d" % slot,
+                 "SDV%02d" % slot):
+        if cand in keys:
+            return cand
+    return None
+
+
+def sdv_values(frame, slot, name):
+    """[values] for one state variable, or [] if the deck never wrote it."""
+    var = resolve_sdv(frame, slot, name)
+    if var is None:
+        return []
+    return [v.data for v in frame.fieldOutputs[var].values]
 
 
 def stiffness(rows, area):
@@ -127,6 +160,30 @@ def selftest():
     ck("E/E0 starts at exactly 1", rows[0]["E_over_E0"] == 1.0)
     ck("a 45 % stiffness loss reads as 0.55",
        abs(rows[1]["E_over_E0"] - 0.55) < 1e-12)
+    # ---- the named/unnamed *Depvar lookup (2026-08-10 KeyError) --------
+    class _F(object):
+        def __init__(self, keys):
+            self._k = list(keys)
+
+        class _O(object):
+            pass
+
+        def keys(self):
+            return self._k
+    named = _F(["RF", "SDV_DCYC", "SDV_TWMAX"])
+    plain = _F(["RF", "SDV17", "SDV29"])
+    ck("a NAMED *Depvar resolves by name",
+       resolve_sdv(_Frame(named), 17, "DCYC") == "SDV_DCYC")
+    ck("an UNNAMED one still resolves by slot number",
+       resolve_sdv(_Frame(plain), 17, "DCYC") == "SDV17")
+    ck("the same holds for TWMAX, the severity-window audit",
+       resolve_sdv(_Frame(named), 29, "TWMAX") == "SDV_TWMAX"
+       and resolve_sdv(_Frame(plain), 29, "TWMAX") == "SDV29")
+    ck("a variable the deck never wrote returns None, not a KeyError",
+       resolve_sdv(_Frame(_F(["RF"])), 17, "DCYC") is None)
+    ck("and sdv_values turns that into an empty list",
+       sdv_values(_Frame(_F(["RF"])), 17, "DCYC") == [])
+
     # PROBE_STRAIN is duplicated from the generator (this file must run
     # inside abaqus python, off-repo).  Duplicates drift; when the
     # generator is reachable, the duplicate is checked against it.

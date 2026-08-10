@@ -187,7 +187,7 @@ CASES = [
      count_bracketed, 28),
     ("extract_probe.py --selftest",
      "python3 postprocess/extract_probe.py --selftest",
-     count_bracketed, 5),
+     count_bracketed, 10),
     ("compare_cyclejump.py --selftest",
      "python3 postprocess/compare_cyclejump.py --selftest",
      count_bracketed, 11),
