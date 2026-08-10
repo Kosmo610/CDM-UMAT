@@ -243,6 +243,22 @@ def write_curve(odb, outdir, V, tag=''):
         f.close()
     log('  wrote %s' % p)
 
+    # ---- span 진단: 다른 온도의 덱을 같은 span 으로 맞출 때 필요하다 ----
+    #   드라이버는 스텝 안에서 선형 램프이므로 eps/StepTime 이 상수이고,
+    #   그 값이 곧 "스텝을 완주했을 때의 기계변형률 span" 이다.
+    #   중단된 런에서도 맞는 값이 나온다 (0.77 에서 멈춰도 동일).
+    tt = [(r[1], r[2]) for r in rows if r[1] and r[1] > 0.0]
+    if tt:
+        span = tt[-1][1] / tt[-1][0]
+        done = tt[-1][0]
+        log('  step time  %.4f / 1.0 %s'
+            % (done, '' if done > 0.999 else '  <-- 중단됨 (완주 아님)'))
+        log('  완주 기준 span = %.8f   (eps/StepTime, 선형 램프)' % span)
+        log('  다른 span 으로 다시 돌리려면 덱의')
+        log('    *Boundary  ConstraintsDriver0, 1, 1, <목표>')
+        log('  를 이렇게 고친다:')
+        log('    새 목표 = 현재 목표 + (원하는 span - %.8f)' % span)
+
     sig = [r[3] for r in rows if r[3] != '']
     eps = [r[2] for r in rows if r[3] != '']
     if sig:
