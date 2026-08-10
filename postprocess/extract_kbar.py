@@ -101,7 +101,15 @@ def deck_variant(odb_path):
     porosity, kf = None, None
     inp = stem + ".inp"
     if os.path.exists(inp):
-        head = open(inp).read(4000)
+        # THE WHOLE FILE, not the first 4 kB.  make_rve_conductivity.py emits
+        # the thermal card -- and this comment with it -- next to the
+        # *Material blocks, which sit AFTER the mesh: line 60814 of a 2.4 MB
+        # deck.  Reading a 4 kB window found only nodes, so this silently fell
+        # through to the file NAME and reported the P05 deck as 5.0 % when it
+        # carries 4.5 %, and P32 as 32.0 % against its real 32.4 % (caught in
+        # the 2026-08-10 run).  That is precisely the failure the docstring
+        # below says cannot happen.
+        head = open(inp).read()
         m = re.search(r"at\s+([0-9.]+)\s*%\s*MATRIX porosity", head)
         if m:
             porosity = float(m.group(1)) / 100.0
@@ -181,25 +189,69 @@ K_YARN_LONG_DENSE = 11.5370     # P00 header
 K_YARN_TRANS_DENSE = 3.8847     # P00 header
 
 
-def voigt_bounds(vp_matrix):
-    """(bound1, bound2, bound3) W/(m.K) for a given MATRIX porosity.
+def deck_conductivities(odb_path):
+    """(k_matrix, k_yarn_long, k_yarn_trans) in W/(m.K) read from the DECK.
+
+    The bound has to be built from the card the solver actually ran, not from
+    this file's defaults.  LTH2_COND_P32K60 is exactly why: it is the yarn
+    sensitivity deck and carries k_long = 50.175, while the defaults below say
+    11.537.  Built from the defaults, its bound came out at 11.14 and the run's
+    perfectly sound kbar1 = 19.12 was reported as IMPOSSIBLE (2026-08-10).
+
+    A false NO costs as much as a missed one -- it throws away a good run.
+
+    Returns None if the deck is not next to the odb, in which case the caller
+    falls back to the defaults AND SAYS SO.
+    """
+    inp = os.path.splitext(odb_path)[0] + ".inp"
+    if not os.path.exists(inp):
+        return None
+    txt = open(inp).read()
+    ks = {}
+    for m in re.finditer(r"\*Material,\s*Name=(\S+)\s*\n\*Conductivity"
+                         r"[^\n]*\n([^\n*]+)", txt, re.I):
+        vals = [float(v) for v in m.group(2).split(",") if v.strip()]
+        if vals:
+            ks[m.group(1).strip().upper()] = vals
+    mat = ks.get("SIC_MATRIX_THERMAL")
+    yrn = ks.get("CSIC_YARN_THERMAL")
+    if not mat or not yrn:
+        return None
+    # deck units are W/(mm.K)
+    return (mat[0] * TO_WMK, yrn[0] * TO_WMK,
+            yrn[1] * TO_WMK if len(yrn) > 1 else yrn[0] * TO_WMK)
+
+
+def voigt_bounds(vp_matrix, phases=None):
+    """(bound1, bound2, bound3) W/(m.K).
 
     Parallel (Voigt) sum of the phases as the deck builds them: half the
     yarns run along x and half along y, so an in-plane direction sees one
     set axially and the other transversely, while z sees both
-    transversely.  Porosity scales the solid conductivities the same way
-    the deck's own header does, and pores carry nothing.
+    transversely.
+
+    `phases` is (k_matrix, k_yarn_long, k_yarn_trans) ALREADY at the deck's
+    own porosity -- that is what deck_conductivities returns, because the
+    generator knocks the matrix down with a Maxwell relation and then derives
+    the yarn FROM the knocked-down matrix, so the three do not share one
+    factor.  Scaling dense values by (1 - vp) reproduces neither.
+
+    Without `phases` it falls back to the dense defaults scaled by (1 - vp),
+    which is only ever right for a deck that uses the default yarn card.
 
     This is a CEILING, not a model.  Its whole job is to catch a number
     that cannot be right for any microstructure -- which is what the
     2026-08-07 run produced (kbar2 = 56.27 against a ceiling of 16.39).
     """
-    if vp_matrix is None:
-        return None
-    f = 1.0 - vp_matrix          # solid fraction of the matrix phase
-    km = K_MATRIX_DENSE * f
-    kl = K_YARN_LONG_DENSE * f
-    kt = K_YARN_TRANS_DENSE * f
+    if phases is not None:
+        km, kl, kt = phases
+    else:
+        if vp_matrix is None:
+            return None
+        f = 1.0 - vp_matrix          # solid fraction of the matrix phase
+        km = K_MATRIX_DENSE * f
+        kl = K_YARN_LONG_DENSE * f
+        kt = K_YARN_TRANS_DENSE * f
     inplane = 0.5 * VY_RVE * kl + 0.5 * VY_RVE * kt + (1.0 - VY_RVE) * km
     through = VY_RVE * kt + (1.0 - VY_RVE) * km
     return (inplane, inplane, through)
@@ -213,8 +265,8 @@ def write_csv(path, rows):
         w.writerow(["deck", "matrix_porosity", "kbar1_WmK", "kbar2_WmK",
                     "kbar3_WmK", "k1_over_k3", "voigt_inplane", "voigt_through",
                     "kbar1_admissible", "kbar2_admissible", "kbar3_admissible"])
-        for name, k, vp, _kf in rows:
-            hi = voigt_bounds(vp)
+        for name, k, vp, _kf, ph in rows:
+            hi = voigt_bounds(vp, ph)
             def adm(i):
                 if k[i] is None or hi is None:
                     return ""
@@ -263,8 +315,16 @@ def report(paths, dT=1.0):
         if vp is not None:
             print("    variant: %.1f %% matrix porosity%s"
                   % (100.0 * vp, ", fibre k_t = %g" % kf if kf else ""))
+        ph = deck_conductivities(p)
+        if ph:
+            print("    deck card: k_matrix = %.4f, k_yarn_long = %.4f, "
+                  "k_yarn_trans = %.4f W/(m.K)" % ph)
+        else:
+            print("    !! no .inp beside the odb -- the bound below falls "
+                  "back to the DEFAULT yarn card, which is wrong for any "
+                  "sensitivity deck")
         rows.append((name, [None if v is None else v * TO_WMK for v in k],
-                     vp, kf))
+                     vp, kf, ph))
 
     if not rows:
         print("\n  nothing to compare.")
@@ -273,7 +333,7 @@ def report(paths, dT=1.0):
     print("\n" + "=" * 76)
     print("  %-28s %9s %9s %9s %9s" % ("deck", "kbar1", "kbar2", "kbar3",
                                        "k1/k3"))
-    for name, k, _vp, _kf in rows:
+    for name, k, _vp, _kf, _ph in rows:
         a = "%9.4f" % k[0] if k[0] is not None else "%9s" % "-"
         b = "%9.4f" % k[1] if k[1] is not None else "%9s" % "-"
         c = "%9.4f" % k[2] if k[2] is not None else "%9s" % "-"
@@ -285,8 +345,8 @@ def report(paths, dT=1.0):
     print("    its own phases.  This bound needs no symmetry argument and no")
     print("    literature: exceed it and the number is wrong, full stop.")
     nbad = 0
-    for name, k, vp, _kf in rows:
-        hi = voigt_bounds(vp)
+    for name, k, vp, _kf, ph in rows:
+        hi = voigt_bounds(vp, ph)
         if hi is None:
             print("    %-28s  no variant header, bound not computed" % name[:28])
             continue
@@ -310,7 +370,7 @@ def report(paths, dT=1.0):
 
     print("\n  CHECK 1 -- the balanced weave: kbar1 must equal kbar2")
     worst, worst_at = -1.0, "nothing comparable"
-    for name, k, _vp, _kf in rows:
+    for name, k, _vp, _kf, _ph in rows:
         if k[0] and k[1]:
             rel = abs(k[0] - k[1]) / max(k[0], k[1])
             if rel > worst:
@@ -330,7 +390,7 @@ def report(paths, dT=1.0):
 
     print("\n  CHECK 2 -- kbar3 against the measurement, refs/[12] %.2f W/(m.K)"
           % MEASURED_K3)
-    for name, k, _vp, _kf in rows:
+    for name, k, _vp, _kf, _ph in rows:
         if k[2] is None:
             continue
         print("    %-28s %8.4f   %+6.1f %%"
@@ -341,7 +401,7 @@ def report(paths, dT=1.0):
     print("    stiffness needed (32.4 % matrix porosity, Ch.4 4.9-13).")
 
     print("\n  CHECK 3 -- anisotropy, refs/[13] gives about %.1f" % TARGET_ANISO)
-    for name, k, _vp, _kf in rows:
+    for name, k, _vp, _kf, _ph in rows:
         if k[0] and k[2]:
             print("    %-28s %8.2f" % (name[:28], k[0] / k[2]))
 
@@ -371,7 +431,7 @@ def verdict(rows):
     """
     print("\n  CHECK 4 -- the porosity verdict (Ch.4 4.9-13, sync a2-0006)")
     groups = {}
-    for name, k, vp, kf in rows:
+    for name, k, vp, kf, _ph in rows:
         if vp is None or k[2] is None:
             continue
         groups.setdefault(kf, []).append((vp, k[2], name))
@@ -499,10 +559,68 @@ def selftest():
     ck("porosity lowers the ceiling", voigt_bounds(0.324)[0] < hi[0],
        "%.4f at 32.4 %%" % voigt_bounds(0.324)[0])
     ck("no bound without a variant header", voigt_bounds(None) is None)
+
+    # ---- the two defects the 2026-08-10 run exposed --------------------
+    # (1) the bound must come from the DECK's card, not from the defaults.
+    #     LTH2_COND_P32K60 ships k_long = 50.175; against the default 11.537
+    #     its sound kbar1 = 19.1182 was reported IMPOSSIBLE.
+    K60 = (12.7786, 50.1751, 2.46134)
+    P32 = (12.7786, 8.99423, 2.46134)
+    b_deck, b_dflt = voigt_bounds(0.324, K60), voigt_bounds(0.324)
+    ck("the yarn sensitivity deck's kbar1 clears its OWN bound",
+       19.1182 <= b_deck[0] * 1.02,
+       "19.1182 vs %.4f (%.1f %% of it)" % (b_deck[0],
+                                            100 * 19.1182 / b_deck[0]))
+    ck("  and would have been called impossible against the defaults",
+       19.1182 > b_dflt[0] * 1.02,
+       "default bound %.4f -- this was the false alarm" % b_dflt[0])
+    ck("a raised yarn conductivity raises the in-plane bound",
+       voigt_bounds(0.324, K60)[0] > voigt_bounds(0.324, P32)[0])
+    ck("but not the through-thickness one, which no axial yarn crosses",
+       abs(voigt_bounds(0.324, K60)[2]
+           - voigt_bounds(0.324, P32)[2]) < 1e-12,
+       "%.4f both" % voigt_bounds(0.324, K60)[2])
+
+    # (2) the porosity must be read from the whole deck, not a 4 kB window.
+    import tempfile as _tf
+    _d = _tf.mkdtemp()
+    _f = os.path.join(_d, "Z_COND_P05.inp")
+    with open(_f, "w") as fh:
+        fh.write("*Heading\n test\n*Node\n")
+        for i in range(1, 900):          # push the card past 4 kB of mesh
+            fh.write("%d, 0.0, 0.0, 0.0\n" % i)
+        fh.write("**   SiC    k = 25 dense -> 22.8510 W/(m.K) at 4.5 % "
+                 "MATRIX porosity\n"
+                 "*Material, Name=SIC_MATRIX_THERMAL\n"
+                 "*Conductivity\n0.022851,\n"
+                 "*Material, Name=CSIC_YARN_THERMAL\n"
+                 "*Conductivity, type=ORTHO\n"
+                 "0.0110899, 0.00363473, 0.00363473\n")
+    vpz, _k = deck_variant(os.path.join(_d, "Z_COND_P05.odb"))
+    ck("porosity is read past a mesh longer than the old 4 kB window",
+       vpz is not None and abs(vpz - 0.045) < 1e-9,
+       "%.4f -- the file says 4.5 %%, the NAME says 5 %%" % vpz)
+    phz = deck_conductivities(os.path.join(_d, "Z_COND_P05.odb"))
+    ck("and the phases come off the *Conductivity cards themselves",
+       phz is not None and abs(phz[0] - 22.851) < 1e-9
+       and abs(phz[1] - 11.0899) < 1e-9 and abs(phz[2] - 3.63473) < 1e-9,
+       "%.4f / %.4f / %.4f W/(m.K)" % phz)
+    ck("a missing deck returns None so the caller can say it fell back",
+       deck_conductivities(os.path.join(_d, "nosuch.odb")) is None)
+
+    # 4.5 vs 5.0 is not cosmetic: it moves the answer this file exists for.
+    real = porosity_for_target([(0.0, 9.5251), (0.045, 8.8121),
+                                (0.324, 5.4490)], target=MEASURED_K3)[0]
+    named = porosity_for_target([(0.0, 9.5251), (0.05, 8.8121),
+                                 (0.32, 5.4490)], target=MEASURED_K3)[0]
+    ck("using the name instead of the file moves the porosity verdict",
+       abs(real - named) > 0.001,
+       "%.4f from the file vs %.4f from the name" % (real, named))
     import csv as _csv
     import tempfile
     f = os.path.join(tempfile.mkdtemp(), "t.csv")
-    write_csv(f, [("A.odb", [15.4686, 56.2701, 12.7047], 0.0, None)])
+    write_csv(f, [("A.odb", [15.4686, 56.2701, 12.7047], 0.0, None,
+                   None)])
     got = list(_csv.DictReader(open(f)))[0]
     ck("the CSV marks the impossible column NO and the others yes",
        got["kbar1_admissible"] == "yes" and got["kbar2_admissible"] == "NO"
@@ -519,7 +637,7 @@ def selftest():
     csv = "kbar_summary.csv"
     with open(csv, "w") as f:
         f.write("deck,kbar1_WmK,kbar2_WmK,kbar3_WmK\n")
-        for name, k, _vp, _kf in rows:
+        for name, k, _vp, _kf, _ph in rows:
             f.write("%s,%s,%s,%s\n" % tuple(
                 [name] + ["" if v is None else "%.6g" % v for v in k]))
     print("  wrote %s" % csv)

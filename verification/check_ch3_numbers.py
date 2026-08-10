@@ -184,7 +184,7 @@ CASES = [
          r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 11),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
-     count_bracketed, 20),
+     count_bracketed, 28),
     ("extract_probe.py --selftest",
      "python3 postprocess/extract_probe.py --selftest",
      count_bracketed, 5),
