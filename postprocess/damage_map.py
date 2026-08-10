@@ -118,7 +118,13 @@ PHASES = {
         comp=[(1, "D1T", 1, "macro_warp_tension"),
               (2, "D1C", 2, "macro_warp_compression"),
               (3, "DTT", 3, "macro_trans_tension"),
-              (4, "DTC", 4, "macro_trans_compression")],
+              (4, "DTC", 4, "macro_trans_compression"),
+              # d_cyc folds into D1/DT multiplicatively, so a point whose
+              # only damage is cyclic has all four monotonic components at
+              # zero -- the first real run showed exactly that, and DMODE
+              # printed 0/blank for every damaged element.  Cycle damage is
+              # a mechanism like the others and gets its own code.
+              (17, "DCYC", 5, "macro_cycle")],
         umatmode=(11, "MODE"),
     ),
 }
@@ -354,18 +360,23 @@ def write_csv(path, rows):
 # report assembly -- pure, so the selftest can drive it with synthetic points
 # --------------------------------------------------------------------------
 def build_rows(step_name, per_phase, axis_name, axis, top_n):
-    """per_phase: {phase: [(damg, dmode, umatmode, volume, (x,y,z), label)]}"""
+    """per_phase: {label: (phase_kind, [(damg, dmode, umat, vol, xyz, el)])}
+
+    The label is the element-set name ("ALL", "Matrix", "Yarn0"); the kind
+    is the PHASES key.  They travel together because deriving the kind from
+    the label is exactly what shipped an empty basis column on the first
+    real run ("ALL" stripped of digits is still not a phase).
+    """
     rows = []
     allitems = []
 
     for phase in sorted(per_phase.keys()):
-        pts = per_phase[phase]
+        kind, pts = per_phase[phase]
         pairs = [(d, w) for d, _m, _u, w, _c, _l in pts]
         st = stats(pairs)
         f50 = volfrac(pairs, 0.50)
         vd = phase_verdict(st, f50)
-        spec = PHASES.get(phase.rstrip("0123456789"), None) or \
-            PHASES.get(phase, None)
+        spec = PHASES.get(kind)
         basis = "max of %s" % "/".join(
             n for _s, n in (spec["mag"] if spec else [])) or "n/a"
         if st is None:
@@ -399,14 +410,15 @@ def build_rows(step_name, per_phase, axis_name, axis, top_n):
     # ---- worst elements, ranked, across every phase at once
     flat = []
     for phase in per_phase:
-        for d, m, u, w, c, lab in per_phase[phase]:
-            flat.append((d, phase, m, u, c, lab))
+        kind, pts = per_phase[phase]
+        for d, m, u, w, c, lab in pts:
+            flat.append((d, phase, kind, m, u, c, lab))
     flat.sort(key=lambda t: -t[0])
     ncap = sum(1 for t in flat if t[0] >= DMAX_CAP - CAP_TOL)
-    for rank, (d, phase, m, u, c, lab) in enumerate(flat[:top_n], 1):
+    for rank, (d, phase, kind, m, u, c, lab) in enumerate(flat[:top_n], 1):
         umat = ""
         if u is not None and m:
-            spec = PHASES.get(phase.rstrip("0123456789")) or PHASES.get(phase)
+            spec = PHASES.get(kind)
             declared = spec["base"] + int(round(u)) if spec else 0
             # "CONFLICTS", not "DISAGREES": the latter contains "AGREES" as a
             # substring, so anything grepping the csv for agreement matches
@@ -699,7 +711,7 @@ def main(argv):
                       % (name, ", ".join(missing)))
             if not pts:
                 continue
-            per_phase[name] = pts
+            per_phase[name] = (phase, pts)
             for d, m, _u, _w, _c, lab in pts:
                 labels.append(lab)
                 dv.append(d)
@@ -712,7 +724,7 @@ def main(argv):
         rows += build_rows(sname, per_phase, a.axis, axis, a.top)
 
         for name in sorted(per_phase):
-            pairs = [(d, w) for d, _m, _u, w, _c, _l in per_phase[name]]
+            pairs = [(d, w) for d, _m, _u, w, _c, _l in per_phase[name][1]]
             st = stats(pairs)
             f50 = volfrac(pairs, 0.5)
             print("  %-10s mean %.4f  p99 %.4f  max %.4f   vol>=0.5 %5.2f %%"
@@ -720,14 +732,14 @@ def main(argv):
                              100.0 * f50, phase_verdict(st, f50)))
         worst = max((d, n, m, c, l)
                     for n in per_phase
-                    for d, m, _u, _w, c, l in per_phase[n])
+                    for d, m, _u, _w, c, l in per_phase[n][1])
         print("  worst point: %s element %s  DAMG %.4f  %s  at (%.3f, %.3f, "
               "%.3f) mm" % (worst[1], worst[4], worst[0],
                             mode_name(worst[2]), worst[3][0], worst[3][1],
                             worst[3][2]))
         bins, _lo, _hi = profile(
             [(d, w, c) for n in per_phase
-             for d, _m, _u, w, c, _l in per_phase[n]], axis)
+             for d, _m, _u, w, c, _l in per_phase[n][1]], axis)
         print("  %s-profile: %s   -> %s"
               % (a.axis, " ".join("%.3f" % b["mean"] for b in bins),
                  profile_verdict(bins)))
@@ -781,10 +793,18 @@ def selftest():
     ck("a merged DY1 above its own components is kept as the magnitude",
        abs(d - 0.75) < 1e-12, "d=%.3f from DY1, components were 0.50" % d)
 
+    ncodes = sum(len(PHASES[p]["comp"]) for p in PHASES)
     ck("every mode code decodes to a unique name",
-       len(set(mode_name(b + i) for b in (10, 20, 30)
-               for i in (1, 2, 3, 4) if mode_name(b + i))) == 10,
-       "matrix has 2 modes, yarn and macro 4 each")
+       len(set(mode_name(PHASES[p]["base"] + i)
+               for p in PHASES for _s, _n, i, _l in PHASES[p]["comp"]))
+       == ncodes, "%d codes: matrix 2, yarn 4, macro 4 + macro_cycle" % ncodes)
+    ck("cycle damage is a first-class mechanism, not a blank",
+       mode_name(35) == "macro_cycle")
+    d, m = unify("Macro", [4.3e-7, 4.3e-7],
+                 [0.0, 0.0, 0.0, 0.0, 4.3e-7])
+    ck("a purely cyclic point reads DMODE 35, which the first run could not",
+       m == 35 and abs(d - 4.3e-7) < 1e-20,
+       "the 2026-08-10 CJ1 pattern: all monotonic components zero")
     ck("an unknown code decodes to blank, not to a wrong name",
        mode_name(99) == "")
 
@@ -858,7 +878,8 @@ def selftest():
     # -- a point that changed mode partway through.  The second agrees.
     pts_y = [(0.40, 23, 1.0, 2.0, (0.5, 0.5, 0.5), 200),
              (0.20, 21, 1.0, 2.0, (0.6, 0.5, 0.5), 201)]
-    rows = build_rows("TENSION", {"Matrix": pts_m, "Yarn0": pts_y},
+    rows = build_rows("TENSION", {"Matrix": ("Matrix", pts_m),
+                                  "Yarn0": ("Yarn", pts_y)},
                       "z", 2, 5)
     kinds = set(r[0] for r in rows)
     ck("the report carries all three sections",
@@ -885,6 +906,12 @@ def selftest():
        any(r[3] == "elements_at_cap" and r[4] == "1" for r in rows))
     ck("the yarn row names DY1/DYT as its basis, not DMT",
        any(r[2] == "Yarn0" and "DY1/DYT" in r[8] for r in rows))
+    rows_all = build_rows("Q1", {"ALL": ("Macro",
+                                         [(4.3e-7, 35, 5.0, 1.0,
+                                           (0.5, 0.5, 0.5), 7)])}, "z", 2, 3)
+    ck("a macro set named ALL still gets its D1/DT basis (not blank)",
+       any(r[2] == "ALL" and "D1/DT" in r[8] for r in rows_all),
+       "the first run shipped 'max of ,' here")
 
     import tempfile
     p = os.path.join(tempfile.mkdtemp(), "t_damage_map.csv")
