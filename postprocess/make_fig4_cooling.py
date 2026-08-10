@@ -332,7 +332,14 @@ def main():
     folders = [a for a in args if not a.startswith('--')] or ['.']
     outdir = outdir or folders[0]
     if not os.path.isdir(outdir):
-        outdir = '.'
+        # 없으면 만든다. 예전에는 조용히 '.' 로 떨어뜨렸는데, --out 을
+        # 준 사용자가 엉뚱한 데서 그림을 찾게 되므로 고쳤다.
+        try:
+            os.makedirs(outdir)
+        except OSError:
+            print('[warn] 출력 폴더를 못 만들었다: %s -> 현재 폴더에 쓴다'
+                  % outdir)
+            outdir = '.'
 
     found = discover(folders)
     hfound = discover(folders, 'heating_damage')
