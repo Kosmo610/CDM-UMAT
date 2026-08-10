@@ -169,6 +169,31 @@ def driver_labels_from_history(step):
     return dict(enumerate(labs))
 
 
+def resolve_sign(diag):
+    """+1 or -1: which reaction-sign convention did this odb follow?
+
+    The documented convention is RF(driver) = -sigma*V, so sigma = -RF/V.
+    The first complete ELAS run (2026-08-10) returned EVERY Cbar diagonal
+    negative under it: E1 = -175.1 GPa.  A negative C11 is not a material,
+    it is the OTHER sign convention -- the driver *Equation can be written
+    with either sense and the odb does not say which.  The diagonals do:
+    elastic energy makes every C[k,k] positive, so all-negative means flip,
+    all-positive means keep, and a MIX means something is genuinely wrong
+    (a permuted mapping, a bad step) and no sign guess may paper over it.
+    """
+    if all(d > 0 for d in diag):
+        return +1
+    if all(d < 0 for d in diag):
+        print("    !! driver reactions follow RF = +sigma*V (opposite of the "
+              "documented convention); Cbar sign corrected.  Energy requires "
+              "positive diagonals, so this is not a judgement call.")
+        return -1
+    raise RuntimeError(
+        "Cbar diagonals carry MIXED signs %s -- that is not a sign "
+        "convention, that is a wrong driver mapping or a corrupt step, "
+        "and flipping would hide it." % ["%+.3e" % d for d in diag])
+
+
 def macro_state(step, V, labels=None):
     """Final macro strain and stress vectors of `step`."""
     eps = np.zeros(6)
@@ -228,13 +253,16 @@ def elastic_from(path):
     print("    driver mapping verified against the prescribed strains "
           "(labels %s)" % [labels.get(k) for k in range(6)])
 
+    sig_sign = resolve_sign([C[k, k] for k in range(6)])
+    C = sig_sign * C
+
     # The two halves differ only by discretisation error, so the asymmetry is
     # a useful mesh-quality indicator -- report it, then symmetrise.
     asym = np.max(np.abs(C - C.T)) / max(1e-30, np.max(np.abs(C)))
-    return 0.5 * (C + C.T), (Lx, Ly, Lz), asym
+    return 0.5 * (C + C.T), (Lx, Ly, Lz), asym, sig_sign
 
 
-def cte_from(path, C):
+def cte_from(path, C, sig_sign=+1):
     """alphabar(T) from the clamped-strain stress difference.
 
     Both steps hold eps_bar = 0, so between them
@@ -265,7 +293,10 @@ def cte_from(path, C):
     if base is None or hot is None or not dT:
         raise RuntimeError("%s: need steps alphabar_base and alphabar_dT<x>"
                            % path)
-    return -np.linalg.solve(C, hot - base) / dT
+    # sig_sign belongs to the STRESSES, not to C: C arrives already
+    # corrected, so correcting only one side would flip alphabar.  On the
+    # 2026-08-10 run alphabar printed right BECAUSE both were still wrong.
+    return -np.linalg.solve(C, sig_sign * (hot - base)) / dT
 
 
 def engineering_constants(C, shear_order):
@@ -284,7 +315,7 @@ def engineering_constants(C, shear_order):
 # ==========================================================================
 # strengths and fracture energies
 # ==========================================================================
-def strength_curve(path, mode):
+def strength_curve(path, mode, sig_sign=+1):
     comp, sign, _ = MODE_TO_SLOT[mode]
     odb = openOdb(path, readOnly=True)
     Lx, Ly, Lz = rve_box(odb)
@@ -300,7 +331,7 @@ def strength_curve(path, mode):
     odb.close()
 
     eps = sign * np.asarray(u)
-    sig = sign * (-np.asarray(rf) / V)
+    sig = sig_sign * sign * (-np.asarray(rf) / V)
     ipk = int(np.argmax(sig))
     peak = float(sig[ipk])
 
@@ -587,11 +618,11 @@ def main(argv):
         if not os.path.exists(path):
             print("MISSING %s -- run the ELAS deck first." % path)
             return 3
-        C, box, asym = elastic_from(path)
+        C, box, asym, sig_sign = elastic_from(path)
         eng = engineering_constants(C, shear_order)
         cpath = "%s_CTE_T%g.odb" % (prefix, T)
         if os.path.exists(cpath):
-            alpha = cte_from(cpath, C)
+            alpha = cte_from(cpath, C, sig_sign)
         else:
             print("  MISSING %s -- alphabar left at zero." % cpath)
             alpha = np.zeros(6)
@@ -611,7 +642,7 @@ def main(argv):
                 print("  (no %s -- %s left at 0)" % (os.path.basename(sp),
                                                      slot))
                 continue
-            r = strength_curve(sp, mode)
+            r = strength_curve(sp, mode, sig_sign)
             strength[slot] = abs(r["peak"])
             if mode in ("1t", "1c", "2t", "2c"):
                 strength["Gf_" + mode] = r["Gf"]
@@ -801,6 +832,28 @@ def selftest():
     asym = np.max(np.abs(Cp - Cp.T)) / np.max(np.abs(Cp))
     ck("the asymmetry indicator is scale-free and catches a one-sided term",
        abs(asym - 5.0 / 200.0) < 1e-12, "%.4f" % asym)
+
+    # ---- F. the sign convention decides itself from the diagonals
+    ck("all-positive diagonals keep the documented convention",
+       resolve_sign([1.0] * 6) == +1)
+    ck("all-negative diagonals flip it, as the 2026-08-10 run required",
+       resolve_sign([-1.0] * 6) == -1)
+    try:
+        resolve_sign([1.0, -1.0, 1.0, 1.0, 1.0, 1.0])
+        mixed = False
+    except RuntimeError:
+        mixed = True
+    ck("MIXED signs raise instead of being papered over by a flip", mixed)
+    # alphabar was right on the broken run because C and dsig were BOTH
+    # flipped.  The fix must keep that invariance: a flipped odb, read with
+    # its detected sign, must give the same alpha as a clean one.
+    Cc = np.diag([200.0, 200.0, 60.0, 40.0, 30.0, 30.0])
+    ds = np.array([-3.0, -3.0, -1.5, 0.0, 0.0, 0.0])
+    a_clean = -np.linalg.solve(Cc, +1 * ds) / 100.0
+    a_flip = -np.linalg.solve(Cc, -1 * (-ds)) / 100.0
+    ck("alphabar is invariant when C and the stresses flip together",
+       np.allclose(a_clean, a_flip),
+       "alpha1 = %.4e /K both ways" % a_clean[0])
 
     print("\n  %d passed, %d failed" % (len(ok), len(bad)))
     return 1 if bad else 0

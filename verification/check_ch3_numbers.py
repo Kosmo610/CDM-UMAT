@@ -205,7 +205,7 @@ CASES = [
      count_bracketed, 37),
     ("homogenize.py --selftest",
      "python3 postprocess/homogenize.py --selftest",
-     count_bracketed, 14),
+     count_bracketed, 18),
 ]
 
 
