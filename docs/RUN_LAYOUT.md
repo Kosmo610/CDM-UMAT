@@ -51,6 +51,26 @@ E:\LTH\LTH_RUN1_0807_1712\                          LTH_COND_* 전도 해석
 E:\LTH\[01] 2D CDM UMAT ...\, [02] ..., [03] ..., [04] ...   별개 과제
 ```
 
+### 덱(.inp) 실제 경로 — 2026-08-10 `dir /s /b *.inp` 실측
+
+**추측 금지.** 실제 이름은 `XT421` 계보를 달고 있다.
+
+| 런 | 덱 경로 (E:\LTH\ 기준) |
+|---|---|
+| P0 | `Try_P0\CSIC_PLAIN_WEAVE_RVE_23C_P0.inp` |
+| P1 | `Try_P1\CSIC_PLAIN_WEAVE_RVE_23C_P1.inp` |
+| P2 | `Try_P2\CSIC_PLAIN_WEAVE_RVE_23C_P2.inp` |
+| t23_long (P0 의 부모) | `Try_C\CSIC_PLAIN_WEAVE_RVE_23C_XT421_LONG.inp` |
+| **500 °C 경유** | `Try_0805까지\Try_1430\CSIC_PLAIN_WEAVE_RVE_500C_XT421.inp` |
+| **1000 °C 경유** | `Try_0805까지\Try_1430\CSIC_PLAIN_WEAVE_RVE_1000C_XT421.inp` |
+| 23 °C (같은 계보 기준선) | `Try_0805까지\Try_1430\CSIC_PLAIN_WEAVE_RVE_23C_XT421.inp` |
+| 23 °C PAPERCRIT | `Try_0805까지\Try_1430\CSIC_PLAIN_WEAVE_RVE_23C_PAPERCRIT_XT421.inp` |
+| 23 °C GF / noTRS | `Try_0805까지\Try_1300\CSIC_PLAIN_WEAVE_RVE_23C_XT421_GF.inp` / `..._XT421_noTRS.inp` |
+| DIRECT 500 / 1000 | `Try_D500\..._500C_DIRECT_GF.inp` / `Try_D1000\..._1000C_DIRECT_GF.inp` |
+
+`dir *.inp` 결과에는 다른 과제(`2d_0730\`, `LTH_*\`, `[01]~[04]`)
+덱이 섞여 나온다 — 위 표에 없는 것은 우리 것이 아니다.
+
 ### 자주 쓰는 절대경로
 
 | 용도 | 경로 |
