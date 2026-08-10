@@ -30,6 +30,10 @@ Fig.3/7/9 는 S11 잔류응력, Fig.5/8/10 은 손상 3행(기지/종/횡)이다
     --list          스텝/프레임/온도 대응표만 출력하고 종료 (odb 확인용)
     --out DIR       기본: odb 폴더
     --auto          범례 자동 스케일 (고정 해제)
+    --defscale N    변형 형상 배율. **기본 1.0 고정.** 0 이면 무변형.
+                    고정하지 않으면 Abaqus 가 프레임마다 배율을 다시
+                    잡아 (1.0 / 39.8 / ...) 온도 시리즈의 형상이
+                    제각각이 된다 -- 물리 변화로 오독된다.
 
 산출 (temps 모드):
     <out>/img_<변수>_<그룹>_T####C.png    예: img_S11_matrix_T0750C.png
@@ -168,7 +172,8 @@ def main():
         print('usage: abaqus cae noGUI=make_odb_images.py -- <job>.odb '
               '[--fig stress|damage] [--step NAME] '
               '[--temps 1050,750,500,250,23] [--trange A,B] '
-              '[--frames 0,25] [--var S11] [--out DIR] [--list] [--auto]')
+              '[--frames 0,25] [--var S11] [--out DIR] [--list] [--auto] '
+              '[--defscale 1.0]')
         return 1
     path = paths[0]
     fig = argval(args, '--fig')
@@ -180,10 +185,13 @@ def main():
                                        or '.')
     auto = '--auto' in args
     listonly = '--list' in args
+    ds = argval(args, '--defscale')
+    defscale = 1.0 if ds is None else float(ds)
 
     from abaqus import session
-    from abaqusConstants import (CONTOURS_ON_DEF, INTEGRATION_POINT,
-                                 COMPONENT, INVARIANT, OFF, ON, PNG)
+    from abaqusConstants import (CONTOURS_ON_DEF, CONTOURS_ON_UNDEF,
+                                 INTEGRATION_POINT, COMPONENT, INVARIANT,
+                                 UNIFORM, OFF, ON, PNG)
     # displayGroupOdbToolset(dgo) 는 visualization 모듈이 등록해 줘야
     # 보인다. noGUI 커널은 아무 모듈도 자동 import 하지 않으므로
     # visualization 을 먼저 불러야 한다 (cae/viewer 공통 -- 이전의
@@ -359,7 +367,19 @@ def main():
     vp.setValues(displayedObject=odb)
     vp.makeCurrent()
     vp.maximize()
-    vp.odbDisplay.display.setValues(plotState=(CONTOURS_ON_DEF,))
+    # ---- 변형 배율 고정 -------------------------------------------------
+    #  Abaqus 기본은 프레임마다 자동으로 배율을 다시 잡는다. 그러면
+    #  온도 5 장 시리즈에서 배율이 1.0 / 39.8 / ... 로 제각각이 되어
+    #  형상 변화가 물리인 것처럼 보인다. 논문 그림은 배율 고정이므로
+    #  여기서도 고정한다. --defscale 0 이면 무변형 형상에 그린다.
+    if defscale == 0.0:
+        vp.odbDisplay.display.setValues(plotState=(CONTOURS_ON_UNDEF,))
+        print('defsc : 무변형 형상 (CONTOURS_ON_UNDEF)')
+    else:
+        vp.odbDisplay.display.setValues(plotState=(CONTOURS_ON_DEF,))
+        vp.odbDisplay.commonOptions.setValues(
+            deformationScaling=UNIFORM, uniformScaleFactor=defscale)
+        print('defsc : 변형 배율 고정 %g (자동 배율 아님)' % defscale)
     # 논문 그림과 같은 등각 시점. 마음에 안 들면 GUI 에서 맞춘 뒤
     # View > Save 로 저장한 이름을 여기 넣으면 된다.
     try:
