@@ -62,9 +62,12 @@ DMG_LIM = (0.0, 1.0)
 #   그리면 안전하다.
 FIG_STRESS = [('matrix', 'M', ['S11'], 'S11'),
               ('yarn', 'Y', ['S11'], 'S11')]
-FIG_DAMAGE = [('matrix', 'M', ['SDV_DMT', 'SDV1'], 'DMT'),
+# 이름 있는 덱(기존, SDV_DMT 식) 을 먼저 찾고, 없으면 번호로 떨어진다.
+# 번호는 V2_7P 배치 기준: 논문과 같은 SDV14(기지)/SDV1(얀 종)/SDV2(얀 횡).
+# 이름 없는 덱은 반드시 V2_7P 와 짝지어 돌린다는 전제다.
+FIG_DAMAGE = [('matrix', 'M', ['SDV_DMT', 'SDV14'], 'DMT'),
               ('yarnL', 'Y', ['SDV_DY1T', 'SDV1'], 'DY1T'),
-              ('yarnT', 'Y', ['SDV_DYTT', 'SDV3'], 'DYTT')]
+              ('yarnT', 'Y', ['SDV_DYTT', 'SDV2'], 'DYTT')]
 
 
 def argval(args, key, default=None):
@@ -181,21 +184,20 @@ def main():
     from abaqus import session
     from abaqusConstants import (CONTOURS_ON_DEF, INTEGRATION_POINT,
                                  COMPONENT, INVARIANT, OFF, ON, PNG)
-    # displayGroupOdbToolset 는 CAE 커널 모듈이다. `abaqus viewer noGUI=`
-    # 로 띄운 축소 커널에는 없는 설치본이 있으므로(6.18 에서 확인됨)
-    # 실패하면 조용히 죽지 말고 정확한 대안을 알려준다.
+    # displayGroupOdbToolset(dgo) 는 visualization 모듈이 등록해 줘야
+    # 보인다. noGUI 커널은 아무 모듈도 자동 import 하지 않으므로
+    # visualization 을 먼저 불러야 한다 (cae/viewer 공통 -- 이전의
+    # "viewer 커널에는 dgo 가 없다" 진단은 틀렸다. cae 에서도 같은
+    # ImportError 가 났고, 원인은 이 선행 import 누락이었다).
     try:
+        import visualization  # noqa: F401 -- dgo 등록 부수효과가 목적
         import displayGroupOdbToolset as dgo
     except ImportError:
         print('')
-        print('[error] displayGroupOdbToolset 를 불러올 수 없다.')
-        print('        Abaqus/Viewer 커널에는 이 모듈이 없다.')
-        print('        같은 명령을 viewer 대신 cae 로 실행할 것:')
-        print('')
-        print('          abaqus cae noGUI=make_odb_images.py -- '
-              '<job>.odb ...')
-        print('')
-        print('        (인자는 완전히 동일하다. CAE 토큰 1개를 쓴다.)')
+        print('[error] visualization/displayGroupOdbToolset 를 불러올 수'
+              ' 없다.')
+        print('        abaqus cae noGUI= 로 실행 중인지 확인할 것.')
+        print('        (abaqus python 으로는 이 스크립트를 돌릴 수 없다.)')
         return 3
 
     if not check_odb_path(path):

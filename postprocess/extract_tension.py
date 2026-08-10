@@ -38,7 +38,9 @@ DRIVERS = ['CONSTRAINTSDRIVER0', 'CONSTRAINTSDRIVER1', 'CONSTRAINTSDRIVER2',
            'CONSTRAINTSDRIVER3', 'CONSTRAINTSDRIVER4', 'CONSTRAINTSDRIVER5']
 DLAB = ['e_x', 'e_y', 'e_z', 'e_xy', 'e_xz', 'e_yz']
 MAT_SDV = [(1, 'DMT'), (2, 'DMC'), (5, 'DMACT')]
-YRN_SDV = [(1, 'DY1T'), (3, 'DYTT'), (9, 'DY1'), (10, 'DYT')]
+# 번호 폴백은 V2_7P 배치 기준 (DYTT 는 2 로 이동). 이름 있는 기존 odb 는
+# 이름으로 먼저 잡히므로 영향 없다.
+YRN_SDV = [(1, 'DY1T'), (2, 'DYTT'), (9, 'DY1'), (10, 'DYT')]
 GEOM_V = 3.5 * 3.5 * 0.44
 
 PY2 = (sys.version_info[0] == 2)

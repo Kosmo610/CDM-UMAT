@@ -261,7 +261,7 @@ def main():
             names = list(fr.fieldOutputs.keys())
             f_dmt = resolve_sdv(names, 1, 'DMT')
             f_dy1 = resolve_sdv(names, 1, 'DY1T')
-            f_dyt = resolve_sdv(names, 3, 'DYTT')
+            f_dyt = resolve_sdv(names, 2, 'DYTT')  # 번호는 V2_7P 배치
             if f_dmt is None or f_dyt is None:
                 continue
             temp = TA + (TB - TA) * fr.frameValue

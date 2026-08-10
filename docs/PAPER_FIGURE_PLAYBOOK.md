@@ -102,6 +102,7 @@ python make_fig_a1_histogram.py Try_P0 --out E:\LTH
 - 인장 스텝은 온도 일정 → `--temps` 불가, `--frames` 사용
   (`find_frames.py` 가 번호를 준다).
 - 렌더링은 컨테이너에서 검증 불가. 첫 장에서 시점·범례 확인.
-- **`abaqus viewer noGUI=` 는 쓰지 말 것** -- 그 커널에는
-  `displayGroupOdbToolset` 이 없어 ImportError 로 죽는다 (6.18 확인).
-  반드시 `abaqus cae noGUI=`. 인자는 동일.
+- 컨투어는 `abaqus cae noGUI=` 로 실행 (viewer 도 가능하나 미검증).
+  과거 dgo ImportError 의 진짜 원인은 커널이 아니라 스크립트가
+  `visualization` 을 먼저 import 하지 않은 것 -- 2026-08-10 수정됨.
+  실행 후 `make_odb_images_log.txt` 가 항상 남는다.

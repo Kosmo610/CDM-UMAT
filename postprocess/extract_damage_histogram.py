@@ -84,7 +84,7 @@ def get_elset(odb, name):
     return None
 
 
-def resolve_sdv(names, nm):
+def resolve_sdv(names, nm, idx=None):
     tgt = 'SDV_' + nm
     for n in names:
         if n == tgt:
@@ -93,6 +93,11 @@ def resolve_sdv(names, nm):
     if cand:
         cand.sort(key=len)
         return cand[0]
+    # 이름 없는 덱(V2_7P + 번호 표시) 폴백
+    if idx is not None:
+        for n in names:
+            if n == 'SDV%d' % idx:
+                return n
     return None
 
 
@@ -225,9 +230,9 @@ def main():
         for fi in frames:
             fr = st.frames[fi]
             names = list(fr.fieldOutputs.keys())
-            f_dmt = resolve_sdv(names, 'DMT')
-            f_dy1 = resolve_sdv(names, 'DY1T')
-            f_dyt = resolve_sdv(names, 'DYTT')
+            f_dmt = resolve_sdv(names, 'DMT', 14)   # V2_7P: 14 = DMT 미러
+            f_dy1 = resolve_sdv(names, 'DY1T', 1)
+            f_dyt = resolve_sdv(names, 'DYTT', 2)
             if f_dmt is None or f_dy1 is None or f_dyt is None:
                 print('  frame %d: SDV_DMT/DY1T/DYTT not found - skip' % fi)
                 continue
