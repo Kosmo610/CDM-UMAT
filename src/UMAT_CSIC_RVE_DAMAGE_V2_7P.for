@@ -1,21 +1,25 @@
 C=======================================================================
 C  UMAT_CSIC_RVE_DAMAGE_V2_7P.for
 C
-C  V2_7P = V2_7 with the STATEV layout rearranged so the default
-C          Abaqus labels match Zhang 2022's figures (SDV1 = yarn
-C          longitudinal damage, SDV2 = yarn transverse damage,
-C          SDV14 = matrix damage). NUMERICALLY IDENTICAL to V2_7:
-C          no equation, criterion, or material response is touched.
-C          Storage changes only:
-C            yarn   SV(2) <-> SV(3)   (D1C and DTT swap slots, so the
-C                                      transverse tensile damage sits
-C                                      at SDV2 like the paper)
-C            matrix SV(14) = mirror copy of SV(1) (=DMT) so the paper's
-C                   SDV14 shows matrix damage; the diagnostic that used
-C                   slot 14 (criterion at max damage jump) moves to 15.
-C          Decks used with this file should carry a *Depvar block with
-C          NO name lines, so fields display as SDV1/SDV2/SDV14 exactly
-C          like the paper. Old odbs keep their SDV_DMT-style names.
+C  V2_7P = V2_7 with the STATEV layout rearranged so the default Abaqus
+C          labels match Zhang 2022's figures:
+C              SDV1  = yarn longitudinal damage
+C              SDV2  = yarn transverse damage
+C              SDV14 = matrix damage
+C          NUMERICALLY IDENTICAL to V2_7 -- no equation, criterion or
+C          material response is touched. Storage only:
+C            yarn   SV(2) <-> SV(3)   (D1C and DTT swap slots so the
+C                                      transverse tensile damage lands
+C                                      on SDV2 like the paper)
+C            matrix SV(14) = mirror of SV(1) (=DMT), written last so
+C                            nothing overwrites it.
+C          NSTATV IS UNCHANGED (matrix 14, yarn 16) -- no deck needs a
+C          larger *Depvar. The V2_7 diagnostic that used matrix slot 14
+C          (RFAC at the largest damage jump) is dropped; no extraction
+C          script reads it.
+C          Decks paired with this file should carry *Depvar blocks with
+C          NO name lines so fields display as SDV1/SDV2/SDV14 exactly
+C          like the paper. Existing odbs keep their SDV_DMT-style names.
 C
 C  3-D damage UMAT for C/SiC plain-weave manufacturing cooldown RVE.
 C
@@ -653,9 +657,6 @@ C
       SV(5)=DACT
       SV(6)=WT
       SV(7)=DBLE(MODE)
-C     V2_7P: mirror of SV(1) so the paper's SDV14 label shows matrix
-C     damage. Display-only; nothing reads this slot.
-      SV(14)=DTN
 C ---- V2_1 state (only when the extended card is in use) --------------
       IF (NP.GE.16) THEN
          SV(9)=XTE
@@ -677,8 +678,12 @@ C
       IF (NP.GE.19 .AND. DJ.GT.SV(11)) THEN
          SV(11)=DJ
          SV(13)=TEND
-         SV(15)=RFAC
       END IF
+C     V2_7P: SV(14) mirrors SV(1) so the paper's SDV14 label shows the
+C     matrix damage. Written last so no later block overwrites it, and
+C     unconditionally so it stays valid while damage is frozen (DTN
+C     defaults to DT0). Slot count is unchanged.
+      SV(14)=DTN
       RETURN
       END
 C=======================================================================
