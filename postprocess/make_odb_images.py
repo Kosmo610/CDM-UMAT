@@ -462,10 +462,15 @@ if __name__ == '__main__':
     _log = os.path.join(os.getcwd(), 'make_odb_images_log.txt')
     _fh = None
     try:
-        _fh = open(_log, 'w')
+        # 이어쓰기다. Fig.3 과 Fig.5 처럼 연속으로 두 번 돌리면 예전엔
+        # 앞 실행 로그가 지워져서 성공 여부를 확인할 수 없었다.
+        _fh = open(_log, 'a')
         sys.stdout = _Tee(sys.stdout, _fh)
         sys.stderr = _Tee(sys.stderr, _fh)
+        print('')
+        print('=' * 62)
         print('log   : %s' % _log)
+        print('argv  : %s' % ' '.join(sys.argv[1:]))
     except IOError:
         pass
     try:
