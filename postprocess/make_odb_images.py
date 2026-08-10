@@ -202,7 +202,13 @@ def main():
 
     if not check_odb_path(path):
         return 2
-    odb = session.openOdb(path=path, readOnly=True)
+    # CAE 의 session.openOdb 는 odbAccess.openOdb 와 시그니처가 다르다.
+    # 첫 인자가 위치인자(name)이라 path= 키워드만 주면
+    # "expected 1, got 0" TypeError 가 난다. 위치인자로 넘긴다.
+    try:
+        odb = session.openOdb(path, readOnly=True)
+    except (TypeError, ValueError):
+        odb = session.openOdb(path)
     print('odb   : %s' % os.path.basename(path))
 
     # ---- Step 선택 -------------------------------------------------------
@@ -344,7 +350,12 @@ def main():
 
     renders = build_renders(fig, var)
 
-    vp = session.viewports[session.viewports.keys()[0]]
+    # noGUI 커널은 기본 뷰포트를 안 만드는 설치본이 있다. 없으면 만든다.
+    vkeys = list(session.viewports.keys())
+    if vkeys:
+        vp = session.viewports[vkeys[0]]
+    else:
+        vp = session.Viewport(name='render', width=200, height=150)
     vp.setValues(displayedObject=odb)
     vp.makeCurrent()
     vp.maximize()
