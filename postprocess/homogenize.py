@@ -81,19 +81,37 @@ def rve_box(odb):
     return (max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
 
 
-def driver_history(step, k):
-    """(U, RF) time series of ConstraintsDriver`k` dof 1 in `step`."""
+def driver_history(step, k, labels=None):
+    """(U, RF) time series of ConstraintsDriver`k` dof 1 in `step`.
+
+    Abaqus does NOT name a nodal history region after the set that requested
+    it.  A request written as
+
+        *Node Output, nset=ConstraintsDriver0
+
+    comes back as the region "Node PART-1-1.5681" -- the instance and the node
+    LABEL.  Matching on the set name therefore finds nothing, which is what
+    stopped the first complete ELAS run on 2026-08-10 after all six jobs had
+    already finished.  `labels` carries {k: node label}, read from the odb's
+    own set definition by driver_labels().
+    """
     want = "CONSTRAINTSDRIVER%d" % k
     hr = None
     for key, hp in step.historyRegions.items():
         if want in key.upper().replace(" ", ""):
             hr = hp
             break
+    if hr is None and labels and k in labels:
+        lab = str(labels[k])
+        for key, hp in step.historyRegions.items():
+            if key.rsplit(".", 1)[-1].strip() == lab:
+                hr = hp
+                break
     if hr is None:
-        # fall back on the node label behind the set
-        raise RuntimeError("history region for %s not found in step %s; "
-                           "keys=%s" % (want, step.name,
-                                        list(step.historyRegions.keys())))
+        raise RuntimeError("history region for %s (node label %s) not found "
+                           "in step %s; keys=%s"
+                           % (want, labels.get(k) if labels else "unknown",
+                              step.name, list(step.historyRegions.keys())))
     uk = sorted(k2 for k2 in hr.historyOutputs.keys()
                 if k2.upper().startswith("U"))[0]
     rk = sorted(k2 for k2 in hr.historyOutputs.keys()
@@ -103,12 +121,60 @@ def driver_history(step, k):
     return np.array(u), np.array(r)
 
 
-def macro_state(step, V):
+def driver_labels(odb):
+    """{k: node label} for the six macro-strain drivers.
+
+    Read from the odb's own ConstraintsDriver`k` node set, so no assumption is
+    made about the labels being consecutive or in order.  The last resort --
+    six nodal history regions sorted by label -- IS such an assumption, and it
+    says so on the console rather than passing silently; elastic_from() then
+    checks the mapping against the prescribed strains, which settles it either
+    way.
+    """
+    out = {}
+    for k in range(6):
+        want = "CONSTRAINTSDRIVER%d" % k
+        ns = None
+        if want in odb.rootAssembly.nodeSets.keys():
+            ns = odb.rootAssembly.nodeSets[want]
+        else:
+            for inst in odb.rootAssembly.instances.values():
+                if want in inst.nodeSets.keys():
+                    ns = inst.nodeSets[want]
+                    break
+        if ns is None:
+            continue
+        nodes = ns.nodes
+        if len(nodes) and not hasattr(nodes[0], "label"):
+            nodes = nodes[0]           # assembly-level: one tuple per instance
+        if len(nodes):
+            out[k] = nodes[0].label
+    return out
+
+
+def driver_labels_from_history(step):
+    """Last resort: six nodal history regions, sorted by label -> drivers 0-5."""
+    labs = []
+    for key in step.historyRegions.keys():
+        tail = key.rsplit(".", 1)[-1].strip()
+        if key.upper().startswith("NODE") and tail.isdigit():
+            labs.append(int(tail))
+    if len(labs) != 6:
+        return {}
+    labs.sort()
+    print("    !! ConstraintsDriver node sets are not in this odb.  Falling "
+          "back to the six nodal history regions sorted by label %s -- this "
+          "ASSUMES driver k is the k-th.  The prescribed-strain check below "
+          "verifies it." % labs)
+    return dict(enumerate(labs))
+
+
+def macro_state(step, V, labels=None):
     """Final macro strain and stress vectors of `step`."""
     eps = np.zeros(6)
     sig = np.zeros(6)
     for k in range(6):
-        u, rf = driver_history(step, k)
+        u, rf = driver_history(step, k, labels)
         eps[k] = u[-1]
         sig[k] = -rf[-1] / V
     return eps, sig
@@ -125,19 +191,42 @@ def elastic_from(path):
     print("  %s  box=(%.5f, %.5f, %.5f) mm  V=%.6f mm^3"
           % (os.path.basename(path), Lx, Ly, Lz, V))
 
+    labels = driver_labels(odb)
     C = np.zeros((6, 6))
     seen = set()
+    bad = []
     for name, step in odb.steps.items():
         up = name.upper()
         if up.startswith("CBAR_MODE"):
             k = int(up.replace("CBAR_MODE", ""))
-            _, sig = macro_state(step, V)
+            if len(labels) < 6:
+                labels = driver_labels_from_history(step) or labels
+            eps, sig = macro_state(step, V, labels)
+            # THE MAPPING CHECKS ITSELF.  Step Cbar_mode<k> prescribes every
+            # driver: unit strain on k, zero on the other five.  If the driver
+            # -> history-region mapping were wrong, the unit strain would show
+            # up on the wrong row, and Cbar would be a permuted matrix that
+            # still looks plausible.  Nothing downstream would catch that.
+            if abs(eps[k] - UNIT_STRAIN) > 1.0e-3 * UNIT_STRAIN:
+                bad.append("mode %d: driver %d reads eps = %.4e, expected %.4e"
+                           % (k, k, eps[k], UNIT_STRAIN))
+            off = max(abs(eps[j]) for j in range(6) if j != k)
+            if off > 1.0e-3 * UNIT_STRAIN:
+                bad.append("mode %d: a driver that should be held at zero "
+                           "reads %.4e" % (k, off))
             C[:, k] = sig / UNIT_STRAIN
             seen.add(k)
     odb.close()
     if len(seen) != 6:
         raise RuntimeError("%s: expected 6 Cbar_mode steps, found %s"
                            % (path, sorted(seen)))
+    if bad:
+        raise RuntimeError(
+            "%s: the driver -> history-region mapping is wrong, so Cbar would "
+            "be a PERMUTED matrix that still looks plausible:\n    %s"
+            % (path, "\n    ".join(bad)))
+    print("    driver mapping verified against the prescribed strains "
+          "(labels %s)" % [labels.get(k) for k in range(6)])
 
     # The two halves differ only by discretisation error, so the asymmetry is
     # a useful mesh-quality indicator -- report it, then symmetrise.
@@ -157,15 +246,20 @@ def cte_from(path, C):
     odb = openOdb(path, readOnly=True)
     Lx, Ly, Lz = rve_box(odb)
     V = Lx * Ly * Lz
+    labels = driver_labels(odb)
     base = None
     hot = None
     dT = None
     for name, step in odb.steps.items():
         up = name.upper()
         if up.startswith("ALPHABAR_BASE"):
-            _, base = macro_state(step, V)
+            if len(labels) < 6:
+                labels = driver_labels_from_history(step) or labels
+            _, base = macro_state(step, V, labels)
         elif up.startswith("ALPHABAR_DT"):
-            _, hot = macro_state(step, V)
+            if len(labels) < 6:
+                labels = driver_labels_from_history(step) or labels
+            _, hot = macro_state(step, V, labels)
             dT = float(name.upper().replace("ALPHABAR_DT", ""))
     odb.close()
     if base is None or hot is None or not dT:
@@ -201,7 +295,8 @@ def strength_curve(path, mode):
             step = st
     if step is None:
         step = list(odb.steps.values())[-1]
-    u, rf = driver_history(step, comp)
+    labels = driver_labels(odb) or driver_labels_from_history(step)
+    u, rf = driver_history(step, comp, labels)
     odb.close()
 
     eps = sign * np.asarray(u)
@@ -567,5 +662,151 @@ def main(argv):
     return 0
 
 
+# ==========================================================================
+# selftest -- no odb, no Abaqus.  Covers the driver -> history-region
+# resolution, which had none and cost a full six-job round trip on
+# 2026-08-10, and the permutation guard that now sits on top of it.
+# ==========================================================================
+class _Node(object):
+    def __init__(self, label):
+        self.label = label
+
+
+class _Set(object):
+    def __init__(self, labels):
+        self.nodes = tuple(_Node(l) for l in labels)
+
+
+class _Repo(dict):
+    """Abaqus Repository: keys()/[]/in, but NOT .get() -- see the module note."""
+    def keys(self):
+        return list(dict.keys(self))
+
+
+class _Inst(object):
+    def __init__(self, nsets):
+        self.nodeSets = _Repo(nsets)
+
+
+class _Asm(object):
+    def __init__(self, nsets=None, insts=None):
+        self.nodeSets = _Repo(nsets or {})
+        self.instances = _Repo(insts or {})
+
+
+class _Odb(object):
+    def __init__(self, asm):
+        self.rootAssembly = asm
+
+
+class _Hist(object):
+    def __init__(self, u, rf):
+        self.historyOutputs = _Repo({
+            "U1": type("H", (), {"data": [(0.0, 0.0), (1.0, u)]})(),
+            "RF1": type("H", (), {"data": [(0.0, 0.0), (1.0, rf)]})()})
+
+
+class _Step(object):
+    def __init__(self, name, regions):
+        self.name = name
+        self.historyRegions = _Repo(regions)
+
+
+def selftest():
+    ok, bad = [], []
+
+    def ck(name, cond, detail=""):
+        (ok if cond else bad).append(name)
+        print("  [%s] %-62s %s" % ("PASS" if cond else "FAIL", name, detail))
+
+    print("homogenize.py --selftest")
+
+    # ---- A. the labels come off the odb's own sets
+    sets = dict(("CONSTRAINTSDRIVER%d" % k, _Set([5681 + k])) for k in range(6))
+    ck("driver labels read from an ASSEMBLY-level node set",
+       driver_labels(_Odb(_Asm(nsets=sets))) == dict(
+           (k, 5681 + k) for k in range(6)))
+    ck("and from an INSTANCE-level one, which is where TexGen puts them",
+       driver_labels(_Odb(_Asm(insts={"PART-1-1": _Inst(sets)})))
+       == dict((k, 5681 + k) for k in range(6)))
+    ck("labels that are NOT consecutive are read as they are, not assumed",
+       driver_labels(_Odb(_Asm(nsets=dict(
+           ("CONSTRAINTSDRIVER%d" % k, _Set([900 - 7 * k]))
+           for k in range(6))))) == dict((k, 900 - 7 * k) for k in range(6)))
+
+    # ---- B. the history region is found by LABEL, which is how Abaqus names it
+    regions = dict(("Node PART-1-1.%d" % (5681 + k),
+                    _Hist(UNIT_STRAIN if k == 2 else 0.0, -3.0 * (k + 1)))
+                   for k in range(6))
+    st = _Step("Cbar_mode2", regions)
+    labels = dict((k, 5681 + k) for k in range(6))
+    u, rf = driver_history(st, 2, labels)
+    ck("a 'Node PART-1-1.5683' region resolves for driver 2",
+       abs(u[-1] - UNIT_STRAIN) < 1e-18 and abs(rf[-1] + 9.0) < 1e-12,
+       "U1 = %.3e, RF1 = %.3f" % (u[-1], rf[-1]))
+    try:
+        driver_history(st, 2, None)
+        msg = ""
+    except RuntimeError as e:
+        msg = str(e)
+    # The message has to carry BOTH what it wanted and what was actually
+    # there -- the 2026-08-10 failure was diagnosable in one look only
+    # because the region keys were printed alongside the name it wanted.
+    ck("without labels it raises, naming both the wanted set and the keys "
+       "present",
+       "CONSTRAINTSDRIVER2" in msg and "node label unknown" in msg
+       and "Node PART-1-1.5683" in msg)
+    try:
+        driver_history(_Step("s", {}), 0, {0: 1})
+        raised = False
+    except RuntimeError:
+        raised = True
+    ck("a missing region raises rather than returning silence", raised)
+
+    # ---- C. the last resort is a guess, and says so
+    lab = driver_labels_from_history(st)
+    ck("six nodal regions sorted by label map onto drivers 0-5",
+       lab == dict((k, 5681 + k) for k in range(6)))
+    ck("five regions is not enough to guess, so it declines",
+       driver_labels_from_history(_Step("s", dict(
+           ("Node P.%d" % (10 + k), _Hist(0.0, 0.0)) for k in range(5)))) == {})
+    ck("a non-nodal region is not counted as a driver",
+       driver_labels_from_history(_Step("s", dict(
+           [("Node P.%d" % (10 + k), _Hist(0.0, 0.0)) for k in range(6)]
+           + [("Element P.7 Int Point 1", _Hist(0.0, 0.0))]))) ==
+       dict((k, 10 + k) for k in range(6)))
+
+    # ---- D. the permutation guard.  A swapped mapping still yields a
+    #         plausible-looking Cbar, so this is the only thing that catches it.
+    eps = np.zeros(6)
+    eps[2] = UNIT_STRAIN
+    ck("the prescribed-strain pattern of mode 2 is unit on 2, zero elsewhere",
+       abs(eps[2] - UNIT_STRAIN) <= 1e-3 * UNIT_STRAIN
+       and max(abs(eps[j]) for j in range(6) if j != 2) <= 1e-3 * UNIT_STRAIN)
+    swapped = np.zeros(6)
+    swapped[4] = UNIT_STRAIN          # driver 4 answered for mode 2
+    ck("a swapped driver fails that pattern, which is the whole point",
+       abs(swapped[2] - UNIT_STRAIN) > 1e-3 * UNIT_STRAIN)
+
+    # ---- E. Cbar bookkeeping
+    C = np.diag([200.0, 200.0, 60.0, 40.0, 30.0, 30.0])
+    eng = engineering_constants(C, "xy-xz-yz")
+    ck("engineering constants invert a diagonal Cbar exactly",
+       abs(eng["E1"] - 200.0) < 1e-9 and abs(eng["G23"] - 30.0) < 1e-9,
+       "E1 = %.4g, G23 = %.4g" % (eng["E1"], eng["G23"]))
+    ck("a 2D weave signature is E1 ~ E2 >> E3 on such a card",
+       abs(eng["E1"] - eng["E2"]) < 1e-9 and eng["E1"] > 3 * eng["E3"])
+    Cp = C.copy()
+    Cp[0, 1] = 5.0
+    asym = np.max(np.abs(Cp - Cp.T)) / np.max(np.abs(Cp))
+    ck("the asymmetry indicator is scale-free and catches a one-sided term",
+       abs(asym - 5.0 / 200.0) < 1e-12, "%.4f" % asym)
+
+    print("\n  %d passed, %d failed" % (len(ok), len(bad)))
+    return 1 if bad else 0
+
+
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
     sys.exit(main(sys.argv[1:]))
