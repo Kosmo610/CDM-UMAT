@@ -105,4 +105,16 @@ python make_fig_a1_histogram.py Try_P0 --out E:\LTH
 - 컨투어는 `abaqus cae noGUI=` 로 실행 (viewer 도 가능하나 미검증).
   과거 dgo ImportError 의 진짜 원인은 커널이 아니라 스크립트가
   `visualization` 을 먼저 import 하지 않은 것 -- 2026-08-10 수정됨.
-  실행 후 `make_odb_images_log.txt` 가 항상 남는다.
+- **콘솔이 비는 것은 정상이다.** 이 환경의 `abaqus cae noGUI=` 는
+  스크립트 stdout 을 콘솔에 안 남긴다 (라이선스 줄만 찍고 프롬프트로
+  돌아온다). 실패했다는 뜻이 아니다 -- 두 번의 실패 모두 로그
+  파일에는 트레이스백과 `exit : N` 이 온전히 남아 있었다.
+  **판정은 항상 로그로 한다:**
+
+  ```bat
+  type make_odb_images_log.txt
+  dir *.png
+  ```
+
+  `exit : 0` 이면 성공. 로그가 짧으면 아직 렌더링 중일 수 있으니
+  잠시 뒤 다시 `type` 한다.
