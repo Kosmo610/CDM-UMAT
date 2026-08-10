@@ -677,6 +677,88 @@ def print_gf_audit(rows):
               % (r["mode"], r["slot"], abs(r["gf"]), min(As), max(As), note))
 
 
+def orientation_audit(deck_text):
+    """Every section whose material carries an ORTHO/ANISO property must name
+    an *Orientation, and that orientation must exist in the same deck.
+
+    This is the check that was missing on 2026-08-10, when LTH_CJHEAT died in
+    the pre-processor with
+
+        ***ERROR: Anisotropic material properties without a local orientation
+                  system
+
+    after passing every static check this file had.  Nothing here reads a
+    solver; it reads the deck the way Abaqus's input parser does.
+
+    Returns a list of complaints -- empty means the deck is clean.
+    """
+    aniso_kw = ("*conductivity", "*expansion", "*elastic")
+    mats, cur = {}, None
+    for ln in deck_text.splitlines():
+        s = ln.strip().lower()
+        if s.startswith("*material"):
+            cur = None
+            for tok in ln.split(","):
+                if tok.strip().lower().startswith("name"):
+                    cur = tok.split("=", 1)[1].strip()
+            if cur:
+                mats[cur] = False
+        elif cur and s.startswith(aniso_kw):
+            if "ortho" in s or "aniso" in s:
+                mats[cur] = True
+    named = set()
+    for ln in deck_text.splitlines():
+        if ln.strip().lower().startswith("*orientation"):
+            for tok in ln.split(","):
+                if tok.strip().lower().startswith("name"):
+                    named.add(tok.split("=", 1)[1].strip())
+    bad = []
+    for ln in deck_text.splitlines():
+        s = ln.strip().lower()
+        if not s.startswith(("*solid section", "*shell section")):
+            continue
+        mat = ori = None
+        for tok in ln.split(","):
+            k, _, v = tok.partition("=")
+            k = k.strip().lower()
+            if k == "material":
+                mat = v.strip()
+            elif k == "orientation":
+                ori = v.strip()
+        if mat and mats.get(mat):
+            if not ori:
+                bad.append("section using %s has an ORTHO/ANISO property but "
+                           "no Orientation=" % mat)
+            elif ori not in named:
+                bad.append("section using %s names Orientation=%s, which the "
+                           "deck never defines" % (mat, ori))
+    return bad
+
+
+def keyword_glue_audit(deck_text):
+    """No line may hide a keyword after data.
+
+    A patch that rewrites the *User Material data lines can drop the newline
+    before the block that follows, producing
+
+        ..., 0., 41.*Expansion, type=ORTHO, zero=1050.
+
+    which Abaqus reads as data and mis-parses.  It happened to the shipped
+    LTH_CJ1/CJ5 on 2026-08-07 and survived every check because each check
+    looked at keywords or at numbers, never at both on one line.
+    """
+    bad = []
+    for n, ln in enumerate(deck_text.splitlines(), 1):
+        s = ln.strip()
+        if s.startswith("*") or "*" not in s:
+            continue
+        head = s.split("*", 1)[0]
+        if head.strip() and any(c.isdigit() for c in head):
+            bad.append("line %d hides a keyword after data: %s"
+                       % (n, s[:70]))
+    return bad
+
+
 def _mangle(card, slot=None, value=None, depvar=None, drop=0):
     """Return PLACEHOLDER_CARD with one thing deliberately broken."""
     out = card
@@ -970,6 +1052,57 @@ def selftest():
     expect_true("SDV9/SDV10 are the damage pair postprocess/damage_map.py "
                 "reads", [n for _i, n in pnames][8:10] == ["D1", "DT"])
 
+    # ---- the two defects that reached the solver on 2026-08-10
+    import tempfile as _tf
+    _d = _tf.mkdtemp()
+    _argv = sys.argv[1:]
+    sys.argv[1:] = ["--specimen", "ZHANG2013", "--prefix",
+                    os.path.join(_d, "SC"), "--sev", "Z", "--trs", "C"]
+    try:
+        _so = sys.stdout
+        sys.stdout = open(os.devnull, "w")
+        try:
+            main()
+        finally:
+            sys.stdout.close()
+            sys.stdout = _so
+    finally:
+        sys.argv[1:] = _argv
+    decks = {}
+    for nm in ("SC_HEAT_SZ.inp", "SC_MECH_SZ_TRSC.inp"):
+        decks[nm] = open(os.path.join(_d, nm)).read()
+
+    for nm, txt in sorted(decks.items()):
+        expect_true("%s: every ORTHO material's section names an orientation"
+                    % nm.split("_", 1)[1][:-4],
+                    orientation_audit(txt) == [],
+                    "; ".join(orientation_audit(txt)) or "clean")
+        expect_true("%s: no line hides a keyword after data"
+                    % nm.split("_", 1)[1][:-4],
+                    keyword_glue_audit(txt) == [],
+                    "; ".join(keyword_glue_audit(txt)) or "clean")
+
+    # and the audits must actually FIRE on the real defects, not just pass
+    broke = decks["SC_HEAT_SZ.inp"].replace(", Orientation=MACRO_AXES", "")
+    expect_true("the orientation audit catches a dropped Orientation=",
+                len(orientation_audit(broke)) == 1
+                and "no Orientation=" in orientation_audit(broke)[0],
+                orientation_audit(broke)[0] if orientation_audit(broke) else
+                "DID NOT FIRE")
+    broke2 = decks["SC_HEAT_SZ.inp"].replace(
+        ", Orientation=MACRO_AXES", ", Orientation=NOSUCH")
+    expect_true("and a section pointing at an orientation that does not exist",
+                any("never defines" in b for b in orientation_audit(broke2)))
+    glued = decks["SC_MECH_SZ_TRSC.inp"].replace(
+        "41.\n*Expansion", "41.*Expansion")
+    expect_true("the glue audit catches the LTH_CJ1 missing newline",
+                len(keyword_glue_audit(glued)) == 1
+                and "*Expansion" in keyword_glue_audit(glued)[0],
+                keyword_glue_audit(glued)[0] if keyword_glue_audit(glued)
+                else "DID NOT FIRE")
+    expect_true("a comment line with a * in prose is not a false positive",
+                keyword_glue_audit("** 3 x 3 = 9 cases, see *Step below") == [])
+
     # ---- --hclo, the crack-closure control job (a1-0027 item 2)
     base_h = check_macro_card(PLACEHOLDER_CARD, "hclo-base")["props"][36]
     off = patch_card(PLACEHOLDER_CARD, 37, 0.0)
@@ -1083,6 +1216,22 @@ PLACEHOLDER_CARD = """** PLACEHOLDER macro card -- replace with the RVE output
 PLACEHOLDER_EXPANSION = """*Expansion, type=ORTHO, zero=1050.
 2.5e-06, 2.5e-06, 5.0e-06"""
 
+#: Abaqus REFUSES to pre-process anisotropic material properties -- and
+#: *Conductivity/*Expansion "type=ORTHO" are anisotropic -- unless the section
+#: that uses them names a local orientation.  It is a fatal input error, not a
+#: warning:
+#:
+#:   ***ERROR: Anisotropic material properties without a local orientation system
+#:
+#: The macro card's axes ARE the global axes (1 = warp = x, 2 = fill = y,
+#: 3 = through-thickness = z, the quench direction), so this orientation is the
+#: identity.  Writing it out is not a formality: it is the only place in the
+#: deck that STATES that mapping, and every alpha_1/alpha_3 and kbar_1/kbar_3
+#: in the card depends on it.
+MACRO_ORIENTATION = """*Orientation, Name=MACRO_AXES
+1., 0., 0., 0., 1., 0.
+3, 0."""
+
 PLACEHOLDER_THERMAL = """** PLACEHOLDER homogenised thermal properties.
 ** kbar MUST come from the RVE conductivity job (RVE_COND) -- the quench
 ** result is more sensitive to this than to almost anything else.
@@ -1102,6 +1251,13 @@ def main():
     ap.add_argument("--thermal", help="homogenised *Conductivity/*Density/*Specific Heat")
     ap.add_argument("--sev", nargs="+", default=["M"], choices=sorted(SEVERITIES))
     ap.add_argument("--trs", nargs="+", default=list(TRS_CASES), choices=TRS_CASES)
+    ap.add_argument("--card-slot", nargs="+", default=[], metavar="N=V",
+                    help="override 1-based macro card slots, e.g. 42=0.10 to "
+                         "lower the endurance threshold for a preflight run.  "
+                         "Goes through patch_card, which rewrites whole data "
+                         "lines -- editing the deck by hand instead is what "
+                         "glued *Expansion onto the card on 2026-08-07 and "
+                         "cost a run.")
     ap.add_argument("--hclo", type=float, default=None,
                     help="force the crack-closure recovery fraction, macro "
                          "card slot 37, instead of using the card's own "
@@ -1195,6 +1351,19 @@ def main():
     print("  element characteristic length CELENT = %.4g - %.4g mm"
           % (le_range[0], le_range[1]))
 
+    for spec in args.card_slot:
+        try:
+            k, v = spec.split("=", 1)
+            k, v = int(k), float(v)
+        except ValueError:
+            raise SystemExit("--card-slot wants N=VALUE, got %r" % spec)
+        card = patch_card(card, k, v)
+        card = card.replace(
+            "*Material, Name=CSIC_MACRO_CDM",
+            "** --card-slot %d=%g applied by make_macro_thermalshock.py\n"
+            "*Material, Name=CSIC_MACRO_CDM" % (k, v), 1)
+        print("  card slot %d forced to %g" % (k, v))
+
     info = check_macro_card(card, os.path.basename(args.card or "placeholder"),
                             le=le_range, allow_total_gf=args.allow_total_gf)
     print("  macro card OK: NPROPS=%d (NT=%d), *Depvar=%s, "
@@ -1221,7 +1390,9 @@ def main():
                  "*Material, Name=CSIC_MACRO_THERMAL",
                  therm.replace("** PLACEHOLDER homogenised thermal properties.",
                                "").strip(),
-                 "*Solid Section, ElSet=ALL, Material=CSIC_MACRO_THERMAL",
+                 MACRO_ORIENTATION,
+                 "*Solid Section, ElSet=ALL, "
+                 "Material=CSIC_MACRO_THERMAL, Orientation=MACRO_AXES",
                  "1.0,",
                  "*Initial Conditions, type=TEMPERATURE\nALLNODES, %.6g"
                  % SEVERITIES[sev]["T_hi"],
@@ -1250,7 +1421,9 @@ def main():
             body = [this_card]
             if trs != "A":
                 body.append(expan)
-            body.append("*Solid Section, ElSet=ALL, Material=CSIC_MACRO_CDM")
+            body.append(MACRO_ORIENTATION)
+            body.append("*Solid Section, ElSet=ALL, "
+                        "Material=CSIC_MACRO_CDM, Orientation=MACRO_AXES")
             body.append("1.0,")
             T0 = SEVERITIES[sev]["T_hi"]
             init = STRESS_FREE_C if trs in ("B", "C") else T0

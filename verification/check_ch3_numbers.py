@@ -75,7 +75,7 @@ CASES = [
      count_bracketed, 5),
     ("make_macro_thermalshock.py --selftest",
      "python3 abaqus/make_macro_thermalshock.py --selftest",
-     count_bracketed, 55),
+     count_bracketed, 63),
     ("conductivity_bounds.py --check",
      "python3 data/properties/conductivity_bounds.py --check",
      count_bracketed, 34),

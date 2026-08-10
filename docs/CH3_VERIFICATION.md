@@ -38,7 +38,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 | 17 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
-| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡) | 55 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡 + **`*Orientation` 누락·키워드 접합 감사**) | 63 |
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
@@ -81,7 +81,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `extract_probe.py --selftest` | E(N) 프로브 판독 산식 (cycle-jump 선행검증의 소비자) | 5 |
 | `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 + refs/[57]·[58] 역할 분리와 10배 격차 | 11 |
 | `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로 | 37 |
-| **합계** | | **2257** |
+| **합계** | | **2265** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
