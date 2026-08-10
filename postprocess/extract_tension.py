@@ -29,6 +29,7 @@ import sys
 import os
 import re
 import csv
+import glob
 from odbAccess import openOdb
 
 TEN_STEP = 'Tension_23C'
@@ -496,6 +497,31 @@ def write_damage(odb, outdir, V, stride, tag=''):
     log('  wrote %s' % p)
 
 
+def check_odb_path(path):
+    """odb 를 열기 전에 존재를 확인하고, 없으면 어디에 있는지 알려준다.
+
+    폴더를 헷갈려 다른 디렉터리에서 돌리는 실수가 잦다. 트레이스백
+    대신 "이 폴더의 odb" 와 "상위 트리의 odb" 를 찍어 준다.
+    """
+    if os.path.exists(path):
+        return True
+    d = os.path.dirname(os.path.abspath(path)) or '.'
+    log('[error] 파일이 없다: %s' % path)
+    here = sorted(glob.glob(os.path.join(d, '*.odb')))
+    if here:
+        log('        이 폴더의 odb: %s'
+            % ', '.join(os.path.basename(p) for p in here))
+    else:
+        log('        이 폴더에 odb 가 없다: %s' % d)
+    sib = sorted(glob.glob(os.path.join(os.path.dirname(d), '*', '*.odb')))
+    if sib:
+        log('        상위 트리에서 찾은 odb:')
+        for p in sib[:20]:
+            log('          %s' % p)
+    log('        맞는 폴더로 cd 한 뒤 다시 실행할 것.')
+    return False
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -528,6 +554,8 @@ def main():
             and a != tag and a != TEN_STEP][0]
     outdir = os.path.dirname(os.path.abspath(path)) or '.'
     log('opening %s ...' % path)
+    if not check_odb_path(path):
+        return 2
     odb = openOdb(path=path, readOnly=True)
     try:
         log('steps: %s' % ', '.join(odb.steps.keys()))

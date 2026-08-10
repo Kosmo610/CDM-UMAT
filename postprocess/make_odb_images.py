@@ -45,6 +45,7 @@ from __future__ import print_function
 
 import sys
 import os
+import glob
 import re
 
 MATRIX_SETS = ('MATRIX',)
@@ -130,6 +131,31 @@ def limits_for(tagvar, gname, fig, auto):
     return LIMITS.get(u, {}).get(base)
 
 
+def check_odb_path(path):
+    """odb 를 열기 전에 존재를 확인하고, 없으면 어디에 있는지 알려준다.
+
+    폴더를 헷갈려 다른 디렉터리에서 돌리는 실수가 잦다. 트레이스백
+    대신 "이 폴더의 odb" 와 "상위 트리의 odb" 를 찍어 준다.
+    """
+    if os.path.exists(path):
+        return True
+    d = os.path.dirname(os.path.abspath(path)) or '.'
+    print('[error] 파일이 없다: %s' % path)
+    here = sorted(glob.glob(os.path.join(d, '*.odb')))
+    if here:
+        print('        이 폴더의 odb: %s'
+            % ', '.join(os.path.basename(p) for p in here))
+    else:
+        print('        이 폴더에 odb 가 없다: %s' % d)
+    sib = sorted(glob.glob(os.path.join(os.path.dirname(d), '*', '*.odb')))
+    if sib:
+        print('        상위 트리에서 찾은 odb:')
+        for p in sib[:20]:
+            print('          %s' % p)
+    print('        맞는 폴더로 cd 한 뒤 다시 실행할 것.')
+    return False
+
+
 def main():
     args = sys.argv[1:]
     if '--' in args:
@@ -172,6 +198,8 @@ def main():
         print('        (인자는 완전히 동일하다. CAE 토큰 1개를 쓴다.)')
         return 3
 
+    if not check_odb_path(path):
+        return 2
     odb = session.openOdb(path=path, readOnly=True)
     print('odb   : %s' % os.path.basename(path))
 
