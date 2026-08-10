@@ -4,36 +4,61 @@
 동시에 컴파일하면 `standardU.obj` / `standardU.lib` 임시파일이
 충돌한다. 그래서 잡 하나당 폴더 하나를 쓴다.
 
-## 트리
+## 트리 (2026-08-07 `dir /s /b *.odb` 실측)
+
+**중요: 2026-08-05 이전 폴더는 `Try_0805까지\` 아래로 들어갔다.**
+그래서 깊이가 폴더마다 다르다 → **스크립트는 `..\` 가 아니라
+절대경로 `E:\LTH\<이름>.py` 로 부를 것.** `Try_0805까지\Try_1430`
+에서 `..\` 은 `E:\LTH\Try_0805까지\` 를 가리켜 실패한다.
 
 ```
 E:\LTH\
-├─ extract_tension.py            ← 최신판 1개만. 각 폴더에서 ..\ 로 부름
-├─ extract_cooling_damage.py     ← 냉각 이력 (논문 Fig.4)
-├─ make_paper_figures.py         ← 인장 그림 (Fig.11/13/15, Table 3)
-├─ make_fig4_cooling.py          ← 냉각 그림 (Fig.4, 여러 실행 겹침)
-├─ make_odb_images.py            ← 상별 컨투어, 온도 지정 (Fig.3/5/7/8/9/10)
+├─ extract_tension.py            ← 최신판 1개만. E:\LTH\ 절대경로로 부름
+├─ extract_cooling_damage.py     ← 냉각/승온 이력 (논문 Fig.4, Fig.6)
+├─ extract_homogenization.py     ← HOM_* 섭동 6x6 강성
 ├─ extract_damage_histogram.py   ← 손상변수 분포 (Fig.A1~A3)
-├─ make_fig_a1_histogram.py      ← 위 CSV → 그림 (Fig.A1~A3)
-├─ find_frames.py                ← 변형률/온도 → 프레임 번호 (단계점용)
+├─ make_paper_figures.py         ← 인장 그림 (Fig.11/13/15, Table 3)
+├─ make_fig4_cooling.py          ← 냉각/승온 그림 (Fig.4, Fig.6)
+├─ make_fig_a1_histogram.py      ← 히스토그램 그림 (Fig.A1~A3)
+├─ make_odb_images.py            ← 상별 컨투어 (Fig.3/5/7/8/9/10/12)
+├─ find_frames.py                ← 변형률/온도 → 프레임 번호
 │    (그림별 명령 전체는 docs/PAPER_FIGURE_PLAYBOOK.md)
 │
-├─ Try_1300\                     23 C 계열 (완료)
-│    CSIC_t23_gf.odb                     V2_6 GF1T
-│    CSIC_t23_noTRS.odb                  열잔류응력 제거
-├─ Try_1430\                     고온 (완료)
-│    CSIC_t1000.odb                      1050->23->1000 경유
-├─ Try_C\                        23 C 연장 (완료, 중단)
-│    CSIC_t23_long.odb                   목표 0.006, 속도 동일
+├─ Try_P0\   CSIC_t23_p0.odb     ★ PAPERFAITH: Weibull 제거   (완료)
+├─ Try_P1\   CSIC_t23_p1.odb     ★ PAPERFAITH: +MCRIT=1       (완료)
+├─ Try_P2\   CSIC_t23_p2.odb     ★ PAPERFAITH: +Yt=50         (완료)
 │
-├─ Try_D500\                     DIRECT 500 C   (실행 중)
-├─ Try_D1000\                    DIRECT 1000 C  (실행 중)
-├─ Try_GFC\                      GF1T 정정 (보류)
-├─ Try_GFC25\                    GF1T 정정 + eta (보류)
-├─ Try_P0\                       ★ PAPERFAITH: Weibull 제거
-├─ Try_P1\                       ★ PAPERFAITH: +MCRIT=1
-└─ Try_P2\                       ★ PAPERFAITH: +Yt=50
+├─ Try_C\    CSIC_t23_long.odb   23 C 연장 (중단)
+├─ Try_D500\  CSIC_t500_direct.odb    DIRECT 500 C   (완료)
+├─ Try_D1000\ CSIC_t1000_direct.odb   DIRECT 1000 C  (완료)
+│
+└─ Try_0805까지\                  ← 08-05 이전 전부 여기로 이동
+   ├─ Try_1300\ CSIC_t23_gf.odb        V2_6 GF1T
+   │            CSIC_t23_noTRS.odb     열잔류응력 제거
+   └─ Try_1430\ CSIC_t1000.odb         1050->23->1000 경유  ★Fig.6/9/10
+                CSIC_t500.odb          1050->23->500  경유  ★Fig.6/7/8
+                CSIC_t23.odb           23 C 초기
+                CSIC_t23pc.odb         23 C (pc)
+                peek500.odb            진단용
 ```
+
+**우리 것이 아닌 폴더** (같은 드라이브에 있지만 다른 프로젝트다.
+`dir *.odb` 결과에 섞여 나오므로 헷갈리지 말 것):
+
+```
+E:\LTH\3D_0728_900\, 3D_0728_1530\, 3D_0729_1400\   초기 3D 시험 (구형)
+E:\LTH\LTH_RUN1_0807_1712\                          LTH_COND_* 전도 해석
+E:\LTH\[01] 2D CDM UMAT ...\, [02] ..., [03] ..., [04] ...   별개 과제
+```
+
+### 자주 쓰는 절대경로
+
+| 용도 | 경로 |
+|---|---|
+| Fig.6/7/8 승온 500 | `E:\LTH\Try_0805까지\Try_1430\CSIC_t500.odb` |
+| Fig.6/9/10 승온 1000 | `E:\LTH\Try_0805까지\Try_1430\CSIC_t1000.odb` |
+| 23 C 기준선 (GF) | `E:\LTH\Try_0805까지\Try_1300\CSIC_t23_gf.odb` |
+| PAPERFAITH 체인 | `E:\LTH\Try_P0\|Try_P1\|Try_P2\` |
 
 ## 각 폴더에 들어가는 것 — 4개
 
@@ -91,8 +116,9 @@ E:\LTH\
 
 ```
 cd /d E:\LTH
-python make_paper_figures.py Try_1300 Try_1430 Try_C Try_D500 Try_D1000 --out E:\LTH
+python make_paper_figures.py Try_P0 Try_P1 Try_P2 Try_C Try_D500 Try_D1000 ^
+       "Try_0805까지\Try_1300" "Try_0805까지\Try_1430" --out E:\LTH
 ```
 
 폴더를 여러 개 나열하면 전부 합쳐서 그린다. 같은 태그가 두 폴더에
-있으면 이름 뒤에 폴더명이 붙는다.
+있으면 이름 뒤에 폴더명이 붙는다. **공백이 든 경로는 따옴표로 감쌀 것.**

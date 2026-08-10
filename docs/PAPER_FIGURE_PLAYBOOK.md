@@ -3,6 +3,10 @@
 목표: **새 해석 없이**, 이미 있는 odb 에서 논문의 모든 그림을 같은
 형식·같은 온도·같은 범례로 뽑는다. 스크립트는 전부 `E:\LTH` 에 1개씩.
 
+**경로는 항상 `E:\LTH\<스크립트>.py` 절대경로로 쓴다.** odb 폴더
+깊이가 제각각이라 `..\` 은 폴더에 따라 빗나간다. 실제 트리는
+`docs/RUN_LAYOUT.md` 참고.
+
 ## 준비물 대응표
 
 | 논문 그림 | 내용 | 도구 | 필요한 odb |
@@ -31,39 +35,43 @@
 ### 0) 프레임↔온도 확인 (odb 안에서 직접 검증) — 순차, 몇 초
 ```bat
 cd /d E:\LTH\Try_P0
-abaqus cae noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --list
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- CSIC_t23_p0.odb --list
 ```
 
 ### 1) 냉각 컨투어 Fig.3+5 — 순차 권장 (CAE 토큰 1개)
 ```bat
-abaqus cae noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --fig stress --temps 1050,750,500,250,23
-abaqus cae noGUI=..\make_odb_images.py -- CSIC_t23_p0.odb --fig damage --temps 1050,750,500,250,23
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- CSIC_t23_p0.odb --fig stress --temps 1050,750,500,250,23
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- CSIC_t23_p0.odb --fig damage --temps 1050,750,500,250,23
 ```
 
-### 2) 승온 추출 Fig.6 — 병렬 가능 (다른 odb, 창 2개)
+### 2) 승온 추출 Fig.6 — 병렬 가능 (같은 폴더지만 출력 파일명이 달라 안전, 창 2개)
 ```bat
-:: t500 경유 odb 폴더에서
-abaqus python ..\extract_cooling_damage.py CSIC_t500.odb --step Heating_500C --stride 2 --tag _500C
-:: t1000 경유 odb 폴더에서
-abaqus python ..\extract_cooling_damage.py CSIC_t1000.odb --step Heating_1000C --stride 2 --tag _1000C
+:: 두 odb 가 같은 폴더에 있다 (docs/RUN_LAYOUT.md 트리 참고)
+cd /d "E:\LTH\Try_0805까지\Try_1430"
+abaqus python E:\LTH\extract_cooling_damage.py CSIC_t500.odb --step Heating_500C --stride 2 --tag _500C
+:: 창 2 (같은 폴더에서)
+abaqus python E:\LTH\extract_cooling_damage.py CSIC_t1000.odb --step Heating_1000C --stride 2 --tag _1000C
 ```
 → `heating_damage_500C.csv` / `_1000C.csv`
 
+**스크립트는 `..\` 가 아니라 `E:\LTH\` 절대경로로 부른다.** 폴더
+깊이가 제각각이라 `..\` 은 폴더에 따라 빗나간다 (RUN_LAYOUT 참고).
+
 ### 3) 승온 컨투어 Fig.7/8, 9/10 — 순차 권장
 ```bat
-:: t500 폴더
-abaqus cae noGUI=..\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig stress --temps 23,125,250,375,500
-abaqus cae noGUI=..\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig damage --temps 23,125,250,375,500
-:: t1000 폴더
-abaqus cae noGUI=..\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig stress --temps 500,625,750,875,1000
-abaqus cae noGUI=..\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig damage --temps 500,625,750,875,1000
+cd /d "E:\LTH\Try_0805까지\Try_1430"
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig stress --temps 23,125,250,375,500
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- CSIC_t500.odb --step Heating_500C --fig damage --temps 23,125,250,375,500
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig stress --temps 500,625,750,875,1000
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- CSIC_t1000.odb --step Heating_1000C --fig damage --temps 500,625,750,875,1000
 ```
 
 ### 4) 곡선 그림 Fig.4/6/11/13/15 + Table 3 — 순차 (CSV 필요), 일반 python
 ```bat
 cd /d E:\LTH
-python make_fig4_cooling.py Try_P0 Try_P1 Try_P2 Try_1430 --out E:\LTH
-python make_paper_figures.py Try_1300 Try_1430 Try_C Try_P0 Try_P1 Try_P2 --out E:\LTH
+python make_fig4_cooling.py Try_P0 Try_P1 Try_P2 "Try_0805까지\Try_1430" --out E:\LTH
+python make_paper_figures.py Try_P0 Try_P1 Try_P2 Try_C Try_D500 Try_D1000 ^
+       "Try_0805까지\Try_1300" "Try_0805까지\Try_1430" --out E:\LTH
 ```
 → `fig4_cooling_damage.png`, `fig6_heating_damage.png`,
 `fig11_style_*.png` (런당 1장, 논문 최대점이 속빈 원으로 함께 찍힘)
@@ -76,8 +84,8 @@ python make_paper_figures.py Try_1300 Try_1430 Try_C Try_P0 Try_P1 Try_P2 --out 
 ::     그 차이 자체가 결과다 (§5.16C).
 python find_frames.py Try_P0\tension_damage_P0.csv --stages --paperstage 23
 :: (b) 나온 --frames 줄을 그대로:
-abaqus cae noGUI=make_odb_images.py -- Try_P0\CSIC_t23_p0.odb --step Tension_23C --fig damage --frames <a에서 나온 번호들>
-abaqus python extract_damage_histogram.py Try_P0\CSIC_t23_p0.odb --frames <같은 번호들> --tag _P0
+abaqus cae noGUI=E:\LTH\make_odb_images.py -- Try_P0\CSIC_t23_p0.odb --step Tension_23C --fig damage --frames <a에서 나온 번호들>
+abaqus python E:\LTH\extract_damage_histogram.py Try_P0\CSIC_t23_p0.odb --frames <같은 번호들> --tag _P0
 :: (c) 히스토그램 그림 (일반 python, 순차 -- (b) 가 끝나야 함)
 python make_fig_a1_histogram.py Try_P0 --out E:\LTH
 ```
