@@ -417,5 +417,56 @@ def main():
     return 0
 
 
+class _Tee(object):
+    """화면과 파일에 동시에 쓴다.
+
+    `abaqus cae noGUI=` 커널은 스크립트의 stdout 을 콘솔에 안 남기고
+    끝나는 경우가 있다(6.18 확인). 그러면 실패해도 화면에 아무것도
+    안 뜨므로 원인을 알 수 없다. 무조건 로그 파일을 남긴다.
+    """
+
+    def __init__(self, stream, fh):
+        self.stream = stream
+        self.fh = fh
+
+    def write(self, s):
+        for t in (self.stream, self.fh):
+            try:
+                t.write(s)
+                t.flush()
+            except Exception:
+                pass
+
+    def flush(self):
+        for t in (self.stream, self.fh):
+            try:
+                t.flush()
+            except Exception:
+                pass
+
+
 if __name__ == '__main__':
-    main()
+    _log = os.path.join(os.getcwd(), 'make_odb_images_log.txt')
+    _fh = None
+    try:
+        _fh = open(_log, 'w')
+        sys.stdout = _Tee(sys.stdout, _fh)
+        sys.stderr = _Tee(sys.stderr, _fh)
+        print('log   : %s' % _log)
+    except IOError:
+        pass
+    try:
+        import traceback
+        _rc = 0
+        try:
+            _rc = main()
+        except Exception:
+            traceback.print_exc()
+            _rc = 9
+        print('exit  : %s' % _rc)
+    finally:
+        if _fh is not None:
+            try:
+                _fh.close()
+            except Exception:
+                pass
