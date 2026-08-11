@@ -270,7 +270,7 @@ Hashin만이 구동하므로 **기준을 추가해도 응력과 강성이 비트
 입력 데이터 탓인지를 구분해 말할 수 있게 하기 때문**이다. L1을 건너뛰면 그 구분이
 영원히 불가능해진다.
 
-L1은 자동화되어 있으며, 현재 **2437개 항목**이 매 커밋 전에 전수 통과를 강제받는다
+L1은 자동화되어 있으며, 현재 **2597개 항목**이 매 커밋 전에 전수 통과를 강제받는다
 (제3장 §3.9). L2는 다음 두 축으로 수행한다.
 
 - **Zhang 등[5]의 상온/500 °C/1000 °C 인장강도 재현** (제4장 §4.4)
@@ -358,7 +358,7 @@ RVE 구성은 다음과 같다(제4장 §4.2).
 |---|---|---|
 | **제1장** | 서론 — 배경, 문제 제기, 목적, 기여, 범위 | 본 장 |
 | **제2장** | 문헌고찰 — 준취성 거동, TRS, 열충격 vs 열싸이클, CDM, 파손기준, 균질화, 연구 공백 | 기여 C1–C4의 근거 |
-| **제3장** | 미시 구성모델과 코드 검증 — 정식화, 8개 신규 기능, 2437개 자동 검증 항목 | **L1** |
+| **제3장** | 미시 구성모델과 코드 검증 — 정식화, 8개 신규 기능, 2597개 자동 검증 항목 | **L1** |
 | **제4장** | RVE 균질화와 가상시험 — 주기경계조건, TRS 실측 대조, 유효물성, 가상시험 배치 | **L2** |
 | **제5장** | 거시 반복 열충격 해석 모델 — 급랭 경계조건, Biot 수 사다리, TRS 3케이스 | 모델 구성 |
 | **제6장** | 결과 및 고찰 — TRS 처리 방식의 영향, 파손기준 비교, 무응력 온도 | **L3** |
@@ -377,12 +377,12 @@ RVE 구성은 다음과 같다(제4장 §4.2).
 |---|---|
 | [2] | H. Yin, L. Cheng, L. Zhang, Y. Xu, *Thermal shock behavior of 3-dimensional C/SiC composite*, **Carbon 40 (2002) 905–910** |
 | [3] | C. Zhang, X. Wang, B. Wang, Y. Liu, D. Han, S. Qiao, Y. Guo, *Thermal Shock Properties of a 2D-C/SiC Composite Prepared by Chemical Vapor Infiltration*, **J. Mater. Eng. Perform. 22 (2013) 1680–1687** |
-| [5] | Q. Zhang, J. Ge, L. Zhang, Y. He, Z. Wu, J. Liang, *Effect of thermal residual stress on the tensile properties and damage process of C/SiC composites at high temperatures*, **Ceram. Int. 48 (2022) 3109–3124** |
+| [5] | Q. Zhang, J. Ge, B. Zhang, C. He, Z. Wu, J. Liang, *Effect of thermal residual stress on the tensile properties and damage process of C/SiC composites at high temperatures*, **Ceram. Int. 48 (2022) 3109–3124**, doi:`10.1016/j.ceramint.2021.10.085` |
 | [5b] | R. Skinner, A. Chattopadhyay, *Multiscale temperature-dependent ceramic matrix composite damage model with thermal residual stresses and manufacturing-induced damage*, **Compos. Struct. 268 (2021) 114006** |
 | [15] | S. Zhang, D. Zhang, J. Zhou, F. Du, K. Guan, Z. Guan, W. J. Cantwell, *Quantification of thermal residual stresses and their effects on the mechanical behavior of 3D C/SiC composites*, **Compos. Part A 207 (2026) 109796** |
 | [17] | P. Zhang, L. Zhu, Y. Tong, Y. Li, Y. Xing, H. Lan, Y. Sun, X. Liang, *Revealing thermal shock behaviors and damage mechanism of 3D needled C/C–SiC composites based on multi-scale analysis*, **J. Mater. Res. Technol. 29 (2024) 2016–2034** |
 | [23] | Xie, et al., *(property scatter in 3D needled C/C–SiC)*, **Compos. Struct. 192 (2018)** |
-| [24] | J. Ge, et al., **Compos. Sci. Technol. 157 (2018) 86–98** — 본 연구 구성모델의 원 모델 |
+| [24] | J. Ge, C. He, J. Liang, Y. Chen, D. Fang, *A coupled elastic-plastic damage model for the mechanical behavior of three-dimensional (3D) braided composites*, **Compos. Sci. Technol. 157 (2018) 86–98**, doi:`10.1016/j.compscitech.2018.01.027` — 본 연구 구성모델의 원 모델 |
 | [27] | Z. Yang, J. Jiao, J. Wang, W. Huang, Y. Guo, **Compos. Part A 77 (2015) 181** |
 | [30] | Q. Zhang, J. Ge, B. Li, S. Zhao, Z. Liu, J. Liang, *Investigation of mechanical behavior and damage process of 2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. Part B 313 (2026) 113395** |
 | [33] | Z. Yang, J. Jiao, Y. Guo, *(D-criterion 원전)*, **Theor. Appl. Mech. Lett. 4 (2014) 021007** |

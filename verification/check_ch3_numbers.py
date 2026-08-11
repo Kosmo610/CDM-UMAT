@@ -144,7 +144,7 @@ CASES = [
      count_plain, 38),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
-     count_plain, 206),
+     count_plain, 207),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
      count_bracketed, 5),
@@ -250,21 +250,25 @@ def main():
     check("compile_check.sh                        2", n == 2,
           "" if n == 2 else "-> actually %d" % n)
 
-    # cross-check: 114 states, worst deviation <= 5.1e-15.  The per-case
+    # cross-check: 273 states, worst deviation <= 5.1e-15 on the six
+    # Fortran-vs-Python cases (the three consistent-tangent cases report
+    # their own numbers on their own lines and 0.00e+00 here, because a
+    # finite-difference Jacobian is not a machine-precision comparison and
+    # must not be averaged in with one).  The per-case
     # deviations moved on 2026-08-06: the TWMAX window added rng draws to
     # case_macro, which shifts every later case's random state.  Same seed,
     # new sequence, still machine noise.
     print("\n cross_check_fortran.py -- the chapter's headline")
     out, _ = run("python3 verification/cross_check_fortran.py")
     if "SKIPPED" in out:
-        check("gfortran available", False, "cannot verify the 114 states")
+        check("gfortran available", False, "cannot verify the 273 states")
     else:
         pairs = re.findall(r"(\d+)/(\d+)", out)
         got = sum(int(a) for a, _ in pairs)
         tot = sum(int(b) for _, b in pairs)
-        total += 114
-        check("114 material-point states, all passing",
-              got == 114 and tot == 114, "%d/%d" % (got, tot))
+        total += 273
+        check("273 material-point states, all passing",
+              got == 273 and tot == 273, "%d/%d" % (got, tot))
         devs = [float(d) for d in
                 re.findall(r"worst rel\. dev\. ([0-9.]+e[+-][0-9]+)", out)]
         check("worst relative deviation <= 5.1e-15",
@@ -274,6 +278,18 @@ def main():
             check("Ch.3 quotes deviation %s" % tag, tag in out)
         check("I1=0 jump is 78.0x without smoothing", "78.0x" in out)
         check("I1=0 jump is 2.3x with HSMO=0.1", " 2.3x" in out)
+        # Consistent tangent (Ge Eqs.31-33): the acceptance test is the
+        # numerical Jacobian, so the chapter may only claim it if every
+        # regime is actually reported and every deviation is small.
+        jdev = [float(d) for d in re.findall(
+            r"max \|Ct-Cfd\|/max\|Ct\| = ([0-9.]+e[+-][0-9]+)", out)]
+        check("every regime reports a numerical-Jacobian deviation",
+              len(jdev) == 9, "%d regimes" % len(jdev))
+        check("worst analytic-vs-numerical tangent deviation <= 1e-8",
+              bool(jdev) and max(jdev) <= 1.0e-8,
+              "max %.2e" % max(jdev) if jdev else "none found")
+        check("the tangent switch is OFF-identical",
+              "reproduces the no-block card exactly" in out)
 
     # micromechanics worst error
     print("\n micromech_check.py -- the 0.142 % claim")

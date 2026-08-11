@@ -187,13 +187,15 @@ macroscopic strengths (128.45 / 179.42 / 199.15 MPa).
 | 3 | Yarn longitudinal-tension mixed law Eq.18 | **off** (X_PO=0 → uses Eq.17) | Eq.18 **used** (params in Ref.[30]) | warp-yarn 1t tail (dominant failure mode) |
 | 4 | Matrix plasticity SY0, HISO | **0 → off** | elastic-**plastic** (Eqs. 6–10) | residual strain / pseudo-ductility, curve shape |
 | 5 | Mesh | 34 049 nodes / 174 405 C3D4 | 116 724 C3D4 | different discretisation → small result shift |
-| 6 | Consistent tangent, Ge Eqs. (31)–(33) | **not implemented** — `CTAN(I,J)=CD(I,J)`, i.e. the **secant** operator (`KYARN30` L275–279, `KMTRX30` L437–) | Ge derives the algorithmic tangent `C_t = S⁻¹(dᵛ):[I − M(dᵛ)]` *"to ensure the quadratic convergence rate of the Newton-Raphson method"* (p.92) | the damage-derivative term `M` is missing, so convergence in the **softening branch drops from 2nd to 1st order** — the likely structural cause of the M1 round-3 escalation of η from 0.02 to 0.05 |
+| 6 | Consistent tangent, Ge Eqs. (31)–(33) | **implemented in V3_0 behind a card switch, OFF by default** (`ITAN` + key 33.0, appended to the yarn / matrix / macro cards). V1_0 is frozen and keeps the secant, and every V3_0 deck written so far omits the block, so all of them still run the secant `CTAN=CD` | Ge derives the algorithmic tangent `C_t = S⁻¹(dᵛ):[I − M(dᵛ)]` *"to ensure the quadratic convergence rate of the Newton-Raphson method"* (p.92); the matrix additionally chains through Eq. (32) with the equivalent stiffness of Eq. (33) | the damage-derivative term `M` is now available: `ITAN=1` adds ∂d/∂ε through r, the crack-band-regularised exponential law and the mixed linear–exponential 1t law, plus the elastic-plastic term where SY0>0. Measured against a central-difference Jacobian of the UMAT's own stress update the analytic operator agrees to **≤ 6.9e-9** relative over 64 states spanning elastic / damaging / softening / frozen / plastic / plastic+damage / I1-blend / cycle-damage regimes, and the correction reaches **206 % of the secant** in the softening states — i.e. the missing term was of the same order as the operator itself. With `ITAN=0` STRESS, STATEV **and** DDSDDE are bit-identical to the no-block card on all 79 states checked. Whether this lets η come back down from 0.05 towards Ge's *"small compared to the characteristic time increment"* is a **mesh-level convergence study that has not been run yet**, so the switch stays off. Evidence: `cross_check_fortran.py`, cases `TANGENT (…)` |
 | 7 | Matrix free energy: plastic dissipation of Ge Eqs. (23)–(24) | **omitted** — `KMTRX30` L421–422 passes only the elastic part `Xt²/(2E)·CELENT` into `KABAND` | Ge Eq. (23) splits G_m into an elastic part **and** a plastic part `G_m^p(ε̄_m^p)`, *"the contribution due to plastic hardening"* | once matrix plasticity is switched on, the real dissipated energy **exceeds** the card G_m, so the crack-band normalisation of A_m no longer delivers mesh-independence. This is an error source **independent of** the 1.92× `CELENT` discrepancy measured by `celent_census.py` |
 
 Notes:
 - **#6 and #7 are not unpublished parameters** — unlike #1–#5 they are equations of
-  Ge 2018 that the UMAT does not implement in full. They are listed here because they
-  block exact reproduction for the same practical reason.
+  Ge 2018 that the UMAT did not implement in full. They are listed here because they
+  block exact reproduction for the same practical reason. **#6 was closed on
+  2026-08-11** (implemented, verified against a numerical Jacobian, default off);
+  #7 remains open.
 - **Matrix plasticity (#4)** is the reason the matrix curve in
   `figures/matrix_constitutive.png` is elastic-brittle instead of showing the
   paper's residual-strain plateau. The paper explicitly divides matrix strain into
@@ -206,8 +208,9 @@ Notes:
 **Update — V2_0 full model (with Ge 2018 [17] in hand).** The source model paper
 (Ge et al., CST 157, 2018) was obtained and confirms: the UMAT implements Ge Eqs.
 (1)–(21) and (29)–(30); Eqs. (22)–(28) are reduced to a uniaxial / linear-hardening
-closed form and the consistent tangent of Eqs. (31)–(33) is replaced by the secant
-operator (see §D of `refs/GE2018_EXTRACTION.md`); Ge Table 2 lists the same T300
+closed form and the consistent tangent of Eqs. (31)–(33) is available in V3_0 behind
+the `ITAN` card switch but defaults to the secant operator (see §D of
+`refs/GE2018_EXTRACTION.md` and row 6 above); Ge Table 2 lists the same T300
 filament (E1=230, Xt=3580, Xc=2470); Ge Table 3 gives, explicitly and as four separate
 cells, Gf,1t = Gf,1c = 12.5 N/mm and Gf,2(3)t = Gf,2(3)c = 1.0 N/mm (matrix
 Gm,t(c) = 1.0 N/mm). The `abaqus/*_V2_0.inp` decks now **enable** the previously-off
