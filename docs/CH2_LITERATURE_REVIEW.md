@@ -981,7 +981,7 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [2] | H. Yin, L. Cheng, L. Zhang, Y. Xu, *Thermal shock behavior of 3-dimensional C/SiC composite*, **Carbon 40 (2002) 905–910** |
 | [3] | C. Zhang, X. Wang, B. Wang, Y. Liu, D. Han, S. Qiao, Y. Guo, *Thermal Shock Properties of a 2D-C/SiC Composite Prepared by Chemical Vapor Infiltration*, **J. Mater. Eng. Perform. 22 (2013) 1680–1687** |
 | [4] | Y. Niu, et al., *A damage constitutive model for the nonlinear mechanical behavior of C/SiC during mechanical cyclical loading/unloading*, **Compos. Part A 161 (2022) 107072** |
-| [5] | Q. Zhang, J. Ge, L. Zhang, Y. He, Z. Wu, J. Liang, *Effect of thermal residual stress on the tensile properties and damage process of C/SiC composites at high temperatures*, **Ceram. Int. 48 (2022) 3109–3124** |
+| [5] | **Q. Zhang, J. Ge, B. Zhang, C. He, Z. Wu, J. Liang**, *Effect of thermal residual stress on the tensile properties and damage process of C/SiC composites at high temperatures*, **Ceram. Int. 48 (2022) 3109–3124** — 저자 명단은 `refs/[05]` 표제면에서 직접 확인(3·4번 저자를 L. Zhang·Y. He로 적었던 것을 2026-08-11 정정) |
 | [5b] | R. Skinner, A. Chattopadhyay, *Multiscale temperature-dependent ceramic matrix composite damage model with thermal residual stresses and manufacturing-induced damage*, **Compos. Struct. 268 (2021) 114006** |
 | [06] | L. L. Snead, T. Nozawa, Y. Katoh, T.-S. Byun, S. Kondo, D. A. Petti, *Handbook of SiC properties for fuel performance modeling*, **J. Nucl. Mater. 371 (2007) 329–377** |
 | [07] | **C. Pradère, C. Sauder**, *Transverse and longitudinal coefficient of thermal expansion of carbon fibers at high temperatures (300–2500 K)*, **Carbon 46 (2008) 1874–1884**, doi:`10.1016/j.carbon.2008.07.035` — 제3·4장 섬유 CTE |
@@ -994,7 +994,7 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [20] | Z. Yang, J. Wang, R. Yang, J. Jiao, *Thermomechanical-induced cracking model for CMC laminates subjected to thermal gradients and transients*, **Int. J. Solids Struct. 300 (2024) 112927** |
 | [22] | Sun, et al., *(multiscale thermal expansion of C/SiC with porosity and fibre volume fraction)*, **Ceram. Int. 47 (2021) 7925** |
 | [23] | Xie, et al., *(property scatter in 3D needled C/C–SiC)*, **Compos. Struct. 192 (2018)** |
-| [24] | J. Ge, et al., **Compos. Sci. Technol. 157 (2018) 86–98** — 본 연구 구성모델의 원 모델 |
+| [24] | **J. Ge, C. He, J. Liang, Y. Chen, D. Fang**, *A coupled elastic-plastic damage model for the mechanical behavior of three-dimensional (3D) braided composites*, **Compos. Sci. Technol. 157 (2018) 86–98** — 본 연구 구성모델의 원 모델. 저자 명단은 `refs/[24]` 표제면에서 직접 확인 |
 | [27] | Z. Yang, J. Jiao, J. Wang, W. Huang, Y. Guo, **Compos. Part A 77 (2015) 181** |
 | [30] | Q. Zhang, J. Ge, B. Li, S. Zhao, Z. Liu, J. Liang, *Investigation of mechanical behavior and damage process of 2D C/SiC composites under cyclic loading: Experiment and simulation*, **Compos. Part B 313 (2026) 113395** |
 | [31] | **W. Shi, C. Zhang, B. Wang, M. Li, C. Zhang**, *Mode I interlaminar fracture toughness of two-dimensional continuous fiber reinforced ceramic matrix composites using wedge-loaded double cantilever beam method*, **Compos. Part A 168 (2023) 107466**, doi:`10.1016/j.compositesa.2023.107466` — 제4장 얀 $G_{tt}$ 출처 |
