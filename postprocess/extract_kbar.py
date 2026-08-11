@@ -46,8 +46,31 @@ except ImportError:
 MEASURED_K3 = 6.29
 #: Architecture anisotropy for a 2D weave, refs/[13].
 TARGET_ANISO = 2.0
-#: W/(mm.K) -> W/(m.K)
-TO_WMK = 1000.0
+#: Card conductivity -> W/(m.K), for a deck built BEFORE 2026-08-11.
+#: Those decks are in the "W/(mm.K)" set, k_card = k_SI/1000.  Decks built
+#: after carry a UNITSTAMP naming their own factor, and `unit_factor` reads
+#: it, so an odb from either era is read correctly without anyone having to
+#: remember which one produced it.  Steady-state kbar is a ratio and is
+#: therefore RIGHT in both eras -- only the label on the axis changes.
+TO_WMK_LEGACY = 1000.0
+
+#: Written by abaqus/make_rve_virtual_tests.py as UNIT_STAMP.
+_STAMP = re.compile(r"UNITSTAMP:\s*k_card_per_WmK\s*=\s*([0-9.eE+-]+)")
+
+
+def unit_factor(inp_path):
+    """(multiplier from card units to W/(m.K), how it was decided).
+
+    A missing stamp is not an error: it means the deck predates the stamp,
+    which pins it to the legacy set exactly as surely as a stamp would.
+    """
+    if inp_path and os.path.exists(inp_path):
+        m = _STAMP.search(open(inp_path).read())
+        if m:
+            per = float(m.group(1))
+            if per > 0:
+                return 1.0 / per, "UNITSTAMP k_card_per_WmK=%g" % per
+    return TO_WMK_LEGACY, "no UNITSTAMP: pre-2026-08-11 W/(mm.K) deck"
 
 #: Matrix porosity the STIFFNESS route needs, Ch.4 4.9-13.  Since a1-0002 this
 #: is a LOWER bound, not a value: it comes from refs/[10]'s CVI density, and
@@ -217,9 +240,11 @@ def deck_conductivities(odb_path):
     yrn = ks.get("CSIC_YARN_THERMAL")
     if not mat or not yrn:
         return None
-    # deck units are W/(mm.K)
-    return (mat[0] * TO_WMK, yrn[0] * TO_WMK,
-            yrn[1] * TO_WMK if len(yrn) > 1 else yrn[0] * TO_WMK)
+    # The bound and the measurement must be read in the SAME unit set, so the
+    # factor comes from this deck's own stamp -- not from a module constant.
+    f = unit_factor(inp)[0]
+    return (mat[0] * f, yrn[0] * f,
+            yrn[1] * f if len(yrn) > 1 else yrn[0] * f)
 
 
 def voigt_bounds(vp_matrix, phases=None):
@@ -264,8 +289,9 @@ def write_csv(path, rows):
         w = _csv.writer(fh)
         w.writerow(["deck", "matrix_porosity", "kbar1_WmK", "kbar2_WmK",
                     "kbar3_WmK", "k1_over_k3", "voigt_inplane", "voigt_through",
-                    "kbar1_admissible", "kbar2_admissible", "kbar3_admissible"])
-        for name, k, vp, _kf, ph in rows:
+                    "kbar1_admissible", "kbar2_admissible", "kbar3_admissible",
+                    "unit_basis"])
+        for name, k, vp, _kf, ph, why in rows:
             hi = voigt_bounds(vp, ph)
             def adm(i):
                 if k[i] is None or hi is None:
@@ -280,7 +306,7 @@ def write_csv(path, rows):
                 "" if not (k[0] and k[2]) else "%.4f" % (k[0] / k[2]),
                 "" if hi is None else "%.4f" % hi[0],
                 "" if hi is None else "%.4f" % hi[2],
-                adm(0), adm(1), adm(2)])
+                adm(0), adm(1), adm(2), why])
 
 
 def report(paths, dT=1.0):
@@ -298,8 +324,10 @@ def report(paths, dT=1.0):
             print("\n  %s: could not be read -- %s" % (p, exc))
             continue
         name = os.path.basename(p)
+        to_wmk, why = unit_factor(os.path.splitext(p)[0] + ".inp")
         print("\n--- %s" % name)
         print("    box  Lx=%.4f Ly=%.4f Lz=%.4f mm" % tuple(L))
+        print("    units: card x %g -> W/(m.K)   [%s]" % (to_wmk, why))
         if not any(counts):
             print("    NO RFL HISTORY IN ANY STEP.  The deck must carry")
             print("      *Output, history / *Node Output, nset=FACE_?HI / RFL")
@@ -310,7 +338,7 @@ def report(paths, dT=1.0):
                       % (ax + 1, counts[ax]))
             else:
                 print("    kbar%d = %8.4f W/(m.K)   from %d nodal fluxes"
-                      % (ax + 1, k[ax] * TO_WMK, counts[ax]))
+                      % (ax + 1, k[ax] * to_wmk, counts[ax]))
         vp, kf = deck_variant(p)
         if vp is not None:
             print("    variant: %.1f %% matrix porosity%s"
@@ -323,8 +351,8 @@ def report(paths, dT=1.0):
             print("    !! no .inp beside the odb -- the bound below falls "
                   "back to the DEFAULT yarn card, which is wrong for any "
                   "sensitivity deck")
-        rows.append((name, [None if v is None else v * TO_WMK for v in k],
-                     vp, kf, ph))
+        rows.append((name, [None if v is None else v * to_wmk for v in k],
+                     vp, kf, ph, why))
 
     if not rows:
         print("\n  nothing to compare.")
@@ -620,27 +648,42 @@ def selftest():
     import tempfile
     f = os.path.join(tempfile.mkdtemp(), "t.csv")
     write_csv(f, [("A.odb", [15.4686, 56.2701, 12.7047], 0.0, None,
-                   None)])
+                   None, "unit basis under test")])
     got = list(_csv.DictReader(open(f)))[0]
     ck("the CSV marks the impossible column NO and the others yes",
        got["kbar1_admissible"] == "yes" and got["kbar2_admissible"] == "NO"
        and got["kbar3_admissible"] == "yes")
     ck("  and carries the bounds so a reader can re-check the call",
        abs(float(got["voigt_inplane"]) - hi[0]) < 1e-3)
+    ck("  and says which unit set produced the numbers",
+       got["unit_basis"] == "unit basis under test")
+
+    print("\n G. the unit set is read off the deck, never remembered")
+    # A deck built before 2026-08-11 is in the W/(mm.K) set and a deck built
+    # after is in mW/(mm.K).  Both are readable, and which one applied has to
+    # end up in the CSV -- reporting kbar 1000x wrong would look entirely
+    # plausible (5.4 vs 5449 is obvious; 0.0054 vs 5.4 is not, and the
+    # verdict against the Voigt ceiling would flip either way).
+    d = tempfile.mkdtemp()
+    legacy = os.path.join(d, "legacy.inp")
+    open(legacy, "w").write("*Heading\n old deck, no stamp\n")
+    f_leg, why_leg = unit_factor(legacy)
+    ck("a deck with no stamp reads as the legacy W/(mm.K) set",
+       f_leg == 1000.0 and "pre-2026" in why_leg, why_leg)
+    stamped = os.path.join(d, "stamped.inp")
+    open(stamped, "w").write(
+        "*Heading\n**  UNITSTAMP: k_card_per_WmK = 1.0  (mW/(mm.K))\n")
+    f_new, why_new = unit_factor(stamped)
+    ck("a stamped deck reads its own factor", f_new == 1.0, why_new)
+    ck("the two eras disagree by exactly the 1000 that caused this",
+       abs(f_leg / f_new - 1000.0) < 1e-9)
+    ck("a deck that is not there falls back rather than crashing",
+       unit_factor(os.path.join(d, "absent.inp"))[0] == 1000.0)
 
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
         return 1
     print("\nSELFTEST PASSED")
-    return 0
-
-    csv = "kbar_summary.csv"
-    with open(csv, "w") as f:
-        f.write("deck,kbar1_WmK,kbar2_WmK,kbar3_WmK\n")
-        for name, k, _vp, _kf, _ph in rows:
-            f.write("%s,%s,%s,%s\n" % tuple(
-                [name] + ["" if v is None else "%.6g" % v for v in k]))
-    print("  wrote %s" % csv)
     return 0
 
 

@@ -85,15 +85,31 @@ import assemble_inp as ai   # mesh filtering + material cards are reused verbati
 # OVERPREDICT kbar and make the quench gradient too shallow -- the
 # non-conservative direction.  Run --porosity to bracket it.
 #
-# Units: conductivity W/(mm.K), density tonne/mm^3, specific heat mJ/(tonne.K)
+# Units: conductivity mW/(mm.K), density tonne/mm^3, specific heat mJ/(tonne.K)
 # (the Abaqus mm-N-tonne-s-MPa system the rest of the model already uses).
+# mW/(mm.K) is NUMERICALLY EQUAL to W/(m.K); the derivation, and the 1000x
+# error that reading it as W/(mm.K) causes, is in eval_correlations.py under
+# "THE DECK'S THERMAL UNIT".  Every deck carries the stamp below so a reader
+# never has to remember which convention produced the odb in front of it.
 # --------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "data", "properties"))
 import conductivity_bounds as cb          # noqa: E402
 
-#: W/(m.K) -> W/(mm.K)
-_WMK = 1.0e-3
+#: W/(m.K) -> mW/(mm.K), the conductivity unit of the tonne-mm-s-mJ system.
+#: The factor is ONE: 1 mW/(mm.K) = 1e-3 W / (1e-3 m . K) = 1 W/(m.K).  It was
+#: 1.0e-3 until 2026-08-11, which is the "W/(mm.K)" convention -- self-
+#: consistent with nothing, because cp on the next two lines is mJ/(tonne.K).
+#: The mismatch is exactly 1000 and it lands on the thermal diffusivity.
+#: Steady-state conduction (every job run so far) divides it out, so the kbar
+#: results are untouched; a transient would have cooled 1000x too slowly.
+#: eval_correlations.py derives the unit and checks it on the card triple.
+_WMK = 1.0
+
+#: Stamped into every deck that carries a thermal card, so a post-processor
+#: reads the convention off the deck instead of remembering it.  A deck
+#: without this line predates 2026-08-11 and is in the old W/(mm.K) set.
+UNIT_STAMP = "** UNITSTAMP: k_card_per_WmK = 1.0  (mW/(mm.K), tonne-mm-s-mJ)"
 
 
 def thermal_properties(porosity=0.0, k_matrix=25.0, k1_f=8.0, k2_f=1.0):
@@ -415,6 +431,7 @@ def thermal_materials(matrix_es, yarn_es, orient, tp=None):
     tp = tp or thermal_properties()
     m = tp["_meta"]
     L = []
+    L.append(UNIT_STAMP)
     L.append("** Thermal properties DERIVED by data/properties/"
              "conductivity_bounds.py")
     L.append("**   fibre  k11 = %g, k22 = %g W/(m.K)   refs/[22], refs/[17]"

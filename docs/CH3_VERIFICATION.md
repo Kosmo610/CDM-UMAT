@@ -36,9 +36,9 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `verify_thermshock.py` | V3_0 신규 기능 9종 (T1–T9, T9 = 사이클 심각도 창) | 60 |
 | `cross_check_fortran.py` | **컴파일된 Fortran** vs 검증된 Python | **114 재료점 상태** |
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
-| `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 | 17 |
+| `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 + **카드 3종(k, ρ, c_p)이 만드는 열확산율이 SI 값과 일치하는지** | 19 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
-| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡 + **`*Orientation` 누락·키워드 접합 감사**) | 63 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡 + **`*Orientation` 누락·키워드 접합 감사** + **열카드 단위계·$Bi$·$Fo$ 관문**) | 78 |
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
 | `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
@@ -49,7 +49,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `porosity_stiffness.py --check` | 공극률 결정(CVI 하한)·강성 정합·공정 귀속 | 56 |
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
 | `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 | 12 |
-| `make_rve_conductivity.py --check` | 열전도 덱 — 면집합 재생성·DC3D4·드라이버 제거·**스텝 경계조건 `op=NEW`** | 39 |
+| `make_rve_conductivity.py --check` | 열전도 덱 — 면집합 재생성·DC3D4·드라이버 제거·**스텝 경계조건 `op=NEW`** + 단위 스탬프·열확산율 | 41 |
 | `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 94 |
 | `card_gap_triage.py --check` | GUESS 14개의 knob/도출/공백 분류와 얀 물성 독립대조 | 69 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
@@ -66,7 +66,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부) | 131 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
-| `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 88 |
+| `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 93 |
 | `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 (T5 정정 + §6.2.3 확정표) | 54 |
 | `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출 포함) | 63 |
 | `check_ch7_numbers.py` | 제7장 결론 경계 — 결과 없는 결론 6개의 근거·결과 의존 구역의 완료어 금지 | 38 |
@@ -74,7 +74,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 + T5 표적 정정 | 29 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
-| `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식 + **Voigt 상한 가능성 검사**·CSV + 상한을 덱 카드에서 읽기·공극률을 파일 전체에서 읽기 | 28 |
+| `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식 + **Voigt 상한 가능성 검사**·CSV + 상한을 덱 카드에서 읽기·공극률을 파일 전체에서 읽기 + **덱의 단위 스탬프를 읽어 구·신 단위계를 모두 판독** | 33 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
 | `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 (발표 계열 대조 포함) | 35 |
 | `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종·산포·선형분율 | 30 |
@@ -82,7 +82,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 + refs/[57]·[58] 역할 분리와 10배 격차 | 11 |
 | `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis | 40 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **2302** |
+| **합계** | | **2331** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

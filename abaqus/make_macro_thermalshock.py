@@ -79,33 +79,102 @@ FAIL_STRAIN = 0.010            # residual-strength continuation target
 #: that assumption cannot survive.  Bracketing the crossover is the
 #: contribution; asserting that gradients matter is not.
 #:
-#: h in W/(mm^2.K) = the SI value / 1e6.
+#: h in mW/(mm^2.K) = the SI value / 1e3.  NOT /1e6, which is what this file
+#: carried until 2026-08-11.  The unit is forced by the energy unit of the
+#: tonne-mm-s set (mJ), the same derivation that fixes conductivity at
+#: mW/(mm.K); eval_correlations.py spells it out under "THE DECK'S THERMAL
+#: UNIT".  h and k were both 1000x low, so Bi = h.L/k was RIGHT and only the
+#: time scale was wrong -- the quench would have run 1000x slow and converged
+#: beautifully doing it.  `thermal_audit` now recomputes Bi AND Fo from the
+#: card the deck actually carries, because Bi alone cannot see this.
+#:
+#: Two kinds of entry, and they are not the same kind of fact:
+#:   bi_target  -- the ladder.  Bi is the datum and h is DERIVED at build time
+#:                 from the deck's own kbar_3 and the specimen's own half
+#:                 thickness, so the label is exact for whatever specimen and
+#:                 whatever kbar the deck ends up carrying.
+#:   h          -- the published tests.  h is the datum (quench_calibration.py
+#:                 solved it from the paper's own stated cooling time) and Bi
+#:                 is whatever our kbar_3 makes it.
 SEVERITIES = {
-    "L": dict(T_hi=900.0, T_lo=300.0, h=2.10e-4, bi=0.05,
+    "L": dict(T_hi=900.0, T_lo=300.0, bi_target=0.05,
               note="Bi~0.05: the refs/[03] validation point, near-uniform"),
-    "M": dict(T_hi=900.0, T_lo=300.0, h=4.19e-3, bi=1.0,
+    "M": dict(T_hi=900.0, T_lo=300.0, bi_target=1.0,
               note="Bi~1: the crossover, gradient ~45 % of the drop"),
-    "H": dict(T_hi=900.0, T_lo=300.0, h=2.10e-2, bi=5.0,
+    "H": dict(T_hi=900.0, T_lo=300.0, bi_target=5.0,
               note="Bi~5: gradient dominated"),
     # The two published tests, at their OWN calibrated film coefficients.
     # These are the validation runs; the ladder above is the parameter study.
-    "Z": dict(T_hi=900.0, T_lo=300.0, h=1.99e-4, bi=0.0475,
+    # `protocol` is what the PAPER states -- a cooling time to a stated
+    # temperature.  h is then whatever reproduces that ON OUR OWN CARD, and
+    # 2026-08-11 is when it stopped being hard-coded: 199.0 W/(m^2.K) was
+    # solved on refs/[03]'s rho and refs/[20]'s cp with refs/[12]'s k, and
+    # pairing that h with OUR kbar_3 is the one combination that belongs to
+    # no material at all.  Re-solved on our card the same 15 s needs 161.7,
+    # and Bi lands at 0.0445 rather than either 0.0475 or the 0.0548 that
+    # mixing the two produces.
+    "Z": dict(T_hi=900.0, T_lo=300.0, spec="ZHANG2013",
               note="refs/[03] Zhang 2013 as tested: 900->300 C in 15 s on "
                    "an iron plate, 3 mm thick"),
-    # bi is quoted to 4 dp to match quench_calibration.py's solved value
-    # exactly; the chapters pin 0.0277 and a rounded 0.028 here would read as
-    # two different Biot numbers for the same test.
-    "Y": dict(T_hi=1300.0, T_lo=300.0, h=8.70e-5, bi=0.0277,
+    "Y": dict(T_hi=1300.0, T_lo=300.0, spec="YIN2002",
               note="refs/[02] Yin 2002 as tested: 1300->300 C, 60 s in "
                    "air, 4 mm thick -- much gentler than refs/[03]"),
 }
+
+#: Our own homogenised through-thickness conductivity, W/(m.K) == mW/(mm.K),
+#: measured on LTH2_COND_P32 (32.4 % matrix porosity, the stiffness-route
+#: card).  quench_calibration.py solves h on refs/[12]'s 6.29, which is a
+#: DIFFERENT material's measurement; using it to LABEL our deck would put
+#: 6.29/5.4490 = 1.154 into every Biot number the thesis reports.
+KBAR3_MEASURED = 5.4490
+
+
+#: Our homogenised bulk density and RT specific heat in SI, for solving the
+#: published protocols on the card the deck carries.  homogenised_thermal()
+#: derives both; these are its answers at the default porosity, kept here so
+#: severity() does not have to rebuild the whole card to ask one question.
+RHO_BAR_SI, CP_BAR_SI = 2008.2, 681.3
+
+
+def severity(sev, kbar3, lz, rho_si=RHO_BAR_SI, cp_si=CP_BAR_SI):
+    """(h in mW/(mm^2.K), Bi) for the plate this deck actually builds.
+
+    `lz` is the FULL thickness; the plate is cooled on both faces, so the
+    conduction length is lz/2.  That halving is the difference between
+    quench_calibration.py's 0.0445 for refs/[03] and the 0.0890 you get by
+    reaching for the thickness -- it is not a detail.
+
+    Two kinds of severity, resolved two ways:
+      bi_target  the ladder.  h = Bi.k/L, so the label is exact.
+      spec       a published protocol.  h is SOLVED from the paper's stated
+                 cooling time on OUR rho, cp and kbar_3, and Bi is the
+                 consequence.  Nothing here is carried over from the
+                 properties the original calibration happened to use.
+    """
+    s = SEVERITIES[sev]
+    half = 0.5 * lz
+    if "bi_target" in s:
+        h = s["bi_target"] * kbar3 / half
+        return h, s["bi_target"]
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import quench_calibration as qc
+    spec = dict(qc.SPECIMENS[s["spec"]])
+    spec["thickness"] = lz * 1.0e-3            # the deck's plate, in metres
+    got = qc.solve_h(spec, dict(rho=rho_si, cp=cp_si, k3=kbar3))
+    h_si = got[0] if isinstance(got, (tuple, list)) else got
+    if h_si is None:
+        raise SystemExit(
+            "no film coefficient reproduces the %s protocol on this card: "
+            "even an infinite h is too slow, which means the card's "
+            "diffusivity is wrong, not the protocol" % s["spec"])
+    return h_si * 1.0e-3, h_si * 1.0e-3 * half / kbar3
 
 #: Specimen geometries taken from the papers, not invented.
 #: (Lx, Ly, Lz) mm with Lz the THROUGH-THICKNESS direction that is quenched.
 SPECIMENS = {
     "ZHANG2013": dict(
         dims=(12.5, 6.0, 3.0), mesh=(10, 6, 12), sev="Z",
-        checkpoints=(20, 40, 60),
+        checkpoints=(20, 40, 60), t_quench=15.0, t_dwell=600.0,
         note="refs/[03] Fig. 1: 122 mm overall, 17.5 mm grip, R50 shoulders, "
              "6 mm gauge width, 3 mm thick.  Modelled as the GAUGE SECTION "
              "only (12.5 x 6 x 3): that is where the tensile test measures "
@@ -113,7 +182,7 @@ SPECIMENS = {
              "through-thickness so the shoulders do not change it."),
     "YIN2002": dict(
         dims=(20.0, 6.0, 4.0), mesh=(12, 6, 14), sev="Y",
-        checkpoints=(20, 50, 100),
+        checkpoints=(20, 50, 100), t_quench=60.0, t_dwell=30.0,
         note="refs/[02]: 4 x 6 x 140 mm bar, 3-point bend over a 20 mm "
              "span.  Modelled as the SPAN (20 x 6 x 4).  N.B. the residual "
              "property is FLEXURAL strength, so the post-quench probe has "
@@ -221,19 +290,43 @@ def emit_surface(name, faces):
 # ==========================================================================
 # thermal deck -- shared by every TRS case at the same severity
 # ==========================================================================
-def heat_steps(sev, ncycle, t_quench, t_dwell):
+def quench_dt0(alpha, lz, t_quench, frac=0.02):
+    """First time increment of a quench step, in seconds.
+
+    NOT a fraction of the step.  The gradient this whole analysis exists to
+    resolve peaks after about one DIFFUSION time, tau = (lz/2)^2 / alpha,
+    which for our card is 0.565 s -- while t_quench/50 is 0.600 s at the
+    default step length and 0.300 s even at the 15 s of refs/[03].  The old
+    rule therefore put the first sample at or past the peak, and the reported
+    peak gradient would have been whatever the second increment happened to
+    see.  Converged, plausible, and low.
+
+    Capped at t_quench/50 so a very slow quench does not get a needlessly
+    fine start, and floored at 1e-6 s so a pathological card cannot ask for
+    zero.  dtmax stays generous: `deltmx` shrinks the increment while the
+    front is steep and lets it grow once the plate equilibrates, which is
+    what makes one job cover both.
+    """
+    tau = (0.5 * lz) ** 2 / alpha
+    return max(1.0e-6, min(frac * tau, t_quench / 50.0))
+
+
+def heat_steps(sev, ncycle, t_quench, t_dwell, h=None, bi=None, dt0=None):
     s = SEVERITIES[sev]
+    h = s["h"] if h is None else h
+    dt0 = t_quench / 50.0 if dt0 is None else dt0
     L = []
     for c in range(1, ncycle + 1):
         L.append("*Step, Name=Quench_%d, inc=100000" % c)
-        L.append("Quench %g -> %g degC, h = %g W/(mm^2.K)"
-                 % (s["T_hi"], s["T_lo"], s["h"]))
+        L.append("Quench %g -> %g degC, h = %g mW/(mm^2.K) = %g W/(m^2.K)%s"
+                 % (s["T_hi"], s["T_lo"], h, h * 1.0e3,
+                    "" if bi is None else ", Bi = %.4g" % bi))
         L.append("*Heat Transfer, end=PERIOD, deltmx=25.")
         L.append("%.6g, %.6g, 1e-8, %.6g"
-                 % (t_quench / 50.0, t_quench, t_quench / 10.0))
+                 % (dt0, t_quench, t_quench / 10.0))
         L.append("*Sfilm")
-        L.append("SURF_LO, F, %.6g, %.6g" % (s["T_lo"], s["h"]))
-        L.append("SURF_HI, F, %.6g, %.6g" % (s["T_lo"], s["h"]))
+        L.append("SURF_LO, F, %.6g, %.6g" % (s["T_lo"], h))
+        L.append("SURF_HI, F, %.6g, %.6g" % (s["T_lo"], h))
         L.append(_heat_output())
         L.append("*End Step")
         L.append("*Step, Name=Reheat_%d, inc=100000" % c)
@@ -242,8 +335,8 @@ def heat_steps(sev, ncycle, t_quench, t_dwell):
         L.append("%.6g, %.6g, 1e-8, %.6g"
                  % (t_dwell / 50.0, t_dwell, t_dwell / 10.0))
         L.append("*Sfilm")
-        L.append("SURF_LO, F, %.6g, %.6g" % (s["T_hi"], s["h"]))
-        L.append("SURF_HI, F, %.6g, %.6g" % (s["T_hi"], s["h"]))
+        L.append("SURF_LO, F, %.6g, %.6g" % (s["T_hi"], h))
+        L.append("SURF_HI, F, %.6g, %.6g" % (s["T_hi"], h))
         L.append(_heat_output())
         L.append("*End Step")
     return "\n".join(L)
@@ -1121,6 +1214,82 @@ def selftest():
                         __file__))), "src",
                     "UMAT_CSIC_THERMSHOCK_V3_0.for")).read())
 
+    print("\n G. the thermal card and the unit set it lives in")
+    blk, aud = homogenised_thermal()
+    # A ROUND TRIP, not new evidence: 32.4 % was derived from a measured
+    # density in the first place (make_rve_conductivity.py, 0.196/0.60546).
+    # What it checks is that the mass bookkeeping HERE matches the mass
+    # bookkeeping THERE -- which now matters, because rho_bar has stopped
+    # being decoration and started driving a transient.
+    expect_true("rho_bar closes the loop on the porosity it was built from",
+                abs(aud["rho_bar"] * 1.0e9 - 2.0) < 0.05,
+                "%.4f g/cm^3 vs the 2.0 the porosity was derived from"
+                % (aud["rho_bar"] * 1.0e9))
+    expect_true("  and it is the pores that put it there, not luck",
+                _mass_fractions(0.0)[2] * 1.0e9 - 2.0 > 0.5,
+                "a pore-free cell would weigh %.4f g/cm^3"
+                % (_mass_fractions(0.0)[2] * 1.0e9))
+    a = thermal_audit(blk, 3.0, 0.199, 15.0)
+    expect_true("the derived card has a physical diffusivity",
+                a["ok"] and 1.0 < a["alpha"] < 100.0,
+                "%.4f mm^2/s" % a["alpha"])
+    # This is the card this file shipped until 2026-08-11, and the gate has
+    # to reject it on the DIFFUSIVITY: its Biot number is perfectly ordinary,
+    # because h was wrong by the same 1000 as k and Bi is their ratio.
+    bad = thermal_audit(PLACEHOLDER_THERMAL, 3.0, 1.99e-4, 15.0)
+    expect_true("and the old placeholder is rejected", not bad["ok"],
+                "alpha = %.4g mm^2/s, Fo = %.3g" % (bad["alpha"], bad["fo"]))
+    # Take OUR card and put it back in the old unit set -- k and h both /1000,
+    # rho and cp untouched, which is exactly the mismatch that shipped.  Same
+    # material, same test, so the comparison is clean: Bi does not move at
+    # all, and that is precisely why a Biot check could never have caught it.
+    legacy = re.sub(r"(\*Conductivity[^\n]*\n)([^\n]+)",
+                    lambda m: m.group(1) + ", ".join(
+                        "%.6g" % (float(v) / 1000.0) for v in
+                        m.group(2).split(",")[:3]), blk, count=1)
+    old = thermal_audit(legacy, 3.0, 0.199 / 1000.0, 15.0)
+    expect_true("  and the same card in the old unit set is rejected too",
+                not old["ok"] and "energy unit" in old["why"],
+                "alpha %.4g -> %.4g mm^2/s" % (a["alpha"], old["alpha"]))
+    expect_true("  for the reason a Biot check could never have seen",
+                abs(old["bi"] - a["bi"]) < 1e-9,
+                "Bi = %.4f either way; only Fo moved, %.3g -> %.3g"
+                % (a["bi"], a["fo"], old["fo"]))
+    expect_true("the ladder's Biot number is exact on OUR kbar_3",
+                abs(severity("M", KBAR3_MEASURED, 3.0)[1] - 1.0) < 1e-12)
+    # The paper's datum is a COOLING TIME, not a film coefficient, so h is
+    # re-solved on our own rho, cp and kbar_3.  0.0475 is what refs/[03]'s
+    # own properties give; 0.0548 is what you get by keeping their h and
+    # swapping in our k, which is the one pairing that describes no material.
+    zh, zbi = severity("Z", KBAR3_MEASURED, 3.0)
+    expect_true("a published protocol is re-solved on OUR card, not imported",
+                abs(zbi - 0.0445) < 5e-4 and abs(zh * 1e3 - 161.7) < 0.5,
+                "h = %.1f W/(m^2.K), Bi = %.4f (theirs: 199.0 and 0.0475)"
+                % (zh * 1e3, zbi))
+    expect_true("  and mixing their h with our k would have given neither",
+                abs(0.199 * 1.5 / KBAR3_MEASURED - 0.0548) < 5e-4,
+                "the mixed pairing reads Bi = 0.0548")
+    expect_true("a thicker specimen moves Bi, so h cannot be shared blindly",
+                severity("Z", KBAR3_MEASURED, 4.0)[1]
+                > severity("Z", KBAR3_MEASURED, 3.0)[1])
+    # The gradient peaks after about one diffusion time; a first increment
+    # longer than that samples the answer after the event it is measuring.
+    tau = (1.5 ** 2) / a["alpha"]
+    expect_true("the first increment resolves the gradient peak",
+                quench_dt0(a["alpha"], 3.0, 15.0) < 0.25 * tau,
+                "dt0 = %.4g s against tau = %.4g s (old rule gave %.4g s)"
+                % (quench_dt0(a["alpha"], 3.0, 15.0), tau, 15.0 / 50.0))
+    expect_true("  and the old rule did not, even at the published 15 s",
+                15.0 / 50.0 >= 0.5 * tau)
+    expect_true("k(T) falls and cp(T) rises, so alpha falls with temperature",
+                aud["rows"][0]["alpha3"] > aud["rows"][-1]["alpha3"] * 3.0,
+                "%.3f -> %.3f mm^2/s over 23-1000 C"
+                % (aud["rows"][0]["alpha3"], aud["rows"][-1]["alpha3"]))
+    expect_true("--no-kt is a declared assumption, not a silent one",
+                "DISABLED: --no-kt" in homogenised_thermal(k_of_t=False)[0])
+    expect_true("the borrowed number is labelled BORROWED in the deck",
+                "BORROWED, ratio only" in blk and "OURS" in blk)
+
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
         return 1
@@ -1242,6 +1411,163 @@ PLACEHOLDER_THERMAL = """** PLACEHOLDER homogenised thermal properties.
 *Specific Heat
 1.0e+09,"""
 
+# ==========================================================================
+# THE REAL homogenised thermal card
+# ==========================================================================
+#: kbar measured on LTH2_COND_P32, W/(m.K) == mW/(mm.K), at 23 C.
+KBAR_MEASURED = (8.8627, 8.8631, 5.4490)
+#: matrix porosity the card is built on -- the stiffness route (Ch.4 4.9-13).
+CARD_POROSITY = 0.324
+#: constituent densities, g/cm^3 -> tonne/mm^3.  conductivity_bounds.py names
+#: the same two numbers for its rule-of-mixtures inversion.
+RHO_FIBRE, RHO_SIC = 1.76e-9, 3.21e-9
+#: refs/[20] Table 1, YANG2024, fulltext: a 2D CMC laminate's OWN kbar at
+#: 296 K and 1473 K.  Only the RATIO is used -- 2.04/3.49 -- because the
+#: magnitude belongs to a different material (8HSW, rho 2.64, Vf 46.4 %).
+#: This is the one macro-card number that is not ours, and it is the shape of
+#: k(T), not a value.  a2-0027 asks a1 to adjudicate the source.
+REF20_K_RATIO_296_1473 = 2.04 / 3.49
+#: The direction it moves is the point: conductivity FALLS with temperature
+#: while the fibre's rises, and quench_calibration.py shows the choice moves
+#: the predicted through-thickness gradient by a factor of 4.6.  Constant k
+#: is not the safe default; it is just an undeclared one.
+
+
+def _properties_on_path():
+    """data/properties is where every derived constant lives."""
+    d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     "data", "properties")
+    if d not in sys.path:
+        sys.path.insert(0, d)
+
+
+def _mass_fractions(porosity=CARD_POROSITY, vy=None, vf=None):
+    """(fibre, matrix) mass fractions and the phase densities behind them."""
+    _properties_on_path()
+    import conductivity_bounds as cb
+    vy = cb.VY_RVE if vy is None else vy
+    vf = cb.VF_YARN if vf is None else vf
+    rho_m = RHO_SIC * (1.0 - porosity)          # pores carry no mass
+    rho_y = vf * RHO_FIBRE + (1.0 - vf) * rho_m
+    rho_bar = vy * rho_y + (1.0 - vy) * rho_m
+    m_f = vy * vf * RHO_FIBRE
+    m_m = vy * (1.0 - vf) * rho_m + (1.0 - vy) * rho_m
+    tot = m_f + m_m
+    return m_f / tot, m_m / tot, rho_bar, rho_m, rho_y
+
+
+def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
+                        porosity=CARD_POROSITY, k_of_t=True):
+    """(the *Conductivity/*Density/*Specific Heat block, audit dict).
+
+    Three quantities, three different provenances, and the deck header says
+    which is which because they are not equally strong:
+
+      kbar(23 C)  OURS.  The RVE_COND job, homogenised by extract_kbar.
+      rho_bar     OURS.  Volume average of the constituent densities at the
+                  card's own porosity.
+      cp_bar(T)   OURS.  Mass-weighted constituent Cp, both fulltext.
+      k(T) shape  BORROWED from refs/[20], and only as a ratio.
+
+    rho_bar comes out at 2.008 g/cm^3, next to the 2.0 of refs/[28] and the
+    2.05 of refs/[03].  That is NOT independent confirmation of the porosity
+    and must not be written up as one: 32.4 % was itself derived from a
+    measured density (make_rve_conductivity.py -- 0.196 composite / 0.60546
+    matrix volume).  The agreement is a ROUND TRIP -- it proves the mass
+    bookkeeping here matches the mass bookkeeping there, which is worth
+    having, because rho_bar now feeds a transient and a silent factor of
+    (1 - p) in it would change every cooling curve.  The porosity dispute
+    (32.4 % from stiffness and density, 23.8-25.4 % from conductivity) is
+    NOT settled by this number and stays open.
+
+    cp_bar rises 2.43x over 296-1473 K where refs/[20]'s laminate rises 1.55x.
+    That gap is not an error to split: their laminate has no carbon fibre, and
+    carbon is the phase whose Cp climbs to ~2250 J/(kg.K).  Our composite
+    genuinely stores more heat per kilogram at temperature than theirs, so the
+    constituent route is the right one for Cp and the borrowed number is
+    confined to k.
+    """
+    _properties_on_path()
+    import eval_correlations as ec
+    m_f, m_m, rho_bar, rho_m, rho_y = _mass_fractions(porosity)
+
+    def cp_bar(T_C):
+        K = T_C + 273.15
+        return m_f * ec.fibre_cp(K) + m_m * ec.sic_cp(K)      # J/(kg.K)
+
+    def k_scale(T_C):
+        """k(T)/k(23 C), linear in T between the two refs/[20] anchors."""
+        if not k_of_t:
+            return 1.0
+        f = (T_C - 23.0) / (1473.0 - 296.15)
+        return 1.0 + f * (REF20_K_RATIO_296_1473 - 1.0)
+
+    rows_k, rows_cp, audit_rows = [], [], []
+    for T in temps:
+        s = k_scale(T)
+        k = tuple(v * s for v in kbar)
+        rows_k.append("%.6g, %.6g, %.6g, %.6g" % (k + (T,)))
+        c = cp_bar(T)
+        rows_cp.append("%.6g, %.6g" % (c * 1.0e6, T))   # J/(kg.K)->mJ/(t.K)
+        audit_rows.append(dict(T_C=T, k1=k[0], k2=k[1], k3=k[2], cp=c,
+                               alpha3=k[2] / (rho_bar * c * 1.0e6)))
+
+    block = "\n".join([
+        "** HOMOGENISED THERMAL CARD -- derived, not typed.",
+        "**   kbar(23 C) = %.4f / %.4f / %.4f W/(m.K)   OURS, RVE_COND at "
+        "%.1f %% matrix porosity" % (kbar + (100.0 * porosity,)),
+        "**   rho_bar    = %.4f g/cm^3   OURS, volume average"
+        % (rho_bar * 1.0e12 / 1000.0),
+        "**                refs/[28] states 'about 2.0', refs/[03] 2.05.  A "
+        "ROUND TRIP, not independent evidence:",
+        "**                the 32.4 %% was itself derived from a measured "
+        "density.  The porosity dispute stays open.",
+        "**   cp_bar(T)  = %.1f -> %.1f J/(kg.K)   OURS, mass-weighted "
+        "constituent Cp" % (cp_bar(min(temps)), cp_bar(max(temps))),
+        "**   k(T) shape = refs/[20] ratio %.4f over 296-1473 K   BORROWED, "
+        "ratio only%s" % (REF20_K_RATIO_296_1473,
+                          "" if k_of_t else "  [DISABLED: --no-kt]"),
+        "*Conductivity, type=ORTHO, dependencies=0"] + rows_k + [
+        "*Density", "%.6g," % rho_bar,
+        "*Specific Heat"] + rows_cp)
+    return block, dict(rho_bar=rho_bar, rho_matrix=rho_m, rho_yarn=rho_y,
+                       mass_fibre=m_f, mass_matrix=m_m, rows=audit_rows,
+                       porosity=porosity, k_of_t=k_of_t)
+
+
+def thermal_audit(block, lz, h, t_quench):
+    """Bi and Fo from the numbers the deck ACTUALLY carries.
+
+    Bi alone cannot see a unit error that scales h and k together -- which is
+    exactly the error this file shipped until 2026-08-11 -- so the Fourier
+    number is checked too.  Fo is what says whether the quench the deck asks
+    for is a quench at all: below ~0.5 the plate has barely begun to cool by
+    the end of the step, and the job converges perfectly while doing it.
+    """
+    ks = re.search(r"\*Conductivity[^\n]*\n([^\n]+)", block)
+    rho = re.search(r"\*Density\s*\n\s*([0-9.eE+-]+)", block)
+    cps = re.search(r"\*Specific Heat\s*\n\s*([0-9.eE+-]+)", block)
+    if not (ks and rho and cps):
+        return dict(ok=False, why="the block is missing k, rho or cp")
+    k3 = [float(v) for v in ks.group(1).split(",")][2]
+    rho_v, cp_v = float(rho.group(1)), float(cps.group(1))
+    alpha = k3 / (rho_v * cp_v)                 # mm^2/s
+    half = 0.5 * lz
+    bi = h * half / k3
+    fo = alpha * t_quench / (half * half)
+    notes = []
+    if not 1.0 < alpha < 100.0:
+        notes.append("thermal diffusivity %.4g mm^2/s is not physical for a "
+                     "ceramic (expect 1-100); this is the signature of a "
+                     "mismatched energy unit -- k must be mW/(mm.K), which is "
+                     "numerically W/(m.K)" % alpha)
+    if fo < 0.5:
+        notes.append("Fo = %.3g at the end of the quench step: the plate has "
+                     "barely started to cool, so t_quench or the card is "
+                     "wrong" % fo)
+    return dict(ok=not notes, why="; ".join(notes), alpha=alpha, bi=bi, fo=fo,
+                k3=k3, rho=rho_v, cp=cp_v)
+
 
 def main():
     ap = argparse.ArgumentParser(description="Macro cyclic thermal-shock decks")
@@ -1289,6 +1615,17 @@ def main():
                          "Only correct if the card's Gf was measured at the "
                          "macro element's own length -- homogenize.py never "
                          "produces such a card.  See Ch.4 4.9-16.")
+    ap.add_argument("--no-kt", action="store_true",
+                    help="build the conductivity card at 23 C only.  The "
+                         "temperature dependence is the one BORROWED number "
+                         "in the thermal card (refs/[20], ratio only), so it "
+                         "gets a switch -- but constant k is a declared "
+                         "assumption, not a neutral default: quench_"
+                         "calibration.py puts a factor of 4.6 on the "
+                         "predicted gradient between the two ends.")
+    ap.add_argument("--placeholder-thermal", action="store_true",
+                    help="write the old meaningless thermal card instead of "
+                         "the derived one, and skip the Bi/Fo gate with it")
     ap.add_argument("--list-checks", action="store_true")
     ap.add_argument("--selftest", action="store_true",
                     help="check that check_macro_card() accepts good cards "
@@ -1318,9 +1655,19 @@ def main():
         # turn a minutes job into an hour one.
         if args.checkpoints is None:
             args.checkpoints = list(sp["checkpoints"])
-        print("specimen %s: %.4g x %.4g x %.4g mm, severity %s (Bi = %.4g)"
+        print("specimen %s: %.4g x %.4g x %.4g mm, severity %s (Bi = %.4g on "
+              "our own kbar_3)"
               % (args.specimen, args.dims[0], args.dims[1], args.dims[2],
-                 sp["sev"], SEVERITIES[sp["sev"]]["bi"]))
+                 sp["sev"],
+                 severity(sp["sev"], KBAR3_MEASURED, args.dims[2])[1]))
+        # The published protocol's own cooling time, not a generic 30 s.  A
+        # quench step longer than the test's is not conservative: it lets the
+        # plate equilibrate and then reports the equilibrated state as if the
+        # test had reached it.
+        if args.t_quench == ap.get_default("t_quench") and "t_quench" in sp:
+            args.t_quench = sp["t_quench"]
+            print("  t_quench = %g s, the protocol's own cooling time"
+                  % args.t_quench)
         for line in sp["note"].split(".  "):
             if line.strip():
                 print("  %s" % line.strip().rstrip(".") + ".")
@@ -1334,11 +1681,20 @@ def main():
 
     card = read_block(args.card, PLACEHOLDER_CARD)
     expan = read_block(args.expansion, PLACEHOLDER_EXPANSION)
-    therm = read_block(args.thermal, PLACEHOLDER_THERMAL)
+    if args.thermal:
+        therm = read_block(args.thermal, PLACEHOLDER_THERMAL)
+        taud = None
+    elif args.placeholder_thermal:
+        therm, taud = PLACEHOLDER_THERMAL, None
+        print("  !! using PLACEHOLDER thermal properties -- results meaningless")
+    else:
+        therm, taud = homogenised_thermal(k_of_t=not args.no_kt)
+        print("  thermal card DERIVED: rho_bar = %.4f g/cm^3, "
+              "cp_bar %.0f -> %.0f J/(kg.K), k(T) %s"
+              % (taud["rho_bar"] * 1.0e9, taud["rows"][0]["cp"],
+                 taud["rows"][-1]["cp"], "ON" if taud["k_of_t"] else "OFF"))
     if not args.card:
         print("  !! using the PLACEHOLDER macro card -- results are meaningless")
-    if not args.thermal:
-        print("  !! using PLACEHOLDER thermal properties -- run RVE_COND first")
 
     # CELENT for a hex is the cube root of the element volume.  The mesh is
     # graded toward the quenched faces, so there is a range, and the crack
@@ -1381,9 +1737,25 @@ def main():
 
     # ---------------- thermal jobs (shared) ------------------------------
     for sev in args.sev:
+        h, bi = severity(sev, KBAR3_MEASURED, Lz)
+        aud = thermal_audit(therm, Lz, h, args.t_quench)
+        dt0 = (quench_dt0(aud["alpha"], Lz, args.t_quench)
+               if aud.get("alpha") else args.t_quench / 50.0)
+        print("  severity %s: h = %.4f mW/(mm^2.K) = %.1f W/(m^2.K), "
+              "Bi = %.4f, Fo = %.3g, first increment %.4g s"
+              % (sev, h, h * 1.0e3, bi, aud.get("fo", float("nan")), dt0))
+        if not aud["ok"]:
+            print("  !! THERMAL CARD REJECTED: %s" % aud["why"])
+            if not args.placeholder_thermal:
+                raise SystemExit(
+                    "refusing to write a heat deck on a card that cannot "
+                    "produce the quench it claims.  Pass --placeholder-thermal "
+                    "only if you want a deck that runs and means nothing.")
         parts = ["*Heading",
                  " Macro thermal shock, SHARED heat transfer, severity %s (%s)"
                  % (sev, SEVERITIES[sev]["note"]),
+                 "** Bi = %.4f on our own kbar_3 = %.4f W/(m.K); Fo(t_quench) "
+                 "= %.3g" % (bi, KBAR3_MEASURED, aud.get("fo", 0.0)),
                  emit_mesh(nodes, els, sets2, "DC3D8"),
                  emit_surface("SURF_LO", slo),
                  emit_surface("SURF_HI", shi),
@@ -1396,7 +1768,8 @@ def main():
                  "1.0,",
                  "*Initial Conditions, type=TEMPERATURE\nALLNODES, %.6g"
                  % SEVERITIES[sev]["T_hi"],
-                 heat_steps(sev, args.heat_cycles, args.t_quench, args.t_dwell)]
+                 heat_steps(sev, args.heat_cycles, args.t_quench, args.t_dwell,
+                            h=h, bi=bi, dt0=dt0)]
         write("%s_HEAT_S%s.inp" % (args.prefix, sev), parts)
 
     # ---------------- mechanical jobs ------------------------------------

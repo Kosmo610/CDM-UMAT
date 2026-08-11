@@ -175,6 +175,7 @@ def thermal_materials(porosity, k_matrix, k1_f, k2_f):
                               k1_f=k1_f, k2_f=k2_f)
     m = tp["_meta"]
     L = ["**",
+         mv.UNIT_STAMP,
          "** THERMAL CONSTITUENT CARD -- every value derived, none typed.",
          "**   fibre  k11 = %g, k22 = %g W/(m.K)   refs/[22] and refs/[17]"
          % (m["k1_f"], m["k2_f"]),
@@ -473,9 +474,18 @@ def selftest():
        info2["tp"]["yarn_trans"] < info["tp"]["yarn_trans"])
     ck("the zero-porosity warning disappears when porosity is on",
        "ZERO POROSITY" not in out2)
-    ck("conductivity is written in W/(mm.K), the deck's unit system",
-       abs(info["tp"]["matrix"]["k"] - 0.025) < 1e-9,
-       "25 W/(m.K) = 0.025 W/(mm.K)")
+    ck("conductivity is written in mW/(mm.K), the deck's unit system",
+       abs(info["tp"]["matrix"]["k"] - 25.0) < 1e-9,
+       "25 W/(m.K) = 25 mW/(mm.K) -- the factor is one, see eval_correlations")
+    ck("the deck stamps the unit convention it was built in",
+       "UNITSTAMP" in out)
+    # The unit set is only testable through the diffusivity: k, rho and cp are
+    # each plausible alone.  25 W/(m.K) SiC at 3210 kg/m^3 and 670 J/(kg.K) is
+    # 11.62 mm^2/s, and a deck that disagrees will run a transient 1000x slow.
+    tpm = info["tp"]["matrix"]
+    ck("card diffusivity is physical for SiC",
+       abs(tpm["k"] / (tpm["rho"] * tpm["cp"]) - 11.62) < 0.01,
+       "%.4f mm^2/s" % (tpm["k"] / (tpm["rho"] * tpm["cp"])))
 
     print("\n F. it refuses to build something untrustworthy")
     bad = deck.replace(MAT_ANCHOR, "*Material, Name=OTHER")
