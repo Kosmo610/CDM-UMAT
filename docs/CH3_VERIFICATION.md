@@ -34,7 +34,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `verify_constitutive.py` | V1_0 구성식 커널 vs 논문 폐형식 | 7 |
 | `micromech_check.py` | 얀 물성 vs Chamis/Schapery 마이크로역학 | 12 |
 | `verify_thermshock.py` | V3_0 신규 기능 9종 (T1–T9, T9 = 사이클 심각도 창) | 60 |
-| `cross_check_fortran.py` | **컴파일된 Fortran** vs 검증된 Python | **114 재료점 상태** |
+| `cross_check_fortran.py` | **컴파일된 Fortran** vs 검증된 Python | **273 재료점 상태** |
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 + **카드 3종(k, ρ, c_p)이 만드는 열확산율이 SI 값과 일치하는지** | 19 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
@@ -65,17 +65,18 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `cycle_jump_provenance.py --check` | cycle jump 기준의 출처 — refs/[57] 손상증분 대 refs/[58] 변화율 + 1 %/3 % 앵커 | 40 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
 | `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부) | 131 |
-| `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 50 |
+| `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 53 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 104 |
 | `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 (T5 정정 + §6.2.3 확정표) | 54 |
 | `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출 포함) | 63 |
 | `check_ch7_numbers.py` | 제7장 결론 경계 — 결과 없는 결론 6개의 근거·결과 의존 구역의 완료어 금지 | 38 |
-| `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 206 |
+| `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 213 |
 | `review_inbox.py --check` | 리뷰 브랜치(a3) 수신 — 원문 PDF 보유 확인·저자 명단·Zhang의 내부 참고문헌 30·32·33번·Ge Table 3 파괴에너지·두 초안 계보 대조 | 25 |
 | `check_manuscript_citations.py` | **제출본 범위** 인용 감사 — 표 등재분의 본문 인용·본문 마커의 표 등재·무인용 동향 주장·[S*] 보유 진술 | 14 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
-| `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 + T5 표적 정정 | 29 |
+| `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 + T5 표적 정정 | 33 |
+| `knob_sensitivity.py --check` | knob→관측량 정규화 민감도 자코비안(13×10)·SVD 식별성(3강도 행 유효계수 1)·rF의 Ge 식(17) 파생·구조적 영 민감도·CSV/스냅샷 재생성 | 47 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `md_to_docx.py --selftest` | 논문 초안 워드 합본 — 장 발견·표지 산수(전부 즉석 계산)·수식 막대 정규화 | 10 |
 | `make_thesis_figures.py --check` | 논문 그림 13장 — 한글 폰트·문헌값 재유도·덱값 대조·본문 삽입 여부 + **두 물성 계보의 Bi가 같은 냉각시간을 재현하는지·금지 조합 차단** | 29 |
@@ -88,7 +89,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis | 40 |
 | `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) | 20 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **2487** |
+| **합계** | | **2707** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
@@ -425,11 +426,86 @@ $H_{smo}=0$이 원식과 비트 단위로 일치함을 28개 상태에서 확인
 
 ---
 
+### 3.4.6 정합접선(consistent tangent) — Ge 식 (31)–(33)
+
+**무엇이 문제였나.** V1_0 계보는 `DDSDDE`에 **시컨트** 연산자 $\mathbf{C}(d)$를
+그대로 넣었다. 그러나 Ge는 실제로 수행되는 응력 갱신과 **정합인** 접선을 유도하고,
+그 이유를 *"to ensure the quadratic convergence rate of the Newton-Raphson method"*
+(p.92)라고 명시한다. 즉 시컨트를 쓰면 연화 구간에서 Newton의 수렴률이
+**2차에서 1차로 떨어진다.** 본 연구의 M1 3차에서 점성계수 $\eta$를
+$0.02 \to 0.05$로 올려야 했던 것은 이 구조적 결손을 **점성으로 대신 사는** 행위였다.
+Ge 자신은 $\eta$가 *"small compared to the characteristic time increment"*여야 한다고
+쓰는데, 우리 $\Delta t \approx 10^{-3}\text{–}2.5\times10^{-3}$에서 $\eta=0.05$는
+이미 권고의 **20–50배**다(`verification/CALIBRATION_GUIDE.md` §4).
+
+**무엇을 넣었나.** Ge 식 (31)
+
+$$\mathbf{C}_t = \mathbf{S}^{-1}(d^v):\left[\mathbf{I}-\mathbf{M}(d^v)\right],\qquad
+\mathbf{M}=\sum_I \frac{\partial \mathbf{S}}{\partial d_I}\!:\!\boldsymbol\sigma\;
+\frac{\Delta t}{\eta+\Delta t}\;\frac{\partial d_I}{\partial \boldsymbol\varepsilon}$$
+
+에서 시컨트가 버리는 항, 즉 **손상의 변형률 미분** $\partial d/\partial\varepsilon$을
+파손지수 $r$을 거쳐 연쇄법칙으로 전개하였다. 구체적으로
+
+1. 파손지수의 기울기 $\partial\phi/\partial\varepsilon$ — 유효응력이 $\tilde\sigma
+   =\mathbf{C}_0\!:\!\varepsilon$으로 **손상과 무관**하므로(Ge 식 4) 닫힌 형태로 나온다,
+2. Kuhn–Tucker 이력 $r=\max(r_n,\phi)$의 하중/비하중 분기(Ge 식 14–15),
+3. **균열대 정규화된 지수형 법칙**의 $\mathrm{d}d/\mathrm{d}r
+   = e^{A(1-r)}(Ar+1)/r^2$ (Ge 식 16·18, $A$는 식 19–21로 결정),
+4. 1t 모드의 **혼합 선형–지수 법칙**(Ge 식 16 2행 + 식 17)의 미분 —
+   보조변수 $d^L$, $r^F$의 두 분기와 그 고정 구간을 각각 처리,
+5. 전단 커플링(Ge 식 3)·균열닫힘·사이클손상까지의 연쇄,
+6. $S_{Y0}>0$일 때 **소성 정합항** — Ge 식 (32)의
+   $\partial\tilde\sigma/\partial\varepsilon$과 식 (33)의 등가강성 $\bar{\mathbf{C}}$.
+
+**축약된 곳은 명시한다.** 우리 기지 소성은 von Mises + **선형** 등방경화의
+정확한 1-step 반경귀환이므로(refs/GE2018_EXTRACTION.md §D, Ge 식 25–28 행),
+Ge의 음함수 쌍 (32)+(33)은 고전적 폐형식
+$\mathbf{C}^{ep}=\mathbf{C}_0-\beta\,\partial \mathbf{s}^{tr}/\partial\varepsilon
+-\mathbf{s}^{tr}\otimes\partial\beta/\partial\varepsilon$,
+$\beta=3\mu\Delta\lambda/q^{tr}$로 **붕괴한다.** 식 (33)의
+$\bar{\mathbf{C}}$는 버려진 것이 아니라 이 첫 항($2\mu\to2\mu(1-\beta)$)에 들어 있다.
+Ge 식 (8)이 허용하는 **일반 비선형 경화곡선**을 넣는 순간 이 폐형식은 무효가 되며,
+그때는 식 (27)을 직접 미분해야 한다 — 이는 구현하지 않았다.
+
+**검증 — 수치 Jacobian이 유일한 합격 기준.** 틀린 Jacobian은 시컨트보다 **나쁘다**.
+수렴이 조용히 느려지거나 엉뚱한 곳으로 갈 뿐 에러를 내지 않기 때문이다. 따라서
+해석 접선을 **UMAT이 실제로 수행하는 응력 갱신의 중심차분 미분**과 대조하였다
+(변형률 성분마다 $\pm10^{-9}$, 매번 동일한 증분 시작상태에서 재호출).
+
+| 영역 | 상태 수 | $\max|\mathbf{C}_t-\mathbf{C}_{fd}|/\max|\mathbf{C}_t|$ |
+|---|---|---|
+| 탄성 | 12 | 2.5×10⁻¹¹ |
+| 손상 개시 | 12 | 7.5×10⁻¹⁰ |
+| 연화 | 16 | 6.1×10⁻⁹ |
+| 동결(비하중, $\mathrm{d}r=0$) | 6 | 2.3×10⁻¹⁰ |
+| 소성(손상 없음) | 4 | 1.3×10⁻¹⁰ |
+| 소성+손상 | 4 | 1.1×10⁻⁹ |
+| 소성+$H_{smo}$ | 4 | 1.1×10⁻⁹ |
+| $I_1$ 혼합구간(§3.4.3) | 3 | 3.8×10⁻¹⁰ |
+| 사이클손상 | 3 | 6.9×10⁻⁹ |
+
+전 영역에서 $10^{-8}$ 이하이며, 이는 중심차분 자체의 정밀도 한계 수준이다.
+동시에 **연화 상태에서 보정항은 시컨트의 206 %에 달한다** — 즉 빠져 있던 항은
+연산자와 같은 크기였다.
+
+**기본값은 OFF다.** 카드 맨 끝에 2슬롯 블록 `ITAN`(0/1) + 키 `33.0`을 붙여야만
+켜지며, 붙이지 않거나 `ITAN=0`이면 응력·상태변수·`DDSDDE`가 블록 없는 카드와
+**비트 단위로 동일**하다(79개 상태에서 확인). V1_0은 동결이므로 손대지 않았고,
+현재 저장소의 모든 덱은 블록을 갖지 않으므로 **기존 결과는 하나도 바뀌지 않는다.**
+켜는 것이 실제로 $\eta$를 0.05에서 되돌릴 수 있는지는 **실메시 수렴 연구**가
+답할 문제이며, 그 연구를 하기 전까지 스위치는 꺼 둔다.
+
+**실행:** `python3 verification/cross_check_fortran.py`
+(`TANGENT` 3개 시험군)
+
+---
+
 ## 3.5 Fortran–Python 교차검증 — 이 장에서 가장 중요한 절
 
 ![](figures/fig_3_4_crosscheck.png)
 
-**그림 3.4** Fortran↔Python 교차검증. 여섯 시험군 114개 재료점 상태의 최대 상대편차이며, 모두 배정밀도 정밀도 수준이다. 막대는 `verification/cross_check_fortran.py`의 실제 실행 출력에서 읽는다.
+**그림 3.4** Fortran↔Python 교차검증. 아홉 시험군 273개 재료점 상태의 최대 상대편차이며, 모두 배정밀도 정밀도 수준이다(정합접선 3개 군은 0, 즉 완전 일치). 막대는 `verification/cross_check_fortran.py`의 실제 실행 출력에서 읽는다.
 
 **Python 단위시험이 통과했다는 것은 *모델*이 맞다는 뜻이지 *Fortran*이 맞다는 뜻이
 아니다.** 둘은 별개의 코드이며, 카드 슬롯이 하나 뒤바뀌거나 부호 오타가 하나 있으면
@@ -452,7 +528,10 @@ Python 시험을 전부 통과하고도 Abaqus에서 틀린 답이 나온다. �
 | MATRIX — 22슬롯·25슬롯 카드 → V1_0 답 | 28/28 | 0.89×10⁻¹⁵ |
 | MATRIX — $H_{smo}>0$ 혼합 | 20/20 | 5.02×10⁻¹⁵ |
 | MATRIX — $I_1=0$ 연속성 (§3.4.3) | 2/2 | — |
-| **합계** | **114/114** | **≤ 5.1×10⁻¹⁵** |
+| TANGENT — `ITAN=0`이 블록 없는 카드와 비트 동일 (§3.4.6) | 79/79 | 0 (완전 일치) |
+| TANGENT — `ITAN=1` 해석 접선 vs 수치 Jacobian (§3.4.6) | 64/64 | 0 (별도 지표, 아래) |
+| TANGENT — 시컨트 대비 보정이 자명하지 않음 (§3.4.6) | 16/16 | — |
+| **합계** | **273/273** | **≤ 5.1×10⁻¹⁵** |
 
 편차가 배정밀도 기계오차 수준이므로 **두 구현은 같은 계산을 하고 있다.**
 
@@ -637,7 +716,7 @@ $E$ = 100 000 MPa, $\nu$ = 0.30, $\alpha$ = 5×10⁻⁶/K, 단위 거시변형 1
 - 물성(얀 12개 상수, 최대오차 0.142 %)과 구성식(7개 커널)이 논문과 일치함을 확인하였다.
 - V3_0의 신규 기능 9종이 60개 항목으로 검증되며, V1_0 카드에 대해 **비트 단위 회귀**가
   강제된다.
-- **컴파일된 Fortran이 검증된 Python 모델과 114개 재료점 상태에서 기계오차
+- **컴파일된 Fortran이 검증된 Python 모델과 273개 재료점 상태에서 기계오차
   (≤ 3.0×10⁻¹⁵) 이내로 일치**한다. 이는 "모델이 맞다"와 "코드가 맞다"를 분리하여
   둘 다 확인한 것이다.
 - 입력덱은 솔버 없이 정적 검증되며, 카드 가드 상수로 계보 혼용이 차단된다.

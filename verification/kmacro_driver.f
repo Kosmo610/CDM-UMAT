@@ -81,6 +81,12 @@ C
       WRITE(*,'(40(1PE24.16,1X))') (SV(I),I=1,NSTATV)
       WRITE(*,'(6(1PE24.16,1X))') (CTAN(I,I),I=1,6)
       WRITE(*,'(1PE24.16)') PNEWDT
+C     Lines 5..10: the FULL DDSDDE, row by row.  The consistent-tangent
+C     check needs every entry, not just the diagonal; older callers read
+C     only lines 1-3 and are unaffected by the extra output.
+      DO I=1,6
+         WRITE(*,'(6(1PE24.16,1X))') (CTAN(I,J),J=1,6)
+      END DO
       END
 C=======================================================================
       SUBROUTINE XIT

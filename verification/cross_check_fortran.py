@@ -96,6 +96,37 @@ def run_fortran(exe, kind, props, statev, eps, temp, dtemp, dtime, fldv,
     return np.array(stress), sv, np.array(cdiag)
 
 
+def run_fortran_full(exe, kind, props, statev, eps, temp, dtemp, dtime, fldv,
+                     celent, kstep, stime=0.0):
+    """Same call as run_fortran, but also returns the FULL 6x6 DDSDDE.
+
+    The driver prints the tangent row by row on lines 5..10; the diagonal on
+    line 3 is kept for the older callers.  A consistent-tangent check needs
+    the off-diagonal terms -- they are precisely the ones the secant operator
+    is missing.
+    """
+    def fmt(seq):
+        return " ".join("%.17g" % v for v in seq)
+    inp = "\n".join([
+        str(kind), str(len(props)), fmt(props),
+        str(len(statev)), fmt(statev), fmt(eps),
+        "%.17g %.17g %.17g %.17g %.17g %d %.17g"
+        % (temp, dtemp, dtime, fldv, celent, kstep, stime),
+    ]) + "\n"
+    p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    out, _ = p.communicate(inp.encode())
+    txt = out.decode("utf-8", "replace")
+    if p.returncode != 0:
+        raise RuntimeError("driver failed:\n" + txt)
+    lines = [l for l in txt.strip().splitlines() if l.strip()]
+    stress = np.array([float(v) for v in lines[0].split()])
+    sv = [float(v) for v in lines[1].split()]
+    ctan = np.array([[float(v) for v in lines[4 + i].split()]
+                     for i in range(6)])
+    return stress, sv, ctan
+
+
 def cmp_arrays(name, a, b):
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
@@ -362,6 +393,278 @@ def case_matrix_continuity(exe, rng):
     return npass, ntot, worst
 
 
+# ==========================================================================
+# Consistent tangent (Ge Eqs.31-33), card slot ITAN + key 33.0
+# ==========================================================================
+FD_H = 1.0e-9          # central-difference step on the strain components
+
+
+def _cards_tangent(itan):
+    """The three cards, each with the two-slot tangent block appended."""
+    ttab_y = [[23.0, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+              [1000.0, 0.83, 0.71, 0.76, 0.90, 0.62, 0.68]]
+    yv, _ = yarn_props(0.6, ttab_y)
+    yv = yv + [float(itan), 33.0]
+
+    mv = list(MATRIX_V10) + [0.0, 0.0, 32.0, float(itan), 33.0]
+    mv_s = list(MATRIX_V10) + [0.0, 0.1, 32.0, float(itan), 33.0]
+
+    ttab_m = [[23.0, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+              [1000.0, 0.86, 0.72, 0.78, 0.91, 0.64, 0.70, 3.20]]
+    macv, _ = macro_props(0.7, 1.0, 3.0e-2, 3.0, -1.0, 0.30, 0.95, 0.30,
+                          2.0, ttab_m)
+    macv = macv + [float(itan), 33.0]
+    return yv, mv, mv_s, macv
+
+
+def _numerical_jacobian(exe, kind, props, sv, eps, temp, dtime, celent,
+                        kstep, stime=0.0):
+    """Central difference of the very stress update the UMAT performs.
+
+    Every column is a fresh call from the SAME start-of-increment state, so
+    what is differentiated is exactly d(sigma_{n+1})/d(eps_{n+1}) -- history
+    included, return mapping included, clamps included.
+    """
+    jac = np.zeros((6, 6))
+    for j in range(6):
+        for sgn in (+1.0, -1.0):
+            e = np.array(eps, dtype=float)
+            e[j] += sgn * FD_H
+            s, _, _ = run_fortran_full(exe, kind, props, list(sv), e, temp,
+                                       0.0, dtime, 0.0, celent, kstep,
+                                       stime=stime)
+            jac[:, j] += sgn * s / (2.0 * FD_H)
+    return jac
+
+
+def _tangent_states(rng):
+    """(regime, kind, card-selector, statev, strain, dtime) tuples.
+
+    The regimes are chosen so that every branch of the damage chain is
+    exercised: no damage, damage just past initiation, deep softening, the
+    frozen (unloading) branch where dr = 0, and -- for the matrix -- the
+    radial return with and without damage on top of it.
+    """
+    S = []
+
+    def yarn(reg, eps, sv=None, dtime=1.0):
+        S.append((reg, 2, "yarn", sv or [0.0] * 17, np.array(eps), dtime))
+
+    def mtrx(reg, eps, sv=None, card="mtrx", dtime=1.0):
+        S.append((reg, 3, card, sv or [0.0] * 20, np.array(eps), dtime))
+
+    def macro(reg, eps, sv=None, dtime=1.0):
+        S.append((reg, 1, "macro", sv or [0.0] * 29, np.array(eps), dtime))
+
+    def jit(scale):
+        return [rng.uniform(-scale, scale) for _ in range(6)]
+
+    for _ in range(4):
+        j = jit(6.0e-5)
+        yarn("elastic", [2.0e-4 + j[0], 1.5e-4 + j[1], -1.2e-4 + j[2],
+                         1.0e-4 + j[3], -0.9e-4 + j[4], 1.1e-4 + j[5]])
+        macro("elastic", [1.8e-4 + j[0], 1.4e-4 + j[1], -1.0e-4 + j[2],
+                          0.9e-4 + j[3], -0.8e-4 + j[4], 1.0e-4 + j[5]])
+        mtrx("elastic", [3.0e-4 + j[0], -1.5e-4 + j[1], 1.2e-4 + j[2],
+                         1.0e-4 + j[3], -0.9e-4 + j[4], 0.8e-4 + j[5]])
+    for _ in range(4):
+        j = jit(4.0e-5)
+        # yarn transverse: r just past initiation.  The strain window is
+        # narrow -- d_tt saturates at DMAXT by r ~ 2.5, and a saturated
+        # damage legitimately returns the secant, which would make the
+        # "correction is non-trivial" check vacuous.
+        yarn("damaging", [3.0e-4 + j[0], 6.2e-4 + j[1], 4.7e-4 + j[2],
+                          2.0e-4 + j[3], -1.6e-4 + j[4], 1.8e-4 + j[5]])
+        j = jit(1.2e-4)
+        macro("damaging", [3.0e-4 + j[0], 1.6e-3 + j[1], 1.2e-3 + j[2],
+                           2.0e-4 + j[3], -1.6e-4 + j[4], 1.8e-4 + j[5]])
+        mtrx("damaging", [2.0e-3 + j[0], -8.0e-4 + j[1], 5.0e-4 + j[2],
+                          2.0e-4 + j[3], -1.7e-4 + j[4], 1.5e-4 + j[5]])
+    for _ in range(4):
+        j = jit(4.0e-5)
+        yarn("softening", [5.0e-4 + j[0], 9.0e-4 + j[1], 6.8e-4 + j[2],
+                           2.0e-4 + j[3], -1.6e-4 + j[4], 1.8e-4 + j[5]])
+        j = jit(3.0e-4)
+        # fibre-direction 1t: the MIXED linear-exponential law of Ge Eq.16-17
+        yarn("softening", [1.45e-2 + j[0], 3.0e-4 + j[1], 2.0e-4 + j[2],
+                           4.0e-4 + j[3], -3.0e-4 + j[4], 3.5e-4 + j[5]])
+        macro("softening", [6.0e-4 + j[0], 4.5e-3 + j[1], 3.4e-3 + j[2],
+                            6.0e-4 + j[3], -5.0e-4 + j[4], 5.5e-4 + j[5]])
+        mtrx("softening", [4.5e-3 + j[0], -1.8e-3 + j[1], 1.1e-3 + j[2],
+                           5.0e-4 + j[3], -4.0e-4 + j[4], 3.5e-4 + j[5]])
+    # Frozen branch: the stored threshold is above the current index, so
+    # dr = 0 and the consistent tangent must fall back on the secant.
+    for _ in range(3):
+        j = jit(1.0e-4)
+        sv = [0.0] * 17
+        sv[0], sv[2], sv[4], sv[6] = 0.30, 0.35, 6.0, 6.0
+        yarn("frozen", [3.0e-4 + j[0], 1.1e-3 + j[1], 9.0e-4 + j[2],
+                        2.0e-4 + j[3], -1.6e-4 + j[4], 1.8e-4 + j[5]], sv)
+        svm = [0.0] * 20
+        svm[0], svm[2] = 0.40, 7.0
+        mtrx("frozen", [1.5e-3 + j[0], -6.0e-4 + j[1], 4.0e-4 + j[2],
+                        2.0e-4 + j[3], -1.7e-4 + j[4], 1.5e-4 + j[5]], svm)
+    # Plastic: SY0 = 250 MPa is on the V1_0 matrix card, so the radial
+    # return of Ge Eqs.(25)-(28) is live here.
+    for _ in range(4):
+        j = jit(6.0e-5)
+        mtrx("plastic", [8.5e-4 + j[0], -3.0e-4 + j[1], 2.0e-4 + j[2],
+                         1.0e-4 + j[3], -0.9e-4 + j[4], 0.8e-4 + j[5]])
+        mtrx("plastic+damage",
+             [2.6e-3 + j[0], -1.0e-3 + j[1], 6.0e-4 + j[2],
+              3.0e-4 + j[3], -2.4e-4 + j[4], 2.0e-4 + j[5]])
+        # same states with the I1 blend on: HSMO makes the Ge Eq.13
+        # selection differentiable, so the blend weight contributes a term
+        mtrx("plastic+HSMO",
+             [2.6e-3 + j[0], -1.0e-3 + j[1], 6.0e-4 + j[2],
+              3.0e-4 + j[3], -2.4e-4 + j[4], 2.0e-4 + j[5]], card="mtrx_s")
+    # Nearly deviatoric states: I1 is small, so the tanh blend is genuinely
+    # inside its transition and d(w)/d(I1) is NOT negligible.  Without these
+    # the HSMO cases above sit at w = 1 and the blend term is never tested.
+    for _ in range(3):
+        j = jit(4.0e-6)
+        svb = [0.0] * 20
+        svb[1] = 0.35              # d_c already grown, so d_t != d_c and
+        svb[3] = 0.0               # the blend really mixes two values
+        mtrx("HSMO blend",
+             [2.0e-3 + j[0], -2.0e-3 + j[1], 3.4e-5 + j[2],
+              2.0e-4 + j[3], -1.7e-4 + j[4], 1.5e-4 + j[5]], svb,
+             card="mtrx_s")
+    # Macro cycle damage: d_cyc is driven by the CURRENT index, so it adds a
+    # term to the tangent even where the monotonic damage is frozen.
+    for _ in range(3):
+        j = jit(1.0e-4)
+        sv = [0.0] * 29
+        sv[4], sv[6] = 6.0, 6.0
+        sv[16] = 0.10
+        macro("cycle", [4.0e-4 + j[0], 1.5e-3 + j[1], 1.1e-3 + j[2],
+                        3.0e-4 + j[3], -2.4e-4 + j[4], 2.6e-4 + j[5]],
+              sv, dtime=1.0)
+    return S
+
+
+def case_tangent_bitidentity(exe, rng):
+    """ITAN = 0 must be bit-for-bit the card without the tangent block.
+
+    Not "close to" -- identical.  The switch is only allowed to change the
+    Jacobian, and only when it is on; if the OFF path moved a single ulp of
+    STRESS or STATEV, every deck ever run would have to be repeated.
+    """
+    off = _cards_tangent(0)
+    ttab_y = [[23.0, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+              [1000.0, 0.83, 0.71, 0.76, 0.90, 0.62, 0.68]]
+    base_y, _ = yarn_props(0.6, ttab_y)
+    ttab_m = [[23.0, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+              [1000.0, 0.86, 0.72, 0.78, 0.91, 0.64, 0.70, 3.20]]
+    base_c, _ = macro_props(0.7, 1.0, 3.0e-2, 3.0, -1.0, 0.30, 0.95, 0.30,
+                            2.0, ttab_m)
+    # A criterion-on macro card is included because appending the tangent
+    # block moves the card's LAST slot: any reader that identified an
+    # earlier optional block by total length alone would silently switch
+    # that block off.  (Exactly that happened to HSMO on first writing.)
+    crit_c, _ = macro_props(0.7, 1.0, 3.0e-2, 3.0, -1.0, 0.30, 0.95, 0.30,
+                            2.0, ttab_m, icrit=1, fs12=-0.45, fs23=-0.60,
+                            idmode=2, dc1=0.52, dct=0.48, dcs=0.54,
+                            di12=0.3)
+    pairs = {
+        "yarn": (2, base_y, off[0], 17),
+        "mtrx": (3, list(MATRIX_V10) + [0.0, 0.0, 32.0], off[1], 20),
+        # HSMO > 0 on both sides: the block that the tangent block sits
+        # behind must still be read at the same slot.
+        "mtrx_s": (3, list(MATRIX_V10) + [0.0, 0.1, 32.0], off[2], 20),
+        "macro": (1, base_c, off[3], 29),
+        "macro_crit": (1, crit_c, crit_c + [0.0, 33.0], 29),
+    }
+    npass, ntot = 0, 0
+    states = _tangent_states(rng)
+    states = states + [(r, k, "macro_crit", s, e, d)
+                       for (r, k, sel, s, e, d) in states if sel == "macro"]
+    for reg, kind, sel, sv0, eps, dtime in states:
+        k, pa, pb, nsv = pairs[sel]
+        sv = list(sv0)[:nsv]
+        a = run_fortran_full(exe, k, pa, sv, eps, 23.0, 0.0, dtime, 0.0,
+                             0.03, 3)
+        b = run_fortran_full(exe, k, pb, sv, eps, 23.0, 0.0, dtime, 0.0,
+                             0.03, 3)
+        ok = (list(a[0]) == list(b[0]) and list(a[1]) == list(b[1])
+              and a[2].tolist() == b[2].tolist())
+        npass += int(ok)
+        ntot += 1
+    # No "n/n" in this line: check_ch3_numbers.py sums every d+/d+ pair in
+    # this script's output to get the material-point count.
+    print("        ITAN=0 reproduces the no-block card exactly on all %d "
+          "states (STRESS, STATEV and DDSDDE)" % ntot)
+    return npass, ntot, 0.0
+
+
+def case_tangent_jacobian(exe, rng):
+    """ITAN = 1: the analytic DDSDDE vs a central-difference Jacobian.
+
+    THE acceptance test for the consistent tangent.  A wrong Jacobian is
+    worse than a secant one, because it still converges -- just to nothing,
+    or slowly, and silently.  The only defensible check is that it equals the
+    numerical derivative of the stress update the UMAT actually performs.
+    """
+    yv, mv, mv_s, macv = _cards_tangent(1)
+    cards = {"yarn": (yv, 17), "mtrx": (mv, 20), "mtrx_s": (mv_s, 20),
+             "macro": (macv, 29)}
+    per = {}
+    npass, ntot = 0, 0
+    for reg, kind, sel, sv0, eps, dtime in _tangent_states(rng):
+        props, nsv = cards[sel]
+        sv = list(sv0)[:nsv]
+        _, _, ana = run_fortran_full(exe, kind, props, sv, eps, 23.0, 0.0,
+                                     dtime, 0.0, 0.03, 3)
+        num = _numerical_jacobian(exe, kind, props, sv, eps, 23.0, dtime,
+                                  0.03, 3)
+        scale = max(np.max(np.abs(ana)), 1.0)
+        dev = float(np.max(np.abs(ana - num)) / scale)
+        per.setdefault(reg, []).append(dev)
+        ok = dev <= 1.0e-5
+        npass += int(ok)
+        ntot += 1
+        if not ok:
+            print("        %-16s regime FAILS: max rel. dev. %.2e"
+                  % (reg, dev))
+    for reg in ("elastic", "damaging", "softening", "frozen", "plastic",
+                "plastic+damage", "plastic+HSMO", "HSMO blend", "cycle"):
+        if reg in per:
+            print("        %-16s %2d states   max |Ct-Cfd|/max|Ct| = %.2e"
+                  % (reg, len(per[reg]), max(per[reg])))
+    return npass, ntot, 0.0
+
+
+def case_tangent_offdiag(exe, rng):
+    """The tangent must actually DIFFER from the secant where it matters.
+
+    A tangent that silently degenerated to the secant would pass the Jacobian
+    test on the elastic states and quietly fail to help anywhere else, so the
+    softening states are required to show a non-trivial correction.
+    """
+    yv, mv, mv_s, macv = _cards_tangent(1)
+    off = _cards_tangent(0)
+    cards = {"yarn": (yv, off[0], 17), "mtrx": (mv, off[1], 20),
+             "mtrx_s": (mv_s, off[2], 20), "macro": (macv, off[3], 29)}
+    worst_ratio = 0.0
+    npass, ntot = 0, 0
+    for reg, kind, sel, sv0, eps, dtime in _tangent_states(rng):
+        if reg != "softening":
+            continue
+        pon, poff, nsv = cards[sel]
+        sv = list(sv0)[:nsv]
+        _, _, ct = run_fortran_full(exe, kind, pon, sv, eps, 23.0, 0.0,
+                                    dtime, 0.0, 0.03, 3)
+        _, _, cs = run_fortran_full(exe, kind, poff, sv, eps, 23.0, 0.0,
+                                    dtime, 0.0, 0.03, 3)
+        ratio = float(np.max(np.abs(ct - cs)) / max(np.max(np.abs(cs)), 1.0))
+        worst_ratio = max(worst_ratio, ratio)
+        npass += int(ratio > 1.0e-3)
+        ntot += 1
+    print("        softening states: |C_tangent - C_secant| reaches %.1f %% "
+          "of |C_secant|" % (100.0 * worst_ratio))
+    return npass, ntot, 0.0
+
+
 def main():
     print("=" * 72)
     print("cross_check_fortran.py -- compiled UMAT vs the Python mirror")
@@ -386,7 +689,13 @@ def main():
                           ("MATRIX (KMTRX31: I1 smoothing, HSMO>0)",
                            case_matrix_hsmo),
                           ("MATRIX (I1=0 continuity: the reason for HSMO)",
-                           case_matrix_continuity)):
+                           case_matrix_continuity),
+                          ("TANGENT (ITAN=0 -> bit-identical to no block)",
+                           case_tangent_bitidentity),
+                          ("TANGENT (ITAN=1 vs numerical Jacobian)",
+                           case_tangent_jacobian),
+                          ("TANGENT (secant correction is non-trivial)",
+                           case_tangent_offdiag)):
             npass, ntot, worst = fn(exe, rng)
             tag = "PASS" if npass == ntot else "FAIL"
             print("  [%s] %-46s %d/%d  worst rel. dev. %.2e"
