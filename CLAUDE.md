@@ -111,6 +111,32 @@ python3 sync/sync_check.py --ack a2-0001 # 반영 완료 기록 ("읽음"이 아
 
 상세는 `docs/BRANCH_PROTOCOL.md`와 `sync/PROTOCOL.md`.
 
+### ★ 세 번째 브랜치 — 리뷰 오케스트레이션 a3 (사용자 지정, 2026-08-11)
+
+`claude/llm-task-decomposition-w41jpc` 에서 **4노드 리뷰 파이프라인**이 돈다
+(R1 참고문헌 · R2 물성 · R3 수식 · R4 논리 → S 종합). 사용자 지시:
+**a3가 보내는 것을 같이 받아서 상의하며 진행한다.**
+
+```bash
+python3 verification/review_inbox.py           # 수신·대조 보고
+python3 verification/review_inbox.py --check   # 게이트 항목
+```
+
+**받을 때 반드시 기억할 것 — a3는 오래된 스냅샷 위에서 돈다.**
+
+- a3에는 **`refs/` 디렉터리가 없다.** 루트에 PDF 3개뿐이고 이쪽은 72개다.
+- a3의 초안은 `paper/ch1·ch2·ch4`(Zhang 2022 RVE, 참고문헌 25건)이고
+  이쪽은 `docs/CH1~7`(72건)이다. **둘은 다른 문서다.**
+- 그래서 a3의 지적은 **둘로 갈라 받는다**: 원문을 봐야 판정되는 것(서지·귀속·
+  물성 출처)은 **이쪽이 원문으로 답한다**. 원문이 필요 없는 것(무인용 주장,
+  고아 참고문헌, 계산치 대 카드값 혼용, 약속-이행 규율)은 **그대로 유효하며
+  `docs/`에도 같은 잣대를 적용한다.**
+- **출처 없는 감사는 결함을 만들어내기도 한다.** 실제로 a3 Round 1이
+  $G_{f,1c}$의 "Ge Table 3" 귀속을 근거 없다며 "본 연구의 가정"으로 강등했는데,
+  Ge Table 3에는 그 값이 실려 있다. **없는 것을 못 찾은 것을 없다고 판정한 것**이며,
+  올바른 인용을 지운 쪽이 원래 결함보다 나쁘다. `review_inbox.py`가 이 사례를
+  검사로 고정한다.
+
 ---
 
 ## ★ 해석 실행 원칙 (사용자 지정, 항상 적용)
@@ -434,6 +460,7 @@ python3 verification/check_ch7_numbers.py             # Ch.7 결론 경계 — �
 python3 verification/check_chapter_consistency.py     # 장 간 모순 (검증 2회차)
 python3 verification/check_chapter_claims.py          # 장이 부른 파일·명령 (검증 3회차, 느림)
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
+python3 verification/review_inbox.py --check           # 리뷰 브랜치 수신·원문 대조 (a3)
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
@@ -454,7 +481,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 62개를 전부 통과시킨다.**
+**커밋 전에 위 63개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이
