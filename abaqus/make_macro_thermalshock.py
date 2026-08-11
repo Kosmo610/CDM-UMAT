@@ -1570,7 +1570,7 @@ def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
         % (rho_bar * 1.0e12 / 1000.0),
         "**                refs/[28] states 'about 2.0', refs/[03] 2.05.  A "
         "ROUND TRIP, not independent evidence:",
-        "**                the 32.4 %% was itself derived from a measured "
+        "**                the 32.4 % was itself derived from a measured "
         "density.  The porosity dispute stays open.",
         "**   cp_bar(T)  = %.1f -> %.1f J/(kg.K)   OURS, mass-weighted "
         "constituent Cp" % (cp_bar(min(temps)), cp_bar(max(temps))),
@@ -1676,8 +1676,8 @@ def main():
                          "quench_calibration.py puts a factor of 4.6 on the "
                          "predicted gradient between the two ends, and "
                          "a1-0031 measures it as the SMALLER of the two "
-                         "available errors (-14.4 % on the 900 C gradient, "
-                         "against +23.9 % for the rejected refs/[20] shape).")
+                         "available errors (-14.4 %% on the 900 C gradient, "
+                         "against +23.9 %% for the rejected refs/[20] shape).")
     ap.add_argument("--kt-model", default="derived",
                     choices=("derived", "derived_dense_matrix",
                              "ref20_linear_k", "ref20_resistance", "constant"),
