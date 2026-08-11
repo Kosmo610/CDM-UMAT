@@ -1281,14 +1281,35 @@ def selftest():
                 % (quench_dt0(a["alpha"], 3.0, 15.0), tau, 15.0 / 50.0))
     expect_true("  and the old rule did not, even at the published 15 s",
                 15.0 / 50.0 >= 0.5 * tau)
+    # The 3.0x threshold here belonged to the refs/[20] shape (ratio 0.5845),
+    # which a1-0031 rejected.  Our own constituents give 0.82, so k falls less
+    # and the drop is 2.79x, carried mostly by cp.  The DIRECTION is the claim;
+    # the factor is pinned loosely so a future shape change is caught.
     expect_true("k(T) falls and cp(T) rises, so alpha falls with temperature",
-                aud["rows"][0]["alpha3"] > aud["rows"][-1]["alpha3"] * 3.0,
-                "%.3f -> %.3f mm^2/s over 23-1000 C"
-                % (aud["rows"][0]["alpha3"], aud["rows"][-1]["alpha3"]))
+                aud["rows"][0]["alpha3"] > aud["rows"][-1]["alpha3"] * 2.5,
+                "%.3f -> %.3f mm^2/s over 23-1000 C (%.2fx)"
+                % (aud["rows"][0]["alpha3"], aud["rows"][-1]["alpha3"],
+                   aud["rows"][0]["alpha3"] / aud["rows"][-1]["alpha3"]))
+    expect_true("  and the rejected borrowing would have fallen further",
+                homogenised_thermal(kt_model="ref20_resistance")[1]["rows"][0]
+                ["alpha3"] / homogenised_thermal(
+                    kt_model="ref20_resistance")[1]["rows"][-1]["alpha3"]
+                > aud["rows"][0]["alpha3"] / aud["rows"][-1]["alpha3"])
     expect_true("--no-kt is a declared assumption, not a silent one",
                 "DISABLED: --no-kt" in homogenised_thermal(k_of_t=False)[0])
-    expect_true("the borrowed number is labelled BORROWED in the deck",
-                "BORROWED, ratio only" in blk and "OURS" in blk)
+    # a1-0031 rejected the refs/[20] borrowing; the card now derives the shape
+    # from our own constituents, so the deck must claim it as ours -- and must
+    # not silently keep the old label.
+    expect_true("the k(T) shape is labelled DERIVED, not BORROWED",
+                "DERIVED from refs/[17]" in blk and "not borrowed" in blk
+                and "BORROWED" not in blk)
+    expect_true("the derived ratio is our 0.82, not the rejected 0.5845",
+                abs(_ct_ratio() - 0.82) < 0.03
+                and abs(_ct_ratio() - REF20_K_RATIO_296_1473) > 0.15)
+    expect_true("the rejected shapes survive only as sensitivity switches",
+                homogenised_thermal(kt_model="ref20_resistance")[1]["kt_model"]
+                == "ref20_resistance"
+                and homogenised_thermal()[1]["kt_model"] == "derived")
 
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
@@ -1422,11 +1443,31 @@ CARD_POROSITY = 0.324
 #: the same two numbers for its rule-of-mixtures inversion.
 RHO_FIBRE, RHO_SIC = 1.76e-9, 3.21e-9
 #: refs/[20] Table 1, YANG2024, fulltext: a 2D CMC laminate's OWN kbar at
-#: 296 K and 1473 K.  Only the RATIO is used -- 2.04/3.49 -- because the
-#: magnitude belongs to a different material (8HSW, rho 2.64, Vf 46.4 %).
-#: This is the one macro-card number that is not ours, and it is the shape of
-#: k(T), not a value.  a2-0027 asks a1 to adjudicate the source.
+#: 296 K and 1473 K, ratio 2.04/3.49 = 0.5845.  This USED to set the shape of
+#: k(T) on the card.  a1-0031 adjudicated a2-0027 and REJECTED the borrowing --
+#: not because the material differs, but because the borrowed shape is
+#: self-contradictory INSIDE our own card: 0.5845 is what the derivation gives
+#: for a DENSE CVI matrix (70 W/(m.K)), whereas our deck's matrix is refs/[17]
+#: CVI SiC at 25 W/(m.K).  With 91.5 % of that resistance temperature-
+#: independent, our own constituents give 0.82, not 0.5845.
+#:
+#: The borrowing also erred in the direction that flatters us: at 900 C it
+#: raises Bi by 23.9 % and the peak gradient from 21.9 K to 27.0 K, inflating
+#: contribution C2 in our favour.  That is worse than a conservative error.
+#:
+#: The shape now comes from data/properties/conductivity_temperature.py, which
+#: derives it from Snead's resistivity split plus refs/[17]'s matrix, and is
+#: corroborated by refs/[13] Katoh 2006 using the same linear-in-resistance
+#: form for a 2D CVI woven composite.  refs/[20] and constant k survive only
+#: as sensitivity switches (--kt-model).
 REF20_K_RATIO_296_1473 = 2.04 / 3.49
+
+
+def _ct_ratio():
+    """The derived k(T) ratio, from a1's module (single source of truth)."""
+    _properties_on_path()
+    import conductivity_temperature as ct
+    return ct.derived_ratio()
 #: The direction it moves is the point: conductivity FALLS with temperature
 #: while the fibre's rises, and quench_calibration.py shows the choice moves
 #: the predicted through-thickness gradient by a factor of 4.6.  Constant k
@@ -1457,7 +1498,8 @@ def _mass_fractions(porosity=CARD_POROSITY, vy=None, vf=None):
 
 
 def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
-                        porosity=CARD_POROSITY, k_of_t=True):
+                        porosity=CARD_POROSITY, k_of_t=True,
+                        kt_model="derived"):
     """(the *Conductivity/*Density/*Specific Heat block, audit dict).
 
     Three quantities, three different provenances, and the deck header says
@@ -1495,12 +1537,20 @@ def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
         K = T_C + 273.15
         return m_f * ec.fibre_cp(K) + m_m * ec.sic_cp(K)      # J/(kg.K)
 
+    import conductivity_temperature as ct
+
     def k_scale(T_C):
-        """k(T)/k(23 C), linear in T between the two refs/[20] anchors."""
+        """k(T)/k(23 C) from our own constituents (a1-0031).
+
+        Linear in RESISTANCE, not in k -- the two agree at the endpoints but
+        differ by 0.0553 at 500 C, and the resistance form is the one both
+        Snead Eq.12 and refs/[13] Katoh actually use.  --no-kt still pins the
+        card to a constant, and --kt-model exposes the rejected shapes for the
+        Ch.5 sensitivity table.
+        """
         if not k_of_t:
             return 1.0
-        f = (T_C - 23.0) / (1473.0 - 296.15)
-        return 1.0 + f * (REF20_K_RATIO_296_1473 - 1.0)
+        return ct.k_scale(T_C, model=kt_model)
 
     rows_k, rows_cp, audit_rows = [], [], []
     for T in temps:
@@ -1520,19 +1570,24 @@ def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
         % (rho_bar * 1.0e12 / 1000.0),
         "**                refs/[28] states 'about 2.0', refs/[03] 2.05.  A "
         "ROUND TRIP, not independent evidence:",
-        "**                the 32.4 %% was itself derived from a measured "
+        "**                the 32.4 % was itself derived from a measured "
         "density.  The porosity dispute stays open.",
         "**   cp_bar(T)  = %.1f -> %.1f J/(kg.K)   OURS, mass-weighted "
         "constituent Cp" % (cp_bar(min(temps)), cp_bar(max(temps))),
-        "**   k(T) shape = refs/[20] ratio %.4f over 296-1473 K   BORROWED, "
-        "ratio only%s" % (REF20_K_RATIO_296_1473,
-                          "" if k_of_t else "  [DISABLED: --no-kt]"),
+        "**   k(T) shape = DERIVED from refs/[17] CVI matrix (25 W/(m.K)) + "
+        "Snead resistivity split;",
+        "**                linear in RESISTANCE, ratio %.4f over 296-1473 K.  "
+        "OURS, not borrowed" % ct.derived_ratio(),
+        "**                model=%s%s" % (kt_model,
+                                          "" if k_of_t else
+                                          "  [DISABLED: --no-kt]"),
         "*Conductivity, type=ORTHO, dependencies=0"] + rows_k + [
         "*Density", "%.6g," % rho_bar,
         "*Specific Heat"] + rows_cp)
     return block, dict(rho_bar=rho_bar, rho_matrix=rho_m, rho_yarn=rho_y,
                        mass_fibre=m_f, mass_matrix=m_m, rows=audit_rows,
-                       porosity=porosity, k_of_t=k_of_t)
+                       porosity=porosity, k_of_t=k_of_t,
+                       kt_model=kt_model)
 
 
 def thermal_audit(block, lz, h, t_quench):
@@ -1616,13 +1671,25 @@ def main():
                          "macro element's own length -- homogenize.py never "
                          "produces such a card.  See Ch.4 4.9-16.")
     ap.add_argument("--no-kt", action="store_true",
-                    help="build the conductivity card at 23 C only.  The "
-                         "temperature dependence is the one BORROWED number "
-                         "in the thermal card (refs/[20], ratio only), so it "
-                         "gets a switch -- but constant k is a declared "
-                         "assumption, not a neutral default: quench_"
-                         "calibration.py puts a factor of 4.6 on the "
-                         "predicted gradient between the two ends.")
+                    help="build the conductivity card at 23 C only.  Constant "
+                         "k is a declared assumption, not a neutral default: "
+                         "quench_calibration.py puts a factor of 4.6 on the "
+                         "predicted gradient between the two ends, and "
+                         "a1-0031 measures it as the SMALLER of the two "
+                         "available errors (-14.4 %% on the 900 C gradient, "
+                         "against +23.9 %% for the rejected refs/[20] shape).")
+    ap.add_argument("--kt-model", default="derived",
+                    choices=("derived", "derived_dense_matrix",
+                             "ref20_linear_k", "ref20_resistance", "constant"),
+                    help="which k(T) SHAPE the card uses.  Default 'derived' "
+                         "is our own constituents (a1-0031).  The rest exist "
+                         "so the Ch.5 5.4.3-a sensitivity table is generated "
+                         "rather than typed: 'ref20_*' are the rejected "
+                         "borrowing in its two readings, 'derived_dense_"
+                         "matrix' is the same derivation on refs/[13]'s "
+                         "denser CVI matrix (which is what reproduces "
+                         "refs/[20]'s 0.5845, showing the borrowing assumes a "
+                         "matrix our deck does not use).")
     ap.add_argument("--placeholder-thermal", action="store_true",
                     help="write the old meaningless thermal card instead of "
                          "the derived one, and skip the Bi/Fo gate with it")
@@ -1688,7 +1755,8 @@ def main():
         therm, taud = PLACEHOLDER_THERMAL, None
         print("  !! using PLACEHOLDER thermal properties -- results meaningless")
     else:
-        therm, taud = homogenised_thermal(k_of_t=not args.no_kt)
+        therm, taud = homogenised_thermal(k_of_t=not args.no_kt,
+                                          kt_model=args.kt_model)
         print("  thermal card DERIVED: rho_bar = %.4f g/cm^3, "
               "cp_bar %.0f -> %.0f J/(kg.K), k(T) %s"
               % (taud["rho_bar"] * 1.0e9, taud["rows"][0]["cp"],

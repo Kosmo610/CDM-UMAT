@@ -112,20 +112,25 @@ G23 = Gm / [1 − √Vf·(1 − Gm/Gf23)]
 Every kernel was re-implemented in Python (`verify_constitutive.py`) and unit-tested
 against the closed-form paper equations. **All tests PASS.**
 
-| Paper Eq. | Meaning | UMAT location | Status |
-|---|---|---|---|
-| (2)–(3) | Yarn σ = C(d):εᵉ, effective stress σ̃ = C₀:εᵉ | `KYARN30` L188 | ✅ |
-| (11) | Hashin fibre tension (α=β=1) | `KYARN30` L195–197 | ✅ |
-| (12) | Hashin fibre compression | `KYARN30` L199 | ✅ |
-| (13) | Hashin transverse tension | `KYARN30` L202–205 | ✅ |
-| (14) | Hashin transverse compression | `KYARN30` L207–211 | ✅ |
-| (17) | Exponential evolution d=1−exp[A(1−r)]/r | `KDAMAGE_TARGET` | ✅ |
-| (18) | Mixed linear-exp. law (yarn 1t) | `KMIX1T` | ✅ coded, **disabled** (§5) |
-| (6)–(8) | Matrix σ̃ = C₀:(ε−εᵖ) | `KMTRX30` L372 | ✅ |
-| (9) | von Mises associated flow, isotropic hardening | `KMTRX30` L376–401 | ✅ coded, **off** (§5) |
-| (15)–(16) | Matrix initiation φ = σ_vM/X_{t,c} by sign(I₁) | `KMTRX30` L405–413 | ✅ |
-| (19) | Matrix exponential evolution | `KDAMAGE_TARGET` | ✅ |
-| (19–21) | Crack-band regularisation of A | `KABAND` | ✅ |
+Zhang 2022 and Ge 2018 use **different equation numbers for the same physics**, so
+the mapping below keeps them in separate columns (see `refs/GE2018_EXTRACTION.md` §A).
+A dash means the paper has no corresponding equation.
+
+| Zhang Eq. | Ge Eq. | Meaning | UMAT location | Status |
+|---|---|---|---|---|
+| (2)–(3) | (1)–(2), (4) | Yarn σ = C(d):εᵉ, effective stress σ̃ = C₀:εᵉ | `KYARN30` L188 | ✅ |
+| — | (3) | Shear damage coupling d₄,d₅,d₆ = f(d₁,d₂,d₃) | `KYARN30` L262–264 | ✅ |
+| (11) | (12) | Hashin fibre tension (α=β=1 — α,β are **Zhang's** coefficients, declared 1 by Zhang; Ge Eq. (12) has no α,β, i.e. every shear weight is 1) | `KYARN30` L195–197 | ✅ |
+| (12) | (12) | Hashin fibre compression | `KYARN30` L199 | ✅ |
+| (13) | (12) | Hashin transverse tension | `KYARN30` L202–205 | ✅ |
+| (14) | (12) | Hashin transverse compression | `KYARN30` L207–211 | ✅ |
+| (17) | (16) 1st line | Exponential evolution d=1−exp[A(1−r)]/r | `KDAMAGE_TARGET` | ✅ |
+| (18) | (16) 2nd line + (17) | Mixed linear-exp. law (yarn 1t) | `KMIX1T` | ✅ coded, **disabled** (§5) |
+| (6)–(8) | (5), (7) | Matrix σ̃ = C₀:(ε−εᵖ) | `KMTRX30` L372 | ✅ |
+| (9) | (8)–(10) | von Mises associated flow, isotropic hardening | `KMTRX30` L376–401 | ✅ coded, **off** (§5) |
+| (15)–(16) | (13) | Matrix initiation φ = σ_vM/X_{t,c} by sign(I₁) | `KMTRX30` L405–413 | ✅ |
+| (19) | (18) | Matrix exponential evolution | `KDAMAGE_TARGET` | ✅ |
+| — | (19)–(21) | Crack-band regularisation of A (Bazant; **Ge only** — Zhang has no crack-band equation, and Zhang's (19) is the matrix exponential law above) | `KABAND` | ✅ |
 
 Unit-test output (excerpt):
 ```
@@ -182,8 +187,13 @@ macroscopic strengths (128.45 / 179.42 / 199.15 MPa).
 | 3 | Yarn longitudinal-tension mixed law Eq.18 | **off** (X_PO=0 → uses Eq.17) | Eq.18 **used** (params in Ref.[30]) | warp-yarn 1t tail (dominant failure mode) |
 | 4 | Matrix plasticity SY0, HISO | **0 → off** | elastic-**plastic** (Eqs. 6–10) | residual strain / pseudo-ductility, curve shape |
 | 5 | Mesh | 34 049 nodes / 174 405 C3D4 | 116 724 C3D4 | different discretisation → small result shift |
+| 6 | Consistent tangent, Ge Eqs. (31)–(33) | **not implemented** — `CTAN(I,J)=CD(I,J)`, i.e. the **secant** operator (`KYARN30` L275–279, `KMTRX30` L437–) | Ge derives the algorithmic tangent `C_t = S⁻¹(dᵛ):[I − M(dᵛ)]` *"to ensure the quadratic convergence rate of the Newton-Raphson method"* (p.92) | the damage-derivative term `M` is missing, so convergence in the **softening branch drops from 2nd to 1st order** — the likely structural cause of the M1 round-3 escalation of η from 0.02 to 0.05 |
+| 7 | Matrix free energy: plastic dissipation of Ge Eqs. (23)–(24) | **omitted** — `KMTRX30` L421–422 passes only the elastic part `Xt²/(2E)·CELENT` into `KABAND` | Ge Eq. (23) splits G_m into an elastic part **and** a plastic part `G_m^p(ε̄_m^p)`, *"the contribution due to plastic hardening"* | once matrix plasticity is switched on, the real dissipated energy **exceeds** the card G_m, so the crack-band normalisation of A_m no longer delivers mesh-independence. This is an error source **independent of** the 1.92× `CELENT` discrepancy measured by `celent_census.py` |
 
 Notes:
+- **#6 and #7 are not unpublished parameters** — unlike #1–#5 they are equations of
+  Ge 2018 that the UMAT does not implement in full. They are listed here because they
+  block exact reproduction for the same practical reason.
 - **Matrix plasticity (#4)** is the reason the matrix curve in
   `figures/matrix_constitutive.png` is elastic-brittle instead of showing the
   paper's residual-strain plateau. The paper explicitly divides matrix strain into
@@ -195,9 +205,12 @@ Notes:
 
 **Update — V2_0 full model (with Ge 2018 [17] in hand).** The source model paper
 (Ge et al., CST 157, 2018) was obtained and confirms: the UMAT implements Ge Eqs.
-(1)–(33) in full; Ge Table 2 lists the same T300 filament (E1=230, Xt=3580, Xc=2470);
-Ge Table 3 gives the parameter structure and fracture energies (Gf,1t=12.5,
-Gf,2t=1.0 N/mm). The `abaqus/*_V2_0.inp` decks now **enable** the previously-off
+(1)–(21) and (29)–(30); Eqs. (22)–(28) are reduced to a uniaxial / linear-hardening
+closed form and the consistent tangent of Eqs. (31)–(33) is replaced by the secant
+operator (see §D of `refs/GE2018_EXTRACTION.md`); Ge Table 2 lists the same T300
+filament (E1=230, Xt=3580, Xc=2470); Ge Table 3 gives, explicitly and as four separate
+cells, Gf,1t = Gf,1c = 12.5 N/mm and Gf,2(3)t = Gf,2(3)c = 1.0 N/mm (matrix
+Gm,t(c) = 1.0 N/mm). The `abaqus/*_V2_0.inp` decks now **enable** the previously-off
 physics (#2 Eq.18, #4 matrix plasticity) and set #1 longitudinal yarn strengths from
 T300 rule-of-mixtures (Xt=Vf·3580=2835, Xc=Vf·2470=1956). Remaining unknowns (yarn
 transverse/shear strengths, X_PO/rF/K1, SY0/HISO) are calibration knobs — see

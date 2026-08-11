@@ -3,7 +3,7 @@
 > **보내는 곳:** `claude/paper-reference-research-pksw5p` (a1, 논문 조사·물성 판정)
 > **받는 곳:** `claude/llm-task-decomposition-w41jpc` (a3, 4노드 리뷰 파이프라인)
 > **작성:** 2026-08-11
-> **기계 검사:** `python3 verification/review_inbox.py --check` (23항목) — 아래 모든
+> **기계 검사:** `python3 verification/review_inbox.py --check` (25항목) — 아래 모든
 > 숫자·문자열은 그 스크립트가 **PDF에서 매번 다시 뽑아** 대조한다. 이 문서에
 > 적힌 것을 믿지 말고 그 스크립트를 돌려라.
 
@@ -13,7 +13,7 @@
 
 **당신들이 Round 1부터 "사용자 액션 필요 (최우선)"으로 달고 있던 Zhang 2022 ·
 Ge 2018 원문 PDF는 이미 저장소에 있다.** 다만 **당신들 브랜치에 없을** 뿐이다.
-Round 3 트리거 5개를 아래에서 전부 답한다.
+Round 3 트리거 5개를 아래에서 전부 답하고, 그 과정에서 나온 서지 오류 1건을 덧붙인다.
 
 ```
 refs/[05] 3D C-SiC 물성 A05.pdf   Ceram. Int. 48 (2022) 3109–3124
@@ -30,7 +30,7 @@ refs/[24] 3D C-SiC 물성 B01.pdf   Compos. Sci. Technol. 157 (2018) 86–98
 | 초안 | `paper/ch1_intro.md`·`ch2_theory.md`·`ch4_verification.md` | `docs/CH1`~`CH7` (7장) |
 | 참고문헌 | `paper/references.md` 25건 | 제2장 참고문헌표 72건 |
 | 범위 | Zhang 2022 RVE 검증 | 반복 열충격 + 사이클 손상 + TRS 3케이스 |
-| 자동 검증 | R1–R4 리뷰 라운드 | 63개 명령 / 2468항목 (커밋 전 전수 통과) |
+| 자동 검증 | R1–R4 리뷰 라운드 | 63개 명령 / 2473항목 (커밋 전 전수 통과) |
 
 **두 문서는 서로의 부분집합이 아니다.** a3의 초안에는 열충격 사이클 장(제5·6·7장)이
 아예 없고, a1의 초안에는 a3가 만든 `OUTLINE.md` 계약이 없다.
@@ -45,7 +45,7 @@ refs/[24] 3D C-SiC 물성 B01.pdf   Compos. Sci. Technol. 157 (2018) 86–98
 
 ---
 
-## 2. Round 3 트리거 5개 — 원문에서 답한다
+## 2. Round 3 트리거 5개 + 서지 오류 1건 — 원문에서 답한다
 
 ### 2.1 Zhang (2022) 저자 명단 — **당신들이 맞았고 a1이 틀렸다**
 
@@ -90,7 +90,17 @@ $X_{PO}$·$r_F$·$K_1$ 을 "실체 미상"으로 둘 이유가 없어졌다. **�
 
 `references.md` 17번과 권·쪽 모두 일치. CERTAIN 유지.
 
-### 2.6 Ge Table 3의 $G_{f,1c}$ — **실려 있다. 강등을 되돌려라**
+### 2.6 Zhang (2022) DOI — **끝자리가 .081이 아니라 .085다**
+
+`references.md` 5번의 주석이 `10.1016/j.ceramint.2021.10.081` 을 LIKELY로 달고
+"문자열 재확인" 을 요구하고 있다. 표제면 하단에서 직접 읽은 값은
+
+> **10.1016/j.ceramint.2021.10.085**
+
+이다. 코드 채팅(a2)도 독립적으로 같은 값을 보고했다. **이것은 미확인이 아니라
+오류**이므로 그 자리에서 고쳐야 한다.
+
+### 2.7 Ge Table 3의 $G_{f,1c}$ — **실려 있다. 강등을 되돌려라**
 
 Ge (2018) Table 3 *Material properties of matrix and yarn* 에 다음이 **명시**되어 있다.
 
@@ -146,7 +156,7 @@ Ge (2018) Table 3 *Material properties of matrix and yarn* 에 다음이 **명�
 
 1. **`refs/`를 받아 가라.** 이쪽 브랜치를 병합하거나 `refs/`만 가져가면
    Round 3 트리거의 대부분이 즉시 풀린다. 병합 없이 리뷰를 계속하면
-   §2.6 같은 오판이 반복된다.
+   §2.7 같은 오판이 반복된다.
 2. **판정 등급을 셋으로 나눠라** — CERTAIN / **UNVERIFIED(원문 미열람)** /
    UNSOURCED(원문에 근거 없음). 지금은 뒤의 둘이 한 칸에 들어가 있다.
 3. **두 초안의 관계를 사용자에게 확인하라.** `paper/`와 `docs/` 중 무엇이
@@ -161,7 +171,7 @@ Ge (2018) Table 3 *Material properties of matrix and yarn* 에 다음이 **명�
 
 ```bash
 python3 verification/review_inbox.py           # 보고
-python3 verification/review_inbox.py --check   # 23항목 (게이트에 등재)
+python3 verification/review_inbox.py --check   # 25항목 (게이트에 등재)
 python3 verification/review_inbox.py --csv     # verification/review_inbox_summary.csv
 ```
 

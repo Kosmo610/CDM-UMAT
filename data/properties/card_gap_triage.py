@@ -28,7 +28,8 @@ The verdicts
              Requirement: the thesis declares it, and the calibrated value is
              reported as identified, not as measured.
 
-Result: 7 KNOB, 1 DERIVED, 6 GAP.
+Result: 6 KNOB, 2 DERIVED, 6 GAP.  (rF moved KNOB -> DERIVED on 2026-08-11
+after the Ge original was read -- see refs/GE2018_EXTRACTION.md.)
 
 What this cost us to find out
 -----------------------------
@@ -184,8 +185,13 @@ TRIAGE = [
     ("yarn", "X_PO", 700.0, "KNOB",
      "auxiliary variable of Ge Eq.16-17.  The authors published the equation "
      "and not the constant, so there is nothing to source"),
-    ("yarn", "rF", 3.0, "KNOB",
-     "linear-to-exponential transition of the same unpublished equation"),
+    ("yarn", "rF", 3.0, "DERIVED",
+     "NOT an independent input.  Ge refs/[24] Eq.(17), third line, fixes the "
+     "transition point r^F_f,1t from X_PO and X_1t, so rF is computed from "
+     "slots 36/38 rather than tuned.  Leaving it free lets slots 36/37/38 "
+     "specify three mutually inconsistent transition points.  Regraded "
+     "2026-08-11 from KNOB after reading the Ge original "
+     "(refs/GE2018_EXTRACTION.md, sent to a1 as a2-0028)"),
     ("yarn", "K1", 8000.0, "KNOB",
      "linear softening slope of the same unpublished equation"),
 
@@ -324,7 +330,7 @@ def check():
     n_knob = len([r for r in TRIAGE if r[3] == "KNOB"])
     n_der = len([r for r in TRIAGE if r[3] == "DERIVED"])
     n_gap = len([r for r in TRIAGE if r[3] == "GAP"])
-    t("7 KNOB / 1 DERIVED / 6 GAP", (n_knob, n_der, n_gap) == (7, 1, 6),
+    t("6 KNOB / 2 DERIVED / 6 GAP", (n_knob, n_der, n_gap) == (6, 2, 6),
       "%d / %d / %d" % (n_knob, n_der, n_gap))
     t("every row carries a written reason",
       all(len(r[4].strip()) > 20 for r in TRIAGE))
@@ -333,9 +339,9 @@ def check():
 
     src = open(RANGES).read() if os.path.exists(RANGES) else ""
     t("check_card_ranges.py exists to compare against", bool(src))
-    t("it still declares 14 GUESS", "EXPECTED_GUESS = 14" in src.replace(
-        "EXPECTED_IN, EXPECTED_DEV, EXPECTED_GUESS = 7, 5, 14",
-        "EXPECTED_GUESS = 14"))
+    t("it still declares 13 GUESS", "EXPECTED_GUESS = 13" in src.replace(
+        "EXPECTED_IN, EXPECTED_DEV, EXPECTED_GUESS, EXPECTED_DERIVED = "
+        "7, 5, 13, 1", "EXPECTED_GUESS = 13"))
     for _, name, _, _, _ in TRIAGE:
         t("%s appears in the audit table" % name, name in src)
 
@@ -474,7 +480,7 @@ def main():
             print("=" * 74)
             return 1
         print("ALL %d TRIAGE CLAIMS HOLD "
-              "(7 KNOB / 1 DERIVED / 6 GAP)" % len(_OK))
+              "(6 KNOB / 2 DERIVED / 6 GAP)" % len(_OK))
         print("=" * 74)
     return 0
 

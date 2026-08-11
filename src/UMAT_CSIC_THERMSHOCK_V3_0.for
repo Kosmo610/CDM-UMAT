@@ -99,10 +99,10 @@ C     23     NT
 C     24..   NT rows of 4:  T, fE, fX, fSY
 C            fE -> E (and HISO), fX -> Xt,Xc, fSY -> SY0
 C     (no HCLO: the matrix already switches tensile/compressive damage
-C      on sign(I1) per Ge Eq.7, which is its unilateral effect.)
+C      on sign(I1) per Ge Eq.13, which is its unilateral effect.)
 C     -- optional I1-smoothing block, 2 slots, let J = 24+4*NT --
 C     J      HSMO   half-width of the tanh blend that replaces the hard
-C                   sign(I1) switch of Ge Eq.7, in units of Xt.
+C                   sign(I1) switch of Ge Eq.13, in units of Xt.
 C                   0 = published step (default, bit-identical to V1_0);
 C                   0.1 blends over roughly |I1| < 0.3*Xt.
 C     J+1    CARD KEY = 32.0 (guard for this block)
@@ -569,7 +569,7 @@ C     V1_0 KMTRX30 + temperature-dependent multipliers + optional
 C     smoothing of the sign(I1) unilateral switch.  NT=0 and HSMO=0
 C     reproduce KMTRX30 exactly.
 C
-C     WHY THE SMOOTHING EXISTS.  Ge Eq.7 selects the active damage by the
+C     WHY THE SMOOTHING EXISTS.  Ge Eq.13 selects the active damage by the
 C     sign of the first effective-stress invariant:
 C         d_act = d_t  if I1 >= 0,   d_c  otherwise.
 C     A point that damaged in tension carries d_t > 0 while d_c is still
@@ -703,7 +703,7 @@ C
          DCN=MAX(DC0,DC0+GAM*(TAR-DC0))
       END IF
 C
-C     Ge Eq.7 selection, optionally smoothed.  See the header of this
+C     Ge Eq.13 selection, optionally smoothed.  See the header of this
 C     routine for why.  HSMO=0 is the published step, bit for bit.
       HSMO=0.0D0
       IF (NPROPS.EQ.25+4*NT) HSMO=P(24+4*NT)

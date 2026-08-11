@@ -111,6 +111,13 @@ def zhang_reference(n):
     return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
 
 
+def zhang_doi():
+    """DOI of Zhang (2022), read off its own title page."""
+    m = re.search(r"10\.1016/j\.ceramint\.[0-9]{4}\.[0-9]{2}\.[0-9]{3}",
+                  pdf_text(ZHANG2022, 1, 1))
+    return m.group(0) if m else ""
+
+
 def ge_table3_fracture_energies():
     """{symbol: value} for the fracture energies listed in Ge Table 3.
 
@@ -175,7 +182,7 @@ def library_gap():
 
 # --------------------------------------------------------------------------
 def answers():
-    """The five Round-3 answers, each with what the review branch believed."""
+    """The Round-3 answers, each next to what the review branch believed."""
     za, ga = zhang_authors(), ge_authors()
     r30, r32, r33 = (zhang_reference(n) for n in (30, 32, 33))
     gt = ge_table3_fracture_energies()
@@ -205,6 +212,12 @@ def answers():
         dict(question="Zhang의 Ref.[33] Schapery",
              answer=r33, their_belief="J. Compos. Mater. 2 (1968) 380-404",
              verdict="CONFIRMED", note="권/쪽 일치"),
+        dict(question="Zhang (2022) DOI 끝자리",
+             answer=zhang_doi(),
+             their_belief="10.1016/j.ceramint.2021.10.081 (LIKELY, 문자열 재확인)",
+             verdict="THEY WERE WRONG -- .085",
+             note="표제면 하단에서 직접 읽었다. a2도 독립적으로 같은 값을 "
+                  "보고했다(a2-0028 (1))"),
         dict(question="Ge Table 3에 G_f,1c가 실려 있는가",
              answer="; ".join("%s = %g N/mm" % kv for kv in sorted(gt.items())),
              their_belief="미수록으로 보고 '본 연구의 가정'으로 강등 (R1 #9)",
@@ -289,6 +302,10 @@ def check():
       "1989" in r32 and "Compos. Technol. Res" in r32, r32[:78])
     t("...so neither 1984 nor 1987 is the right answer",
       "1984" not in r32 and "1987" not in r32)
+    doi = zhang_doi()
+    t("Zhang's DOI ends in .085, not .081", doi.endswith(".085"), doi)
+    t("...so the review branch's LIKELY string is wrong, not merely unconfirmed",
+      "2021.10.081" not in doi and doi != "")
     r33 = zhang_reference(33)
     t("Zhang's Ref.[33] Schapery matches their entry",
       "Schapery" in r33 and "380" in r33, r33[:78])
@@ -326,7 +343,7 @@ def check():
     print("\n E. the CSV both agents read")
     path, n_ = write_csv()
     text = open(path).read()
-    t("the summary CSV is written", n_ == 6 and os.path.exists(path),
+    t("the summary CSV is written", n_ == 7 and os.path.exists(path),
       "%d rows -> %s" % (n_, os.path.basename(path)))
     t("every row carries their belief next to the answer",
       "their_belief" in text.splitlines()[0])

@@ -214,7 +214,7 @@ iterations — a textbook 2-cycle limit cycle. The displacement increment is
 7.5 and the line search collapses to 2.7 % of the Newton step. A continuous
 constitutive law cannot do that. Something is switching.
 
-## There is exactly one switch, and it is Ge Eq.7
+## There is exactly one switch, and it is Ge Eq.13
 
 ```fortran
 IF (AI1.GE.0.0D0) THEN

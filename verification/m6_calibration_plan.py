@@ -10,8 +10,9 @@ calibration is even aiming at:
 
   4.9-0   the stiffness diagnosis was rescaled, 3.36x -> 1.66x, once the
           published moduli were seen to fall in two clusters
-  4.9-8   the 14 GUESS card inputs were split into three kinds, only one of
-          which calibration should be moving
+  4.9-8   the GUESS card inputs were split into three kinds, only one of
+          which calibration should be moving (13 since 2026-08-11: rF is
+          DERIVED from X_PO and K1 by Ge refs/[24] Eq. (17), not a knob)
   4.9-16  Gf now hands the DISSIPATED part across the scale boundary, which
           moves the macro softening exponent by 2.2x
 
@@ -88,7 +89,10 @@ MATRIX = dict(Xt=310.0, Xc=310.0, E=350000.0, Gmt=0.031, Gmc=0.031)
 # 4.9-8's three kinds.  The counts are asserted against check_card_ranges.
 NUMERICAL = ("SY0", "HISO", "dmax_t matrix", "eta matrix")
 NO_TOW_TEST = ("Xc yarn", "Yt yarn", "Yc yarn", "S12 yarn", "S23 yarn")
-SHAPE = ("Gtt yarn", "Gtc yarn", "X_PO yarn", "rF yarn", "K1 yarn")
+# rF was dropped 2026-08-11: Ge refs/[24] Eq. (17) fixes the transition
+# threshold from X_PO and K1, so it is a derived quantity, not a free
+# calibration direction.  The shape group is 4-dimensional, not 5.
+SHAPE = ("Gtt yarn", "Gtc yarn", "X_PO yarn", "K1 yarn")
 
 
 def g0(X, E):
@@ -409,11 +413,14 @@ def part_plan():
 """)
 
     check("stages 1-4 between them cover classes 3 and 1 only",
-          len(SHAPE) == 5 and len(NUMERICAL) == 4)
+          len(SHAPE) == 4 and len(NUMERICAL) == 4)
     check("class 2 is not a calibration target in any stage",
           len(NO_TOW_TEST) == 5)
-    check("the three classes account for all 14 GUESS",
-          len(SHAPE) + len(NUMERICAL) + len(NO_TOW_TEST) == 14,
+    # 2026-08-11: 14 -> 13.  rF left the SHAPE group because Ge refs/[24]
+    # Eq. (17) derives it from X_PO and K1; check_card_ranges.py regraded it
+    # GUESS -> DERIVED on the same evidence, so both counts moved together.
+    check("the three classes account for all 13 GUESS",
+          len(SHAPE) + len(NUMERICAL) + len(NO_TOW_TEST) == 13,
           "%d + %d + %d" % (len(SHAPE), len(NUMERICAL), len(NO_TOW_TEST)))
 
 
