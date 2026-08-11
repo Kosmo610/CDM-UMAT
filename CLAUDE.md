@@ -549,6 +549,7 @@ python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 verification/knob_sensitivity.py --check       # knob→관측량 정량 자코비안 + SVD 식별성 (rF 파생)
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
+python3 postprocess/compare_tangent.py --selftest      # ITAN 0/1 수렴 비용 대조 (.msg)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 postprocess/md_to_docx.py --selftest           # 논문 초안 워드(.docx) 합본 생성기
 python3 postprocess/make_thesis_figures.py --check      # 논문 그림 생성기 (문헌값 재유도 + 본문 삽입)
@@ -565,7 +566,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 64개를 전부 통과시킨다.**
+**커밋 전에 위 66개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

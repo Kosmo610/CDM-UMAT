@@ -38,7 +38,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 + **카드 3종(k, ρ, c_p)이 만드는 열확산율이 SI 값과 일치하는지** | 19 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
-| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡 + **`*Orientation` 누락·키워드 접합 감사** + **열카드 단위계·$Bi$·$Fo$ 관문** + **$k(T)$ 형상이 차용이 아니라 유도임을 강제**) | 81 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡 + **`*Orientation` 누락·키워드 접합 감사** + **열카드 단위계·$Bi$·$Fo$ 관문** + **$k(T)$ 형상이 차용이 아니라 유도임을 강제** + **일관접선 블록(ITAN) 부착·미부착 동일성**) | 92 |
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `conductivity_temperature.py --check` | $k(T)$ **형상** — Snead 저항선형 형태 회수·CVI 기지의 온도무관 몫·복합재 비율 유도·해석 경로가 RVE_COND를 재현하는지·refs/[20] 차용의 진단과 방향 | 37 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
@@ -50,6 +50,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `porosity_stiffness.py --check` | 공극률 결정(CVI 하한)·강성 정합·공정 귀속 | 56 |
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
 | `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 | 12 |
+| `compare_tangent.py --selftest` | ITAN 0/1 수렴 비용 대조 — 답이 같은지를 먼저 판정하고, 다르면 비용행을 읽지 못하게 막는다 | 21 |
 | `make_rve_conductivity.py --check` | 열전도 덱 — 면집합 재생성·DC3D4·드라이버 제거·**스텝 경계조건 `op=NEW`** + 단위 스탬프·열확산율 | 41 |
 | `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 95 |
 | `card_gap_triage.py --check` | GUESS 13개의 knob/도출/공백 분류와 얀 물성 독립대조 | 68 |
@@ -64,7 +65,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `thermal_cycling_dataset.py --check` | 반복 열충격 전 데이터·심각도 역설·임계온도 공백 + [68] 전문 정정·논문 수 | 51 |
 | `cycle_jump_provenance.py --check` | cycle jump 기준의 출처 — refs/[57] 손상증분 대 refs/[58] 변화율 + 1 %/3 % 앵커 | 40 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
-| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부) | 131 |
+| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부·ITAN 블록 슬롯과 미지정 시 바이트 동일성) | 156 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 53 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 104 |
@@ -89,7 +90,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis | 40 |
 | `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) | 20 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **2707** |
+| **합계** | | **2764** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
