@@ -50,8 +50,8 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
 | `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 | 12 |
 | `make_rve_conductivity.py --check` | 열전도 덱 — 면집합 재생성·DC3D4·드라이버 제거·**스텝 경계조건 `op=NEW`** + 단위 스탬프·열확산율 | 41 |
-| `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 94 |
-| `card_gap_triage.py --check` | GUESS 14개의 knob/도출/공백 분류와 얀 물성 독립대조 | 69 |
+| `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 | 95 |
+| `card_gap_triage.py --check` | GUESS 13개의 knob/도출/공백 분류와 얀 물성 독립대조 | 68 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
 | `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 + 고아 분류 + [S12]·[S13]·C5–C7 미보유 검증 | 133 |
