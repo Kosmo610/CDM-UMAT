@@ -572,32 +572,53 @@ def fig_5_2():
     return save(fig, "fig_5_2_macro_mesh")
 
 
-def fig_5_3():
-    """급랭 경계조건 — 표면·중심 온도 이력과 Biot 사다리."""
-    spec = qc.SPECIMENS["ZHANG2013"]
-    mat = qc.MATERIALS[spec["material"]]
+def solved_bi(spec_key, mat_key):
+    """(h [W/(m2.K)], Bi, alpha, L) for one specimen/material PAIRING.
+
+    The pairing is the whole point (a2-0027 ②).  What refs/[03] publishes is
+    a COOLING TIME, not a film coefficient; the h that reproduces that time
+    depends on whose rho, cp and k you solve it with.  Mixing the two -- the
+    literature h against our kbar_3 -- gives Bi = 0.0548, which belongs to no
+    material at all.  So h and Bi are always taken from the SAME row here,
+    and check() forbids the mixed pairing from appearing in the figure.
+    """
+    spec = qc.SPECIMENS[spec_key]
+    mat = qc.MATERIALS[mat_key]
     h, _ = qc.solve_h(spec, mat)
     L = 0.5 * spec["thickness"]
-    alpha = mat["k3"] / (mat["rho"] * mat["cp"])
-    bi = h * L / mat["k3"]
+    return h, h * L / mat["k3"], mat["k3"] / (mat["rho"] * mat["cp"]), L
+
+
+def fig_5_3():
+    """급랭 경계조건 — 두 물성 계보의 온도 이력과 Biot 사다리."""
+    spec = qc.SPECIMENS["ZHANG2013"]
+    h, bi, alpha, L = solved_bi("ZHANG2013", spec["material"])
+    h_o, bi_o, alpha_o, _ = solved_bi("ZHANG2013", "ours")
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(6.8, 3.0))
     # (a) the SOLVED film coefficient, so the curve reproduces the paper's
     # own "300 C within 15 s".  Nothing here is estimated: rho, cp and k
-    # come from quench_calibration.MATERIALS with their own citations.
+    # come from quench_calibration.MATERIALS with their own citations.  BOTH
+    # lineages are drawn because both hit the star -- that is the finding.
     ts = [i * spec["t_target"] * 1.15 / 200.0 for i in range(201)]
-    for xi, c, lab in ((1.0, C_ACC, "표면"), (0.0, C_AUX, "중심")):
+    for xi, c, lab in ((1.0, C_ACC, "표면 (문헌 물성)"),
+                       (0.0, C_AUX, "중심 (문헌 물성)")):
         T = [spec["T_sink"] + (spec["T_hi"] - spec["T_sink"]) *
              qc.theta(bi, max(alpha * t / L ** 2, 1e-9), xi) for t in ts]
         a1.plot(ts, T, color=c, lw=1.7, label=lab)
+    T_o = [spec["T_sink"] + (spec["T_hi"] - spec["T_sink"]) *
+           qc.theta(bi_o, max(alpha_o * t / L ** 2, 1e-9), 0.0) for t in ts]
+    a1.plot(ts, T_o, color="k", lw=1.4, ls="--",
+            label="중심 (본 연구 카드)")
     a1.plot([spec["t_target"]], [spec["T_target"]], "*", ms=13, color="k",
             ls="none", label="문헌 진술: %g s에 %g °C"
             % (spec["t_target"], spec["T_target"]))
     a1.set_xlabel("급랭 후 시간 [s]")
     a1.set_ylabel("온도 [°C]")
-    a1.set_title("(a) $h$ = %.0f W/(m²·K) 역산 — $Bi$ = %.4f" % (h, bi))
-    a1.legend(loc="upper right", fontsize=7.4)
+    a1.set_title("(a) 같은 냉각시간, 다른 $h$\n문헌 %.0f ($Bi$ %.4f) · "
+                 "본 연구 %.0f ($Bi$ %.4f)" % (h, bi, h_o, bi_o), fontsize=8.6)
+    a1.legend(loc="upper right", fontsize=6.9)
 
-    bis = [mac.SEVERITIES[s_]["bi"] for s_ in ("L", "M", "H")]
+    bis = [mac.SEVERITIES[s_]["bi_target"] for s_ in ("L", "M", "H")]
     xi = [i / 100.0 for i in range(101)]
     fo = 0.05
     for b, c, lab in zip(bis, (C_GREY, C_AUX, C_ACC), ("L", "M", "H")):
@@ -646,21 +667,32 @@ def check():
     t("fig 5.2 reads the specimen from make_macro_thermalshock",
       mac.SPECIMENS["ZHANG2013"]["dims"] == (12.5, 6.0, 3.0))
     t("fig 5.3 reads the Biot ladder from the same place",
-      [mac.SEVERITIES[s]["bi"] for s in ("L", "M", "H")] == [0.05, 1.0, 5.0])
+      [mac.SEVERITIES[s]["bi_target"] for s in ("L", "M", "H")]
+      == [0.05, 1.0, 5.0])
     spec = qc.SPECIMENS["ZHANG2013"]
-    mat = qc.MATERIALS[spec["material"]]
-    h, _ = qc.solve_h(spec, mat)
-    L = 0.5 * spec["thickness"]
-    alpha = mat["k3"] / (mat["rho"] * mat["cp"])
-    bi_solved = h * L / mat["k3"]
-    Tmid = spec["T_sink"] + (spec["T_hi"] - spec["T_sink"]) * qc.theta(
-        bi_solved, alpha * spec["t_target"] / L ** 2, 0.0)
-    t("fig 5.3(a) reproduces the published cooling time, not an estimate",
-      abs(Tmid - spec["T_target"]) < 1.0, "%.1f °C at %g s"
-      % (Tmid, spec["t_target"]))
-    t("fig 5.3(a)'s Biot is the deck's own value for refs/[03]",
-      abs(bi_solved - mac.SEVERITIES["Z"]["bi"]) < 5e-4,
-      "%.4f vs %.4f" % (bi_solved, mac.SEVERITIES["Z"]["bi"]))
+    # BOTH lineages must reproduce the published cooling time -- that is the
+    # claim fig 5.3(a) makes by drawing them against one star.
+    for mat_key, want_h, want_bi in (("zhang2013", 199.0, 0.0475),
+                                     ("ours", 161.7, 0.0445)):
+        h, bi_s, alpha, L = solved_bi("ZHANG2013", mat_key)
+        Tmid = spec["T_sink"] + (spec["T_hi"] - spec["T_sink"]) * qc.theta(
+            bi_s, alpha * spec["t_target"] / L ** 2, 0.0)
+        t("fig 5.3(a) hits the published cooling time on the %s card"
+          % mat_key, abs(Tmid - spec["T_target"]) < 1.0,
+          "%.1f °C at %g s" % (Tmid, spec["t_target"]))
+        t("fig 5.3(a)'s %s h/Bi are solved, not typed" % mat_key,
+          abs(h - want_h) < 0.6 and abs(bi_s - want_bi) < 5e-4,
+          "h %.1f (want %.1f), Bi %.4f (want %.4f)"
+          % (h, want_h, bi_s, want_bi))
+    # the mixed pairing a2-0027 flags: literature h against our kbar_3.  It is
+    # nobody's material, so it must never reach a figure.
+    h_lit, _, _, L = solved_bi("ZHANG2013", "zhang2013")
+    bi_mixed = h_lit * L / qc.MATERIALS["ours"]["k3"]
+    import inspect
+    drawn = "".join(inspect.getsource(f) for _, f in FIGURES)
+    t("fig 5.3 never pairs the literature h with our kbar_3",
+      abs(bi_mixed - 0.0548) < 5e-4 and "%.4f" % bi_mixed not in drawn,
+      "the forbidden value is %.4f" % bi_mixed)
     zs = mac.graded(mac.SPECIMENS["ZHANG2013"]["mesh"][2],
                     mac.SPECIMENS["ZHANG2013"]["dims"][2], 0.55)
     dz = [zs[i + 1] - zs[i] for i in range(len(zs) - 1)]

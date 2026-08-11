@@ -85,15 +85,31 @@ import assemble_inp as ai   # mesh filtering + material cards are reused verbati
 # OVERPREDICT kbar and make the quench gradient too shallow -- the
 # non-conservative direction.  Run --porosity to bracket it.
 #
-# Units: conductivity W/(mm.K), density tonne/mm^3, specific heat mJ/(tonne.K)
+# Units: conductivity mW/(mm.K), density tonne/mm^3, specific heat mJ/(tonne.K)
 # (the Abaqus mm-N-tonne-s-MPa system the rest of the model already uses).
+# mW/(mm.K) is NUMERICALLY EQUAL to W/(m.K); the derivation, and the 1000x
+# error that reading it as W/(mm.K) causes, is in eval_correlations.py under
+# "THE DECK'S THERMAL UNIT".  Every deck carries the stamp below so a reader
+# never has to remember which convention produced the odb in front of it.
 # --------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "data", "properties"))
 import conductivity_bounds as cb          # noqa: E402
 
-#: W/(m.K) -> W/(mm.K)
-_WMK = 1.0e-3
+#: W/(m.K) -> mW/(mm.K), the conductivity unit of the tonne-mm-s-mJ system.
+#: The factor is ONE: 1 mW/(mm.K) = 1e-3 W / (1e-3 m . K) = 1 W/(m.K).  It was
+#: 1.0e-3 until 2026-08-11, which is the "W/(mm.K)" convention -- self-
+#: consistent with nothing, because cp on the next two lines is mJ/(tonne.K).
+#: The mismatch is exactly 1000 and it lands on the thermal diffusivity.
+#: Steady-state conduction (every job run so far) divides it out, so the kbar
+#: results are untouched; a transient would have cooled 1000x too slowly.
+#: eval_correlations.py derives the unit and checks it on the card triple.
+_WMK = 1.0
+
+#: Stamped into every deck that carries a thermal card, so a post-processor
+#: reads the convention off the deck instead of remembering it.  A deck
+#: without this line predates 2026-08-11 and is in the old W/(mm.K) set.
+UNIT_STAMP = "** UNITSTAMP: k_card_per_WmK = 1.0  (mW/(mm.K), tonne-mm-s-mJ)"
 
 
 def thermal_properties(porosity=0.0, k_matrix=25.0, k1_f=8.0, k2_f=1.0):
@@ -170,11 +186,36 @@ def usermat_with_damage(card_text, slot, enable):
     return _reflow(header, vals)
 
 
+#: 1-based matrix card slot holding E, cross-read from retune_deck.py so the
+#: two generators cannot drift apart.  ELAS and CTE must stand on the SAME
+#: matrix card the calibration lineage uses -- a Cbar measured on the dense
+#: 350 GPa card does not belong to the RVE that M6 calibrates on the
+#: porosity-knocked 213110 one, and nothing downstream would notice.
+def _matrix_e_slot():
+    import re as _re
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "retune_deck.py")).read()
+    m = _re.search(r"MATRIX_SLOTS = dict\(e=(\d+)", src)
+    if not m:
+        raise SystemExit("retune_deck.py no longer declares MATRIX_SLOTS[e]")
+    return int(m.group(1))
+
+
+def with_matrix_e(card_text, e):
+    """Return the matrix card with Young's modulus replaced."""
+    header, vals = _card_lines(card_text)
+    vals = list(vals)
+    vals[_matrix_e_slot() - 1] = "%.10g" % e
+    return _reflow(header, vals)
+
+
 def material_section(model, matrix_es, yarn_es, orient, damage=True,
-                     expansion=True):
+                     expansion=True, matrix_e=None):
     """Material block; damage=False gives the purely elastic probe material."""
     mat = ai.MATRIX_USERMAT[model]
     yrn = ai.YARN_USERMAT[model]
+    if matrix_e is not None:
+        mat = with_matrix_e(mat, matrix_e)
     if not damage:
         mat = usermat_with_damage(mat, 14, False)    # matrix ENABLE = slot 14
         yrn = usermat_with_damage(yrn, 28, False)    # yarn   ENABLE = slot 28
@@ -390,6 +431,7 @@ def thermal_materials(matrix_es, yarn_es, orient, tp=None):
     tp = tp or thermal_properties()
     m = tp["_meta"]
     L = []
+    L.append(UNIT_STAMP)
     L.append("** Thermal properties DERIVED by data/properties/"
              "conductivity_bounds.py")
     L.append("**   fibre  k11 = %g, k22 = %g W/(m.K)   refs/[22], refs/[17]"
@@ -485,6 +527,13 @@ def main():
     ap.add_argument("--trs", choices=["on", "off"], default="on",
                     help="include the 1050 degC manufacturing cooling before "
                          "the strength tests (default: on)")
+    ap.add_argument("--matrix-e", type=float, default=None,
+                    help="matrix Young's modulus in MPa, replacing the card's "
+                         "own.  Use 213110 to stand on the porosity-knocked "
+                         "card the M6 calibration lineage uses -- a Cbar "
+                         "measured on the dense 350 GPa card belongs to a "
+                         "different RVE than the one being calibrated, and "
+                         "nothing downstream would catch the mismatch.")
     ap.add_argument("--porosity", type=float, default=0.0,
                     help="SiC matrix porosity for the COND deck (0-0.5). "
                          "The mesh is 100 %% dense, so leaving this at 0 "
@@ -529,7 +578,8 @@ def main():
     if want("ELAS"):
         for T in args.temps:
             matsec = material_section(args.model, matrix_es, yarn_es, orient,
-                                      damage=False, expansion=False)
+                                      damage=False, expansion=False,
+                                      matrix_e=args.matrix_e)
             parts = base("RVE virtual test: Cbar at %g degC "
                          "(damage OFF, no expansion)" % T, matsec, init_T=T)
             parts.append(steps_elastic(T))
@@ -539,7 +589,8 @@ def main():
     if want("ELAS") or want("CTE"):
         for T in args.temps:
             matsec = material_section(args.model, matrix_es, yarn_es, orient,
-                                      damage=False, expansion=True)
+                                      damage=False, expansion=True,
+                                      matrix_e=args.matrix_e)
             parts = base("RVE virtual test: alphabar at %g degC "
                          "(damage OFF, dT = %+g K)" % (T, probe_dt(T)),
                          matsec, init_T=T)
@@ -558,7 +609,9 @@ def main():
                 # expansion block is dropped rather than merely skipping the
                 # cooling step -- otherwise the cell would still start loaded.
                 matsec = material_section(args.model, matrix_es, yarn_es,
-                                          orient, damage=True, expansion=trs)
+                                          orient, damage=True,
+                                          expansion=trs,
+                                          matrix_e=args.matrix_e)
                 parts = base("RVE virtual test: homogenised strength, mode %s "
                              "at %g degC, TRS %s"
                              % (mode, T, args.trs), matsec,

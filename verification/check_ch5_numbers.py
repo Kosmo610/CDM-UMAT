@@ -76,17 +76,31 @@ def main():
     check("generator defines 5 severities (3 ladder + 2 validation)",
           len(sev) == 5, ", ".join(sorted(sev)))
 
-    for key, bi_txt, h_txt in (("L", "0.05", "2.10"),
-                               ("M", "1", "4.19"),
-                               ("H", "5", "2.10")):
-        s = sev[key]
+    # Bi is no longer stored -- it is DERIVED from the deck's own kbar_3 and
+    # the specimen's own thickness, so the chapter has to agree with what
+    # severity() computes, not with a dictionary entry.  ZHANG2013's plate is
+    # the one the ladder is quoted on.
+    LZ = mts.SPECIMENS["ZHANG2013"]["dims"][2]
+    for key, bi_txt in (("L", "0.05"), ("M", "1"), ("H", "5")):
+        h, bi = mts.severity(key, mts.KBAR3_MEASURED, LZ)
         check("severity %s Bi = %s in both" % (key, bi_txt),
-              abs(s["bi"] - float(bi_txt)) < 1e-9 and bi_txt in flat,
-              "generator %g" % s["bi"])
-        # h is quoted in the chapter in scientific notation with 3 sig figs
-        mant = "%.2f" % (s["h"] / 10 ** int(("%e" % s["h"]).split("e")[1]))
-        check("severity %s film coefficient %s in the chapter" % (key, mant),
-              mant in flat, "generator h=%g" % s["h"])
+              abs(bi - float(bi_txt)) < 1e-9 and bi_txt in flat,
+              "generator %g" % bi)
+        # The chapter quotes h in W/(m^2.K) as well as in card units, because
+        # a reader who only sees the card units cannot tell a 1000x unit slip
+        # from a different quench.
+        check("severity %s film coefficient %.1f W/(m^2.K) in the chapter"
+              % (key, h * 1e3), "%.1f" % (h * 1e3) in flat,
+              "generator h=%g mW/(mm^2.K)" % h)
+    check("the chapter states the card's conductivity unit",
+          "mW/(mm·K)" in ch5 or "mW/(mm^2·K)" in ch5 or "mW/(mm²·K)" in ch5)
+    for key, bi_txt in (("Z", "0.0445"), ("Y", "0.0260")):
+        lz = mts.SPECIMENS[mts.SEVERITIES[key]["spec"]]["dims"][2]
+        h, bi = mts.severity(key, mts.KBAR3_MEASURED, lz)
+        check("published test %s: Bi = %s, re-solved on OUR card"
+              % (key, bi_txt),
+              abs(bi - float(bi_txt)) < 5e-4 and bi_txt in flat,
+              "generator %.4f, h = %.1f W/(m^2.K)" % (bi, h * 1e3))
 
     check("the ladder is stated as 0.05 / 1 / 5 in the chapter",
           bool(re.search(r"0\.05\s*/\s*1\s*/\s*5", flat)))
@@ -121,21 +135,35 @@ def main():
     print("\n C. calibrated film coefficients match quench_calibration.py")
     out, rc = run("python3 abaqus/quench_calibration.py")
     check("quench_calibration.py runs", rc == 0)
+    # These are the LITERATURE-property answers: solved on refs/[03]'s rho,
+    # refs/[20]'s cp and refs/[12]'s k.  The chapter still quotes them, but as
+    # the comparison row -- what the deck runs on is the row below.
     for label, h_si, bi in (("ZHANG2013", "199.0", "0.0475"),
                             ("YIN2002", "87.0", "0.0277")):
-        check("%s h = %s W/(m^2.K) solved" % (label, h_si), h_si in out)
+        check("%s h = %s W/(m^2.K) solved on the literature card"
+              % (label, h_si), h_si in out)
         check("%s Bi = %s solved" % (label, bi), bi in out)
-        check("%s h = %s quoted in Ch.5" % (label, h_si), h_si in flat)
+    check("Ch.5 keeps the literature row for comparison",
+          "199.0" in flat and "0.0475" in flat)
+    # and the row the deck actually runs on, re-solved on OUR homogenised
+    # rho, cp and kbar_3.  Mixing their h with our k gives 0.0548, which
+    # belongs to no material -- the chapter names that number as the trap.
+    for label, h_si, bi in (("ZHANG2013", "161.7", "0.0445"),
+                            ("YIN2002", "70.8", "0.0260")):
+        check("%s h = %s quoted in Ch.5, on our own card" % (label, h_si),
+              h_si in flat)
         check("%s Bi = %s quoted in Ch.5" % (label, bi), bi in flat)
-    # and the generator's own annotation must agree with the solver
-    check("generator severity Z carries Bi 0.0475",
-          abs(sev["Z"]["bi"] - 0.0475) < 1e-9, "%g" % sev["Z"]["bi"])
-    check("generator severity Y carries Bi 0.0277 (not a rounded 0.028)",
-          abs(sev["Y"]["bi"] - 0.0277) < 1e-9, "%g" % sev["Y"]["bi"])
-    # the gradient percentages the chapter uses to justify C2
+    check("Ch.5 names the mixed-provenance Biot number as the trap",
+          "0.0548" in flat)
+    # the gradient percentages the chapter uses to justify C2: the literature
+    # row's 3.3/1.7 and our own card's 3.1/1.6.  Both must survive, and both
+    # must stay well below the 25 % that would break the uniform assumption.
     for frac in ("3.3", "1.7"):
-        check("gradient fraction %s %% appears in both" % frac,
+        check("literature gradient fraction %s %% appears in both" % frac,
               frac in out and frac in flat)
+    for frac in ("3.1", "1.6"):
+        check("our own gradient fraction %s %% quoted in Ch.5" % frac,
+              frac in flat)
 
     # ------------------------------------------------------------------ D
     print("\n D. deck mechanics claimed by the chapter exist in the generator")

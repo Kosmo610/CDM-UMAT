@@ -73,6 +73,16 @@ MATERIALS = {
         rho=2050.0, cp=1270.0, k3=2.04,
         note="refs/[20] values at 1473 K: cp rises and k falls with "
              "temperature, both of which SLOW the quench"),
+    # OUR material, which is the row that decides what the thesis reports.
+    # The three rows above are all somebody else's measurement; this one is
+    # the homogenised card the macro deck actually carries, so the Biot
+    # number it gives is the Biot number the chapters must quote.
+    "ours": dict(
+        rho=2008.2, cp=681.3, k3=5.4490,
+        note="OURS: kbar_3 from LTH2_COND_P32 at 32.4 % matrix porosity; "
+             "rho and cp volume/mass averaged from the constituent cards.  "
+             "kbar_3 = 5.449 against refs/[12]'s 6.29 moves every Biot "
+             "number by 15.4 %"),
 }
 
 # ==========================================================================
@@ -294,7 +304,12 @@ def report():
     L  Bi ~ 0.05   the refs/[03] validation point, essentially uniform
     M  Bi ~ 1      the crossover
     H  Bi ~ 5      gradient dominated
-  Note the deck wants W/(mm^2.K): divide the SI value by 1e6.""")
+  Note the deck wants mW/(mm^2.K): divide the SI value by 1e3, NOT by
+  1e6.  The energy unit of the tonne-mm-s set is mJ, so power is mW; see
+  eval_correlations.py, "THE DECK'S THERMAL UNIT".  Dividing by 1e6 puts
+  h and k both 1000x low, which leaves Bi exactly right and the quench
+  1000x slow -- make_macro_thermalshock.py checks the Fourier number
+  precisely because the Biot number cannot see it.""")
     return results
 
 

@@ -97,7 +97,16 @@ EXACT = [
     ("crack-band limit 0.2214 mm", "0.2214", ["Ch.4", "M1"]),
     ("I1=0 jump 78.0x", "78.0", ["Ch.3", "M1"]),
     ("stress-free temperature 1050", "1050", ["Ch.1", "Ch.2", "Ch.4", "Ch.5", "M1"]),
-    ("Biot for refs/[3]", "0.0475", ["Ch.1", "Ch.4", "Ch.5"]),
+    # Two lineages, both pinned.  The literature row is what refs/[03]'s own
+    # rho, refs/[20]'s cp and refs/[12]'s k give; the "ours" row is the same
+    # protocol re-solved on the homogenised card the deck actually carries.
+    # Keeping both pinned is what stops a chapter quietly adopting one number
+    # while its neighbour keeps the other -- which is how 0.0548, the mixed
+    # pairing that belongs to no material, could get in.
+    ("Biot for refs/[3], literature properties", "0.0475",
+     ["Ch.1", "Ch.4", "Ch.5"]),
+    ("Biot for refs/[3], our own card", "0.0445", ["Ch.1", "Ch.4", "Ch.5"]),
+    ("Biot for refs/[2], our own card", "0.0260", ["Ch.1", "Ch.4", "Ch.5"]),
     ("yarn micromechanics worst error", "0.142", ["Ch.3"]),
     # Ch.1 restates results owned by Ch.3 and Ch.4.  An introduction drifting
     # away from the chapters it summarises is the single easiest way to put two
@@ -108,8 +117,9 @@ EXACT = [
     ("TRS over-prediction ratio", "2.34", ["Ch.1", "Ch.4", "M1"]),
     ("yarn volume fraction", "0.4982", ["Ch.1", "Ch.4"]),
     ("RVE volume [mm^3]", "5.390", ["Ch.1", "Ch.4"]),
-    ("Biot for refs/[2]", "0.0277", ["Ch.1", "Ch.4", "Ch.5"]),
-    ("automated verification item count", "2257", ["Ch.1", "Ch.3", "Ch.7"]),
+    ("Biot for refs/[2], literature properties", "0.0277",
+     ["Ch.1", "Ch.4", "Ch.5"]),
+    ("automated verification item count", "2434", ["Ch.1", "Ch.3", "Ch.7"]),
     # The [28] page range was once corrupted to "1784-1597" by a blind
     # replace of the verification counter (1784 was the counter's value at
     # the time; 1586 had been an EARLIER value of the same counter, which is

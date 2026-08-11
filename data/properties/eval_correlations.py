@@ -104,6 +104,50 @@ def sic_E_GPa(T_K):
 SIC_RHO = 3.21e-9          # tonne/mm^3, theoretical density 3.21 g/cm^3
 
 # ==========================================================================
+# THE DECK'S THERMAL UNIT, DERIVED RATHER THAN CHOSEN
+# ==========================================================================
+# The mechanical side already pins the unit system past argument: stress is
+# MPa = N/mm^2, so force is N and length is mm, and density 2.1e-09 is
+# tonne/mm^3.  That is the Abaqus tonne-mm-s set, in which
+#
+#     ENERGY = N.mm = mJ = 1e-3 J        POWER = mJ/s = mW
+#
+# Abaqus solves  rho*cp*dT/dt = d/dx(k dT/dx), so the two sides must carry
+# the same energy:
+#
+#     [rho][cp] = (tonne/mm^3)(mJ/(tonne.K)) = mJ/(mm^3.K)
+#     [k]       = mJ/(s.mm.K) = mW/(mm.K)
+#
+# and  1 mW/(mm.K) = 1e-3 W / (1e-3 m . K) = 1 W/(m.K)  EXACTLY.  So the deck
+# number for conductivity IS the SI number -- the conversion factor is one.
+#
+# Until 2026-08-11 both k rows were divided by 1000 ("W/(m.K) -> W/(mm.K)")
+# while cp was multiplied by 1e6 into mJ/(tonne.K).  Those two conventions
+# differ by exactly 1000, and the product they feed is the thermal
+# diffusivity:  a = k/(rho.cp) came out 1000x too small.  Nothing had gone
+# wrong yet only because every conduction job run so far is STEADY STATE,
+# where a cancels; the first transient -- the macro quench -- would have
+# produced a plate that barely cools and looks perfectly converged doing it.
+# `checks()` now derives the diffusivity from the card triple instead of
+# trusting the comment.
+K_SI_TO_CARD = 1.0         # W/(m.K) -> mW/(mm.K), the deck's conductivity
+CP_SI_TO_CARD = 1.0e6      # J/(kg.K) -> mJ/(tonne.K)
+
+
+def card_diffusivity(k_card, rho_card, cp_card):
+    """Thermal diffusivity in mm^2/s from the three numbers a deck carries.
+
+    This is the only honest test of the unit set: k, rho and cp are each
+    plausible on their own and only their combination can be wrong.
+    """
+    return k_card / (rho_card * cp_card)
+
+
+def si_diffusivity_mm2s(k_si, rho_si, cp_si):
+    """The same quantity computed entirely in SI, in mm^2/s."""
+    return k_si / (rho_si * cp_si) * 1.0e6
+
+# ==========================================================================
 # CARBON FIBRE
 # ==========================================================================
 # CTE: Pradere & Sauder, Carbon 46 (2008) 1874-1884, Tables 3 and 4.
@@ -249,8 +293,8 @@ def fibre_row(T_C, trans=PANEX33_TRANS, long_=PANEX33_LONG, anchor=True):
     return dict(T_C=T_C, E1=Z_EF1 * fE, E2=Z_EF2, G12=Z_GF12, G23=Z_GF23,
                 nu12=Z_NUF12, alpha1=a1, alpha2=a2,
                 Xt=Z_XFT * fX, Xc=Z_XFC * fX,
-                k1=fibre_k_long(T) / 1000.0,      # W/(m.K) -> W/(mm.K)
-                cp=fibre_cp(T) * 1.0e6,           # J/(kg.K) -> mJ/(tonne.K)
+                k1=fibre_k_long(T) * K_SI_TO_CARD,   # W/(m.K) -> mW/(mm.K)
+                cp=fibre_cp(T) * CP_SI_TO_CARD,     # J/(kg.K) -> mJ/(tonne.K)
                 rho=P33_RHO)
 
 
@@ -318,8 +362,8 @@ def matrix_row(T_C, anchor=True):
     fX = sic_strength_retention(T)          # Snead Fig. 15, sintered/CVD
     return dict(T_C=T_C, E=Z_EM * fE, nu=Z_NUM, alpha=a,
                 Xt=Z_XM * fX, Xc=Z_XM * fX,
-                k=sic_k_upper(T) / 1000.0,           # W/(m.K) -> W/(mm.K)
-                cp=sic_cp(T) * 1.0e6,                # J/(kg.K) -> mJ/(tonne.K)
+                k=sic_k_upper(T) * K_SI_TO_CARD,      # W/(m.K) -> mW/(mm.K)
+                cp=sic_cp(T) * CP_SI_TO_CARD,        # J/(kg.K) -> mJ/(tonne.K)
                 rho=SIC_RHO)
 
 
@@ -353,6 +397,19 @@ def checks():
     # Paper abstract: mean transverse CTE 5e-6 to 10e-6 /K.
     ck("PANEX33 k_long(1500 K) = 75 W/(m.K) (Table 1)",
        fibre_k_long(1500.0), 75.0, 0.01, "W/(m.K)")
+
+    # --- the unit set, derived from the card triple, not from the comment ---
+    # Each of k, rho and cp is plausible alone; only the diffusivity they
+    # form together can expose a mismatched energy unit, and it is the
+    # diffusivity that drives every transient conduction job.
+    for label, row, k_key, k_si, rho_si, cp_si in (
+            ("SiC matrix", matrix_row(23.0), "k",
+             sic_k_upper(296.15), 3210.0, sic_cp(296.15)),
+            ("PANEX33 fibre", fibre_row(23.0), "k1",
+             fibre_k_long(296.15), 1750.0, fibre_cp(296.15))):
+        ck("%s card diffusivity = its own SI value [mm^2/s]" % label,
+           card_diffusivity(row[k_key], row["rho"], row["cp"]),
+           si_diffusivity_mm2s(k_si, rho_si, cp_si), 1.0e-6, "mm^2/s")
     ck("PANEX33 Cp(1000 K) ~ 2100 J/(kg.K) (Fig. 5a)",
        fibre_cp(1000.0), 2100.0, 1.0, "J/(kg.K)")
     at = (fibre_strain(1200.0, PANEX33_TRANS) / (1200.0 - 300.0)) * 1e6
