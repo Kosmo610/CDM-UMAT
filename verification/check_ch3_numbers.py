@@ -186,7 +186,7 @@ CASES = [
      count_plain, 81),
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
-     count_plain, 29),
+     count_plain, 33),
     ("knob_sensitivity.py --check",
      "python3 verification/knob_sensitivity.py --check",
      count_bracketed, 47),
