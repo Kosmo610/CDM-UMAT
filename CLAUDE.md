@@ -111,6 +111,20 @@ python3 sync/sync_check.py --ack a2-0001 # 반영 완료 기록 ("읽음"이 아
 
 상세는 `docs/BRANCH_PROTOCOL.md`와 `sync/PROTOCOL.md`.
 
+### ★ 제출본은 `docs/CH1~CH7` 이다 (사용자 결정, 2026-08-11)
+
+같은 저장소에 논문 초안이 **두 계보** 있었다 — 이쪽 `docs/CH1~7`(7장, 참고문헌
+72건)과 a3 브랜치의 `paper/ch1·ch2·ch4`(3장, 25건). 사용자가 **`docs/`를 제출본**
+으로 확정했다. 따라서:
+
+- `paper/`는 **참고 자료**이며 제출본이 아니다. a3의 지적은 받되, 반영 대상은
+  `docs/`다.
+- `verification/check_manuscript_citations.py` 가 **제출본으로만 범위를 좁힌**
+  인용 감사를 돈다. `refs_audit.py`(도서관 감사)와 목적이 다르다 — 후자는
+  `docs/` 전체를 훑으므로 **작업 문서에만 등장하는 참고문헌도 통과시킨다.**
+  실제로 그 틈에서 [S10] Chaboche 1992가 표에만 있고 어느 장에서도 인용되지
+  않은 채 남아 있었다.
+
 ### ★ 세 번째 브랜치 — 리뷰 오케스트레이션 a3 (사용자 지정, 2026-08-11)
 
 `claude/llm-task-decomposition-w41jpc` 에서 **4노드 리뷰 파이프라인**이 돈다
@@ -461,6 +475,7 @@ python3 verification/check_chapter_consistency.py     # 장 간 모순 (검증 2
 python3 verification/check_chapter_claims.py          # 장이 부른 파일·명령 (검증 3회차, 느림)
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
 python3 verification/review_inbox.py --check           # 리뷰 브랜치 수신·원문 대조 (a3)
+python3 verification/check_manuscript_citations.py     # 제출본(CH1~7) 인용 전수 (고아·허공·무인용 주장)
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
@@ -481,7 +496,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 63개를 전부 통과시킨다.**
+**커밋 전에 위 64개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

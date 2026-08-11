@@ -73,6 +73,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch7_numbers.py` | 제7장 결론 경계 — 결과 없는 결론 6개의 근거·결과 의존 구역의 완료어 금지 | 38 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 207 |
 | `review_inbox.py --check` | 리뷰 브랜치(a3) 수신 — 원문 PDF 보유 확인·저자 명단·Zhang의 내부 참고문헌 30·32·33번·Ge Table 3 파괴에너지·두 초안 계보 대조 | 25 |
+| `check_manuscript_citations.py` | **제출본 범위** 인용 감사 — 표 등재분의 본문 인용·본문 마커의 표 등재·무인용 동향 주장·[S*] 보유 진술 | 14 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 + T5 표적 정정 | 29 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
@@ -338,6 +339,16 @@ $H_{clo}=0$이 V1_0, $H_{clo}=1$이 완전 회복이다. **전단 손상은 회�
 §3.2.2의 부호 스위치는 물리적으로 타당하나, **수치적으로는 응력의 불연속**이다.
 인장에서 손상된 적분점은 $d_t > 0$이고 $d_c = 0$이므로, $I_1$이 0을 지나는 순간
 시컨트 강성이 $1/(1-d_t)$ 배로 도약한다. $d_t = 0.9$에서 **10배**이다.
+
+> **이것은 본 연구의 구현 결함이 아니라 손상역학이 이름 붙여 놓은 난제다.**
+> Chaboche[S10]는 단방향(active/passive) 조건을 다루는 네 계열의 이론 — 스칼라·
+> 벡터·2계·4계 손상변수 — 을 비교하여, *"the selected candidate theories either
+> show a **discontinuous stress–strain response** when the unilateral condition
+> takes place or an unacceptable nonsymmetric elastic behaviour"* 임을 보이고
+> 이를 *"fundamental problem"* 이라 부른다. 즉 유도 이방성과 단방향 효과를
+> **동시에** 만족시키는 이론은 없으며, 어느 쪽을 택하든 대가가 있다. 본 연구가
+> 만난 78.0배 계단은 그 대가의 한 사례이고, 아래 tanh 정규화는 그 난제를
+> **푸는 것이 아니라 폭을 선언하고 보고 가능하게 만드는** 공학적 처리다.
 
 이는 변형률이 변하지 않는데 응력이 변하는 것이므로 **Newton 반복이 원리적으로 수렴할
 수 없다.** 실제 RVE 해석에서 이 현상은 다음과 같이 관측되었다.

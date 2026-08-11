@@ -1,0 +1,131 @@
+obs,knob,p_base,O_base,dO_dp_h1,S_h1em3,S_h2em3,dS_steps,structure,fd_verdict,basis
+y1t_peak,Yt,80,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_peak,Yc,350,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_peak,S12,120,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+y1t_peak,S23,100,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_peak,X_PO,700,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_peak,K1,8000,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_peak,SY0,250,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_peak,HISO,100000,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_peak,Gtt,0,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y1t_peak,Gtc,0,2.835145200e+03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y1t_eps_pk,Yt,80,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps_pk,Yc,350,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps_pk,S12,120,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+y1t_eps_pk,S23,100,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps_pk,X_PO,700,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps_pk,K1,8000,1.111782975e-02,-7.059010819e-12,-5.079416380e-06,-5.079416341e-06,3.90e-14,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps_pk,SY0,250,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps_pk,HISO,100000,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps_pk,Gtt,0,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y1t_eps_pk,Gtc,0,1.111782975e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y1t_eps80,Yt,80,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps80,Yc,350,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps80,S12,120,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+y1t_eps80,S23,100,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps80,X_PO,700,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps80,K1,8000,7.070399398e-02,-7.325361514e-06,-8.288483976e-01,-8.288554197e-01,7.02e-06,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps80,SY0,250,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps80,HISO,100000,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_eps80,Gtt,0,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y1t_eps80,Gtc,0,7.070399398e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y1t_Wd09,Yt,80,1.057658820e+02,-5.666578318e-11,-4.286129485e-11,-4.292847556e-11,6.72e-14,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_Wd09,Yc,350,1.057658820e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_Wd09,S12,120,1.057658820e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+y1t_Wd09,S23,100,1.057658820e+02,7.247535905e-12,6.852432718e-12,6.852432718e-12,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_Wd09,X_PO,700,1.057658820e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_Wd09,K1,8000,1.057658820e+02,-2.733679702e-03,-2.067721386e-01,-2.067721386e-01,3.36e-14,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_Wd09,SY0,250,1.057658820e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_Wd09,HISO,100000,1.057658820e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y1t_Wd09,Gtt,0,1.057658820e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y1t_Wd09,Gtc,0,1.057658820e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y2t_Wd05,Yt,80,2.359962976e-02,6.771693179e-04,2.295525226e+00,2.295531758e+00,6.53e-06,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y2t_Wd05,Yc,350,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y2t_Wd05,S12,120,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+y2t_Wd05,S23,100,2.359962976e-02,-7.154332343e-05,-3.031544315e-01,-3.032209428e-01,6.65e-05,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y2t_Wd05,X_PO,700,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y2t_Wd05,K1,8000,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y2t_Wd05,SY0,250,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y2t_Wd05,HISO,100000,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+y2t_Wd05,Gtt,0,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+y2t_Wd05,Gtc,0,2.359962976e-02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on2t_uni,Yt,80,8.000000000e+01,1.000000000e+00,1.000000000e+00,1.000000000e+00,1.78e-13,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_uni,Yc,350,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_uni,S12,120,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+on2t_uni,S23,100,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_uni,X_PO,700,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_uni,K1,8000,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_uni,SY0,250,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_uni,HISO,100000,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_uni,Gtt,0,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on2t_uni,Gtc,0,8.000000000e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on2t_biax,Yt,80,4.364357805e+01,6.494581274e-01,1.190476412e+00,1.190477076e+00,6.64e-07,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_biax,Yc,350,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_biax,S12,120,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+on2t_biax,S23,100,4.364357805e+01,-8.313086991e-02,-1.904767520e-01,-1.904784365e-01,1.68e-06,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_biax,X_PO,700,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_biax,K1,8000,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_biax,SY0,250,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_biax,HISO,100000,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2t_biax,Gtt,0,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on2t_biax,Gtc,0,4.364357805e+01,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on12,Yt,80,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on12,Yc,350,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on12,S12,120,1.200000000e+02,1.000000000e+00,1.000000000e+00,1.000000000e+00,2.95e-14,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+on12,S23,100,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on12,X_PO,700,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on12,K1,8000,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on12,SY0,250,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on12,HISO,100000,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on12,Gtt,0,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on12,Gtc,0,1.200000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on23,Yt,80,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on23,Yc,350,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on23,S12,120,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+on23,S23,100,1.000000000e+02,1.000000000e+00,1.000000000e+00,1.000000000e+00,7.09e-14,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on23,X_PO,700,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on23,K1,8000,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on23,SY0,250,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on23,HISO,100000,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on23,Gtt,0,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on23,Gtc,0,1.000000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on2c,Yt,80,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2c,Yc,350,3.500000000e+02,1.000000000e+00,1.000000000e+00,1.000000000e+00,8.12e-14,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2c,S12,120,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+on2c,S23,100,3.500000000e+02,2.842170943e-13,8.120488409e-14,-8.120488409e-14,1.62e-13,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2c,X_PO,700,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2c,K1,8000,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2c,SY0,250,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2c,HISO,100000,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+on2c,Gtt,0,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+on2c,Gtc,0,3.500000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+m_peak,Yt,80,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_peak,Yc,350,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_peak,S12,120,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+m_peak,S23,100,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_peak,X_PO,700,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_peak,K1,8000,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_peak,SY0,250,3.100000000e+02,-1.160742613e-10,-9.360827524e-11,-9.356243377e-11,4.58e-14,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_peak,HISO,100000,3.100000000e+02,-9.660539035e-13,-3.116302914e-10,-3.118136573e-10,1.83e-13,NEAR_NULL,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_peak,Gtt,0,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+m_peak,Gtc,0,3.100000000e+02,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+m_eps_pk,Yt,80,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_eps_pk,Yc,350,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_eps_pk,S12,120,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+m_eps_pk,S23,100,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_eps_pk,X_PO,700,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_eps_pk,K1,8000,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_eps_pk,SY0,250,1.485905433e-03,-1.019650463e-05,-1.715537276e+00,-1.715716855e+00,1.80e-04,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_eps_pk,HISO,100000,1.485905433e-03,-6.116229529e-09,-4.116163380e-01,-4.116179195e-01,1.58e-06,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_eps_pk,Gtt,0,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+m_eps_pk,Gtc,0,1.485905433e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+m_resid,Yt,80,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_resid,Yc,350,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_resid,S12,120,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); S13 moved with S12
+m_resid,S23,100,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_resid,X_PO,700,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_resid,K1,8000,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(cross-phase),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_resid,SY0,250,1.352671192e-03,-2.444744084e-06,-4.518363550e-01,-4.519783098e-01,1.42e-04,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_resid,HISO,100000,1.352671192e-03,-3.303184145e-09,-2.441971237e-01,-2.442176983e-01,2.06e-05,LIVE,OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17)
+m_resid,Gtt,0,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
+m_resid,Gtc,0,1.352671192e-03,0.000000000e+00,0.000000000e+00,0.000000000e+00,0.00e+00,STRUCTURAL_ZERO(p=0),OK,central FD; rel steps 1e-3/2e-3 at V2_0 card; rF derived from X_PO+K1 (Ge Eq.17); relative step at p=0 is the zero step
