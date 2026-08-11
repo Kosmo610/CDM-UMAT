@@ -38,7 +38,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `compile_check.sh` | 두 UMAT의 고정형식 Fortran 유효성·인터페이스 | 2 |
 | `eval_correlations.py --check` | 물성 상관식 vs 원 논문 자체 서술 + **카드 3종(k, ρ, c_p)이 만드는 열확산율이 SI 값과 일치하는지** | 19 |
 | `build_temperature_tables.py --selftest` | 온도 테이블 카드 블록 생성 | 5 |
-| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡 + **`*Orientation` 누락·키워드 접합 감사** + **열카드 단위계·$Bi$·$Fo$ 관문**) | 78 |
+| `make_macro_thermalshock.py --selftest` | 거시 카드 정적 검증(불량 카드 17종 거부 + $\bar G_f$ 규약 감사 + $A$의 온도 표류 경계 + Quench-측 사이클 카운트 + `*Depvar` 29슬롯 이름이 `homogenize.py`와 일치 + `--hclo` 대조잡 + **`*Orientation` 누락·키워드 접합 감사** + **열카드 단위계·$Bi$·$Fo$ 관문** + **$k(T)$ 형상이 차용이 아니라 유도임을 강제**) | 81 |
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `conductivity_temperature.py --check` | $k(T)$ **형상** — Snead 저항선형 형태 회수·CVI 기지의 온도무관 몫·복합재 비율 유도·해석 경로가 RVE_COND를 재현하는지·refs/[20] 차용의 진단과 방향 | 37 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
@@ -86,7 +86,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis | 40 |
 | `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) | 20 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **2434** |
+| **합계** | | **2437** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
