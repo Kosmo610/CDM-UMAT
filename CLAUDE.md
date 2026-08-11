@@ -479,6 +479,7 @@ python3 verification/check_manuscript_citations.py     # 제출본(CH1~7) 인용
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
+python3 verification/knob_sensitivity.py --check       # knob→관측량 정량 자코비안 + SVD 식별성 (rF 파생)
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 postprocess/md_to_docx.py --selftest           # 논문 초안 워드(.docx) 합본 생성기
