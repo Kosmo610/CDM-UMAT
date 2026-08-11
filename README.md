@@ -39,9 +39,18 @@ postprocess/
 V1_0 cards leave matrix plasticity (Eqs. 6–10) and the yarn Eq.18 mixed law switched
 off, V2_0 cards switch them on with Ge/micromechanics-based starting values.
 
+> **Filename caution:** the `[15] [16] [17] 3D C-SiC 물성 A0*.pdf` files in this
+> repository are a *separate* set of 3D C/SiC property papers collected for the
+> follow-on study (Compos. Part A 207 (2026) / Compos. Sci. Technol. 261 (2025) /
+> J. Mater. Res. Technol. 29 (2024)). Their bracket numbers are a personal filing
+> index and do **not** correspond to Zhang 2022's reference numbers — in particular
+> `[17] ... A03.pdf` is **not** Ge et al. 2018. Neither Zhang 2022 nor Ge 2018 is
+> currently in the repository; see `paper/review/R1_references.md`.
+
 ## Verify the code now (no Abaqus needed)
 
 ```bash
+pip install numpy matplotlib                  # prerequisites for the check scripts
 python3 verification/micromech_check.py       # yarn constants vs paper Tables 1–2
 python3 verification/verify_constitutive.py   # equation unit tests (PASS/FAIL) + curves
 python3 verification/plot_paper_reference.py  # paper Table 3 targets
