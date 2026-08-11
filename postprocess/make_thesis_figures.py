@@ -366,6 +366,24 @@ def fig_2_4():
 # ==========================================================================
 # Ch.3
 # ==========================================================================
+#: Figure 3.1's boxes.  The SDV numbers are a UMAT fact, not a drawing
+#: choice, so they live here where check() can read them back against the
+#: UMAT header.  a1 originally took them from the Ch.3 prose and two were
+#: wrong (closure was SDV 11 = MODE; the failure step was SDV 23, which the
+#: UMAT writes only when ICRIT > 0).
+_FIG31_TEXT = [
+    ("입력: $\\Delta\\varepsilon$, $T$, STATEV", "#eef1f6"),
+    ("유효응력 $\\tilde\\sigma = C_0(T):\\varepsilon$", "#eef1f6"),
+    ("파손판정 — 얀 Hashin 4모드 / 기지 $I_1$-$q$", "#eef1f6"),
+    ("손상 진전 + 점성 정규화 ($\\eta$)", "#fdf3ec"),
+    ("균열 닫힘 $H_{clo}$ (수직 변형률 부호)", "#fdf3ec"),
+    ("사이클 항 $\\Delta d_{cyc}$ ($T_{wmax}$에서 평가)", "#fdf3ec"),
+    ("반환: $\\sigma$, $\\partial\\sigma/\\partial\\varepsilon$", "#f2f6ef"),
+]
+_FIG31_SDV = ["", "", "SDV 5\u20138\u00b719", "SDV 9\u00b710", "SDV 22",
+              "SDV 17\u00b718\u00b729", ""]
+
+
 def fig_3_1():
     """V3_0 한 증분의 상태 갱신 순서도."""
     fig, ax = plt.subplots(figsize=(5.4, 4.4))
@@ -373,18 +391,8 @@ def fig_3_1():
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.grid(False)
-    steps = [
-        ("입력: $\\Delta\\varepsilon$, $T$, STATEV", "#eef1f6", ""),
-        ("유효응력 $\\tilde\\sigma = C_0(T):\\varepsilon$", "#eef1f6", ""),
-        ("파손판정 — 얀 Hashin 4모드 / 기지 $I_1$-$q$",
-         "#eef1f6", "SDV 19·23"),
-        ("손상 진전 + 점성 정규화 ($\\eta$)", "#fdf3ec", "SDV 9·10"),
-        ("균열 닫힘 $H_{clo}$ (수직 변형률 부호)", "#fdf3ec", "SDV 11"),
-        ("사이클 항 $\\Delta d_{cyc}$ ($T_{wmax}$에서 평가)",
-         "#fdf3ec", "SDV 17·18·29"),
-        ("반환: $\\sigma$, $\\partial\\sigma/\\partial\\varepsilon$",
-         "#f2f6ef", ""),
-    ]
+    steps = [(txt, fc, sdv) for (txt, fc), sdv
+             in zip(_FIG31_TEXT, _FIG31_SDV)]
     h, gap = 0.108, 0.028
     y = 1.0 - h
     for text, fc, sdv in steps:
@@ -652,6 +660,26 @@ def check():
     _style()
     t("a Hangul font is registered with matplotlib", fam is not None,
       fam or "none of %s" % ", ".join(FONT_CANDIDATES))
+
+    # THE SDV NUMBERS IN FIG. 3.1 ARE A UMAT FACT, NOT AN ILLUSTRATION.
+    # a1 drew them from the Ch.3 prose and two were wrong: closure was
+    # labelled SDV 11, which is MODE, and the failure step was labelled
+    # SDV 23, which is written only when ICRIT > 0.  They are now read back
+    # out of the UMAT header so the figure cannot drift from the code.
+    umat = open(os.path.join(ROOT, "src",
+                             "UMAT_CSIC_THERMSHOCK_V3_0.for")).read()
+    hdr = umat.split("MACRO  NSTATV")[1].split("YARN   NSTATV")[0]
+    for slot, name in ((9, "D1"), (10, "DT"), (17, "DCYC"), (18, "NCUM"),
+                       (22, "CLOFLG"), (23, "FITW"), (29, "TWMAX"),
+                       (11, "MODE"), (19, "RDRV")):
+        t("UMAT header still has SDV %d = %s" % (slot, name),
+          re.search(r"\b%d\s+%s\b" % (slot, name), hdr) is not None)
+    box = [b for b in _FIG31_SDV if b]
+    t("fig 3.1 labels closure with CLOFLG (22), not MODE (11)",
+      "SDV 22" in box and "SDV 11" not in box, " / ".join(box))
+    t("fig 3.1 does not label the failure step with an ICRIT-only SDV",
+      not any(l.strip().endswith("23") or "\u00b723" in l for l in box),
+      " / ".join(box))
 
     # the paradox arrow must be the dataset's own ratio, not a typed one
     y = rows("[02]", "flexural strength")[0]
