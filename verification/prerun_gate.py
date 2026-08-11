@@ -86,12 +86,15 @@ STAGES = [
                 "공유한다"),
     dict(key="S3", name="거시 역학 (CONFIG_P) — 기여 C1",
          jobs=None, parallel=True,
-         gate="S2 완료. **보정 수렴은 관문이 아니다**",
+         gate="S2 완료 + 거시 역학 카드가 **자리표가 아닐 것**. 보정 수렴은 "
+              "관문이 아니지만 자리표는 관문이다",
          owner="a2",
          unblocks="C1 · C2 · C3 정성 답",
-         wasted_if="세 TRS 케이스가 서로 다른 카드를 쓰면 비교가 무효가 된다",
-         detail="3 심각도 × 3 TRS. 세 케이스가 같은 카드를 쓰므로 카드 오차가 "
-                "순위에서 상쇄된다"),
+         wasted_if="카드가 자리표이면 손상이 아예 안 걸려 세 케이스가 똑같이 "
+                   "나올 수 있다 — 그러면 '차이가 작다'가 결과가 아니라 인공물이다",
+         detail="3 심각도 × 3 TRS. 세 케이스가 같은 카드를 쓰므로 카드의 "
+                "계통오차는 순위에서 상쇄되지만, 자리표는 계통오차가 아니라 "
+                "다른 재료다"),
     dict(key="S4", name="대조군 (CONFIG_V · H_clo off)",
          jobs=None, parallel=True,
          gate="S3의 대응 잡 완료",
@@ -113,7 +116,11 @@ STAGES = [
 CLAIM_DEPENDENCE = [
     ("C1  TRS 3케이스가 예측을 얼마나 가르나", False,
      "세 케이스가 같은 카드를 공유하는 비교이므로 카드의 계통오차가 순위에서 "
-     "상쇄된다. 차이의 **크기**를 절대값으로 인용할 때만 보정이 필요하다"),
+     "상쇄된다. 차이의 **크기**를 절대값으로 인용할 때만 보정이 필요하다. "
+     "★ 단 이 논거에는 바닥이 있다 — 카드가 **자리표**이면 손상이 발동하지 "
+     "않아 세 케이스가 동일해질 수 있고, 그때 '차이 없음'은 결과가 아니라 "
+     "인공물이다 (a2-0032가 역학 덱을 일부러 보류한 이유이며, 그 판단이 옳다). "
+     "보정 **수렴**은 불필요하지만 카드가 **그 재료**이기는 해야 한다"),
     ("C2  균일 온도 가정이 어디서 깨지나", False,
      "Bi 사다리는 h를 정의상 훑는다. kbar_3의 크기가 바뀌면 h가 따라 바뀌므로 "
      "Bi는 정확한 채로 남는다 (제5장 §5.4.2)"),
@@ -296,6 +303,11 @@ def check():
       "상쇄" in CLAIM_DEPENDENCE[0][2])
     t("and the limit of that reasoning is stated too",
       "절대값으로 인용할 때만" in CLAIM_DEPENDENCE[0][2])
+    t("the placeholder-vs-uncalibrated distinction is made, not blurred",
+      "자리표" in CLAIM_DEPENDENCE[0][2]
+      and "자리표" in [s2 for s2 in STAGES if s2["key"] == "S3"][0]["gate"])
+    t("...and it is credited to the agent who caught it",
+      "a2-0032" in CLAIM_DEPENDENCE[0][2])
 
     print("\n D. the outstanding items are read from the tree, not typed")
     o = outstanding()
