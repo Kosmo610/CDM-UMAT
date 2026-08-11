@@ -157,6 +157,24 @@ def ge_toughness_source():
 # --------------------------------------------------------------------------
 # What the review branch holds, versus what this branch holds
 # --------------------------------------------------------------------------
+#: Where a3 replies.  The channel has been ONE-WAY so far: this branch reads
+#: theirs, and nothing of ours reaches them unless a human carries it.  A file
+#: at this path on their branch closes the loop without either side needing
+#: write access to the other.
+A3_REPLY = "paper/review/TO_A1.md"
+
+
+def a3_reply():
+    """Their reply file, if they have written one."""
+    try:
+        out = subprocess.check_output(
+            ["git", "show", "origin/%s:%s" % (REVIEW_BRANCH, A3_REPLY)],
+            cwd=ROOT, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError:
+        return None
+    return out.decode("utf-8", "replace")
+
+
 def branch_tree(ref):
     try:
         out = subprocess.check_output(
@@ -254,6 +272,12 @@ def report():
                                                 for f in td))
     print("                 이쪽 %d개 장 (docs/CH1..CH7)" % len(od))
     print()
+    rep = a3_reply()
+    print("  a3의 회신:    %s"
+          % ("%d자 (%s)" % (len(rep), A3_REPLY) if rep
+             else "아직 없다 -- 그쪽 브랜치에 %s 가 없다" % A3_REPLY))
+    print("  이쪽 발신:    docs/TO_REVIEW_A3.md (a3가 이 브랜치를 fetch 해야 읽힌다)")
+    print()
     for a in answers():
         print("  [%s] %s" % (a["verdict"], a["question"]))
         print("      원문:   %s" % (a["answer"][:110] or "(추출 실패)"))
@@ -339,6 +363,19 @@ def check():
           not any("ch5" in f or "ch6" in f or "ch7" in f for f in td))
     t("the module states why a source-less audit can invent a defect",
       "removed a correct citation" in __doc__)
+
+    print("\n D2. the channel is two-way, or says plainly that it is not")
+    t("a reply path is defined for a3", A3_REPLY.startswith("paper/review/"),
+      A3_REPLY)
+    rep = a3_reply()
+    t("their reply is read if present, and its absence is reported not guessed",
+      rep is None or len(rep) > 0,
+      "회신 없음" if rep is None else "%d chars" % len(rep))
+    t("the module states that the channel has been one-way",
+      "ONE-WAY" in " ".join(a3_reply.__doc__.split()) or
+      "ONE-WAY" in open(__file__, encoding="utf-8").read())
+    t("our outbox to a3 exists on this branch",
+      os.path.exists(os.path.join(ROOT, "docs", "TO_REVIEW_A3.md")))
 
     print("\n E. the CSV both agents read")
     path, n_ = write_csv()
