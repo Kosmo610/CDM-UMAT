@@ -31,7 +31,8 @@ C      sy = SY0 + HISO*pbar  (radial return)      (Ge Eqs.8-9)
 C    * Initiation: vM(s~)/Xt if I1>=0 else vM/Xc  (Zhang Eqs.15-16)
 C    * Exponential evolution                      (Zhang Eq.19)
 C    * Compliance-based isotropic degradation with tension or
-C      compression damage active by sign of I1(s~) (Ge Eq.7)
+C      compression damage active by sign of I1(s~) (Ge Eq.13
+C      = Zhang Eqs.15-16)
 C    * Optional crack-band regularization of Am,t and Am,c
 C
 C  Thermal strain is supplied by Abaqus *EXPANSION (zero=1050).
@@ -432,7 +433,7 @@ C
          DCN=MAX(DC0,DC0+GAM*(TAR-DC0))
       END IF
 C
-C     Ge Eq.7: tension or compression damage active by sign of I1.
+C     Ge Eq.13: tension or compression damage active by sign of I1.
       IF (AI1.GE.0.0D0) THEN
          DACT=DTN
       ELSE

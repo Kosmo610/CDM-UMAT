@@ -11,7 +11,7 @@ None of them answers the question you ask before committing solver time:
 Those are different failures.  A value transcribed perfectly from one paper can
 still be an outlier against every other measurement of the same quantity, and
 re-deriving it from that same paper will never reveal it.  This round compares
-each card input against INDEPENDENT literature and sorts it into one of three
+each card input against INDEPENDENT literature and sorts it into one of four
 verdicts:
 
   IN     the value sits inside a range measured by a source that is not where
@@ -20,6 +20,9 @@ verdicts:
          reason; the reason is asserted to exist, so it cannot be dropped
   GUESS  no independent value was found and the number is a calibration
          starting guess, recorded as such in verification/CALIBRATION_GUIDE.md
+  DERIV  no independent value either, but the number is NOT free: a published
+         equation fixes it from other slots, so tuning it is over-parameter-
+         isation.  Written as "DERIVED" in the table
 
 A GUESS is not a defect -- some of these are knobs that calibration is supposed
 to move.  It IS a defect to run the matrix without knowing which numbers are
@@ -53,7 +56,12 @@ GUIDE = os.path.join(ROOT, "verification", "CALIBRATION_GUIDE.md")
 #: datasheet figure being compared against another strand datasheet figure.
 #: The count went DOWN because the audit got sharper, which is the only
 #: direction this number is allowed to move for a good reason.
-EXPECTED_IN, EXPECTED_DEV, EXPECTED_GUESS = 7, 5, 14
+#: 2026-08-11: GUESS 14 -> 13, and a fourth verdict DERIVED appears with 1 row.
+#: Slot 37 (rF) was regraded GUESS -> DERIVED: Ge refs/[24] Eq. (17) makes the
+#: linear-to-exponential transition threshold a FUNCTION of X_PO (slot 36) and
+#: K1 (slot 38), so it was never an independent knob.  See
+#: refs/GE2018_EXTRACTION.md B-2 judgement 3.
+EXPECTED_IN, EXPECTED_DEV, EXPECTED_GUESS, EXPECTED_DERIVED = 7, 5, 13, 1
 
 _OK, _BAD = [], []
 
@@ -160,7 +168,8 @@ YARN = [
      "170 MPa for a phenolic matrix",
      "CALIBRATION_GUIDE lists this as a main knob"),
     (15, "S12 yarn [MPa]", 120.0, None, None, "GUESS",
-     "no tow-level shear strength found. Composite-level in-plane shear is "
+     "Ge refs/[24] Table 3 gives 58 MPa but for a PHENOLIC matrix; "
+     "no tow-level shear strength found for C/SiC. Composite-level in-plane shear is "
      "125.7 MPa (Yang refs/[27]) and 144.1 MPa (Yan refs/[35]), but for a 2D "
      "weave those load the tows AXIALLY, so they do not bound the tow's own "
      "shear strength",
@@ -182,13 +191,17 @@ YARN = [
      "see data/properties/yarn_fracture_energy.py"),
     (35, "Gtc yarn [N/mm]", 0.0, None, None, "GUESS",
      "0 disables the crack band; no transverse compressive fracture energy "
-     "for C/SiC exists in the literature searched",
+     "for C/SiC exists in the literature searched; Ge refs/[24] Table 3 does "
+     "publish Gf,2(3)t = Gf,2(3)c = 1.0 N/mm for carbon/phenolic, so 0.0 is our "
+     "switch-off, not a missing source",
      "see data/properties/yarn_fracture_energy.py"),
     (36, "X_PO yarn [MPa]", 700.0, None, None, "GUESS",
      "pull-out parameter of the mixed softening law; no measurement",
      "roughly 0.25*Xt; CALIBRATION_GUIDE knob"),
-    (37, "rF yarn", 3.0, None, None, "GUESS",
-     "linear-to-exponential transition; no measurement", "knob"),
+    (37, "rF yarn", 3.0, None, None, "DERIVED",
+     "Ge refs/[24] Eq.(17) fixes r^F_f,1t as the transition point implied by "
+     "X_PO and K1 -- it is NOT an independent input",
+     "should be computed from slots 36/38, not tuned"),
     (38, "K1 yarn [MPa]", 8000.0, None, None, "GUESS",
      "linear softening slope; no measurement", "knob"),
 ]
@@ -259,7 +272,7 @@ def main():
     print("\n B. every IN verdict really is inside its independent range")
     rows = ([("matrix", r) for r in MATRIX] + [("yarn", r) for r in YARN]
             + [("cte", ("-",) + r) for r in CTE])
-    n_in = n_dev = n_guess = 0
+    n_in = n_dev = n_guess = n_der = 0
     for grp, r in rows:
         slot, name, val, lo, hi, verdict, src, why = r
         if verdict == "IN":
@@ -277,20 +290,22 @@ def main():
                 check("%s is really OUTSIDE [%g, %g]" % (name, lo, hi),
                       not (lo <= val <= hi),
                       "%g, by %.2fx" % (val, val / hi if val > hi else lo / val))
+        elif verdict == "DERIVED":
+            n_der += 1
         else:
             n_guess += 1
 
     # ---------------------------------------------------------------- C
-    print("\n C. every DEV and GUESS carries a written reason")
+    print("\n C. every DEV, GUESS and DERIVED carries a written reason")
     for grp, r in rows:
         slot, name, val, lo, hi, verdict, src, why = r
-        if verdict in ("DEV", "GUESS"):
+        if verdict in ("DEV", "GUESS", "DERIVED"):
             check("%s has an independent-source note" % name,
                   len(src.strip()) > 20, "%d chars" % len(src.strip()))
             check("%s has a reason recorded" % name,
                   len(why.strip()) > 0 or verdict == "GUESS")
-    check("no verdict outside {IN, DEV, GUESS}",
-          all(r[5] in ("IN", "DEV", "GUESS") for _, r in rows))
+    check("no verdict outside {IN, DEV, GUESS, DERIVED}",
+          all(r[5] in ("IN", "DEV", "GUESS", "DERIVED") for _, r in rows))
 
     # ---------------------------------------------------------------- D
     print("\n D. every GUESS is declared a knob in CALIBRATION_GUIDE.md")
@@ -326,6 +341,8 @@ def main():
     print("     DEV   %2d  outside it, with a written reason" % n_dev)
     print("     GUESS %2d  calibration knobs, no independent value found"
           % n_guess)
+    print("     DERIV %2d  fixed by a published equation from other slots"
+          % n_der)
     # NOT a quality bar.  8 of 26 is the actual state of the data, and moving
     # a threshold until it goes green is the exact dishonesty this suite
     # exists to prevent.  The counts are pinned instead, so that changing the
@@ -336,10 +353,12 @@ def main():
           "%d" % n_dev)
     check("GUESS count is the declared %d" % EXPECTED_GUESS,
           n_guess == EXPECTED_GUESS, "%d" % n_guess)
+    check("DERIVED count is the declared %d" % EXPECTED_DERIVED,
+          n_der == EXPECTED_DERIVED, "%d" % n_der)
     print("     -> %d of %d audited inputs have independent support (%.0f %%)"
           % (n_in, len(rows), 100.0 * n_in / len(rows)))
     check("nothing is silently unclassified",
-          n_in + n_dev + n_guess == len(rows))
+          n_in + n_dev + n_guess + n_der == len(rows))
 
     print("\n" + "=" * 78)
     if _BAD:
@@ -348,7 +367,8 @@ def main():
         print("=" * 78)
         return 1
     print("ALL %d CARD-RANGE CLAIMS HOLD "
-          "(%d IN / %d DEV / %d GUESS)" % (len(_OK), n_in, n_dev, n_guess))
+          "(%d IN / %d DEV / %d GUESS / %d DERIVED)"
+          % (len(_OK), n_in, n_dev, n_guess, n_der))
     print("=" * 78)
     return 0
 
