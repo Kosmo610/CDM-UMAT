@@ -70,6 +70,18 @@ is PIP (section 2.2.1).  CTE is far less porosity-sensitive than modulus --
 pores carry no load but also do not expand -- so the transfer is more defensible
 here than it was for E.  It is still not the same material.
 
+    ** UNDER REVIEW (2026-08-12).  The sentence above may have the SIGN of the
+    porosity effect wrong.  A multiscale study of 3D C/SiC that characterised
+    the pores by X-ray CT reports that "the voids were effective in LOWERING the
+    CTE" (Compos. Struct. 2021, S027288422033474X -- candidate N8 in
+    docs/LIT_FIBRE_TRANSVERSE_CTE.md).  If that holds, porosity is not a
+    second-order nuisance here: our 32.4 % against refs/[61]'s 13 % would then
+    explain part of the model-to-measurement gap by itself, which is the
+    OPPOSITE of "the transfer is defensible".  The paper is search-verified
+    only -- no PDF held -- so nothing is changed yet.  Until it is held, do not
+    cite the sentence above as a reason the transfer is safe; cite only the
+    fact that the two materials differ.  Tracked as N8. **
+
 Run:  python3 data/literature/cte_composite_targets.py --check
 """
 from __future__ import print_function

@@ -74,6 +74,13 @@ VY_RVE = 0.4982                        # yarn fraction of the RVE (Ch.4 4.1)
 # RVE anchors -- MEASURED, from the M3 cooldown (Ch.4 4.5.1 / 4.5.3)
 # --------------------------------------------------------------------------
 RVE_ALPHA_XX = 3.132e-6                # /K, secant 1050 -> 23 C, damaged
+# The same quantity from the direct undamaged probe (a2-0026, ELAS+CTE run).
+# The mean field below is itself undamaged, so THIS is the number it must be
+# compared against; measuring a mean-field estimate against the damaged secant
+# charged the mean field for microcracks it does not model (17.5 % instead of
+# the true 12.1 %).  RVE_ALPHA_XX stays the anchor for the TRS transfer, where
+# the damaged state is the right one.  Verdict: data/literature/cte_rve_verdict.py
+RVE_ALPHA_XX_UNDAMAGED = 3.2827e-6     # /K, direct probe, damage OFF
 RVE_TRS = 268.08                       # MPa, volume-averaged matrix sigma_11
 XRD_TRS = 114.7                        # MPa, refs/[15] 3D braided, XRD
 T_ROOM = 23.0
@@ -87,6 +94,17 @@ T_SF_DECK = 1050.0                     # what the deck ships with
 VARIANTS = [
     ("CARD", -0.3e-6, 3.1e-6, "T300 (Zhang 2022 Table 1)",
      "the value the RVE card was verified against"),
+    # PROVENANCE OF THE TRANSVERSE NUMBERS (2026-08-12).  refs/[07]'s transverse
+    # CTEs are not a direct measurement.  The companion paper that produced them
+    # is titled "ESTIMATION of the transverse coefficient of thermal expansion on
+    # carbon fibers at very high temperature" and appeared in Inverse Problems in
+    # Science and Engineering 15 (1) (2007) 77-89 -- an inverse identification,
+    # not a dilatometer reading.  The 5-10e-6 band also mixes rayon-, PAN- and
+    # pitch-based fibres over 300-2500 K.  An in-situ TEM study measured PAN
+    # fibres over 20-1100 C, our own range, and reports a much tighter 3.8-5.6e-6
+    # (candidate N1, docs/LIT_FIBRE_TRANSVERSE_CTE.md).  Both are search-verified
+    # only; no PDF is held, so nothing here is changed on their account.  Do not
+    # call the 5-10 band "measured" in the manuscript -- call it identified.
     ("PANEX33", None, None, "PANEX 33 ex-PAN, E = 230 GPa",
      "Pradere & Sauder refs/[07] Tables 3/4, evaluated as a secant"),
     ("HTA5131", None, None, "HTA 5131 ex-PAN, E = 248 GPa",
@@ -285,11 +303,14 @@ def report():
     print("    " + "-" * 70)
     print("    RVE measured alpha_xx (damaged secant, Ch.4 4.5.3): %10.3e"
           % RVE_ALPHA_XX)
+    print("    RVE direct probe alpha_in (undamaged, a2-0026)    : %10.3e"
+          % RVE_ALPHA_XX_UNDAMAGED)
     print("    matrix alpha at this T_sf                         : %10.3e"
           % base["am"])
     print("\n    The mean field puts alpha_bar %.1f %% above the RVE for the"
-          % ((base["alpha_bar"] / RVE_ALPHA_XX - 1.0) * 100.0))
-    print("    card case.  That is why only its DERIVATIVE is used below.")
+          % ((base["alpha_bar"] / RVE_ALPHA_XX_UNDAMAGED - 1.0) * 100.0))
+    print("    card case -- compared like for like, undamaged against")
+    print("    undamaged.  That is why only its DERIVATIVE is used below.")
 
     print("\n 2. MATRIX TRS, transferred onto the RVE measurement")
     print("    %-11s %9s %9s %9s | %8s  %s"
@@ -479,6 +500,11 @@ def selftest():
         ck("source states: %s" % why, phrase in src)
     ck("alpha_bar error vs the RVE is reported, not buried",
        "above the RVE for the" in src)
+    ck("the mean field is compared undamaged-to-undamaged",
+       "RVE_ALPHA_XX_UNDAMAGED - 1.0" in src,
+       "%.1f %% high" % ((card["alpha_bar"] / RVE_ALPHA_XX_UNDAMAGED - 1) * 100))
+    ck("and the damaged anchor is kept for the TRS transfer",
+       "RVE_ALPHA_XX - base" in src or "RVE_ALPHA_XX -" in src)
 
     print("\n I. the numbers Ch.4 will quote")
     r = evaluate("PANEX33", None, None)

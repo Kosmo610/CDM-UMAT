@@ -42,7 +42,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `conductivity_temperature.py --check` | $k(T)$ **형상** — Snead 저항선형 형태 회수·CVI 기지의 온도무관 몫·복합재 비율 유도·해석 경로가 RVE_COND를 재현하는지·refs/[20] 차용의 진단과 방향 | 37 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
-| `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 | 59 |
+| `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 (평균장 대조는 무손상 RVE 기준) | 61 |
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
 | `trs_configuration.py --check` | CONFIG_V / CONFIG_P 결정과 두 관문 | 33 |
 | `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 (M5 T1000 곡선은 2026-08-06부터 저장소에 커밋되어 27이 어디서나 재현된다) | 27 |
@@ -56,10 +56,11 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `card_gap_triage.py --check` | GUESS 13개의 knob/도출/공백 분류와 얀 물성 독립대조 | 68 |
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
-| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 + 고아 분류 + [S12]·[S13]·C5–C7 미보유 검증 | 133 |
+| `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 + 고아 분류 + [S12]·[S13]·C5–C7 미보유 검증 | 134 |
 | `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 | 30 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도·정의 취약성·선형구간 비 | 43 |
 | `cte_composite_targets.py --check` | refs/[61]의 복합재 CTE 4점과 그 한계 | 32 |
+| `cte_rve_verdict.py --check` | RVE 실물 $\bar\alpha$ 대 절대 표적 — 4단 사다리·상별 상하한·남은 세 어긋남 | 38 |
 | `modulus_definition.py --check` | 대조 모듈러스 — 한 곡선이 3.13배를 걸친다 | 25 |
 | `crack_band_simplex.py --check` | refs/[47]의 2D $\sqrt2$와 a2의 3D $6^{1/3}$ 대조 + refs/[69] published 공식 + 부등부피 일반형 + refs/[46] w_c 대입(범위·거시한정) | 56 |
 | `thermal_cycling_dataset.py --check` | 반복 열충격 전 데이터·심각도 역설·임계온도 공백 + [68] 전문 정정·논문 수 | 51 |
@@ -70,12 +71,12 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 | 104 |
 | `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 (T5 정정 + §6.2.3 확정표) | 54 |
-| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출 포함) | 63 |
+| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출·CTE 4단 사다리 포함) | 75 |
 | `check_ch7_numbers.py` | 제7장 결론 경계 — 결과 없는 결론 6개의 근거·결과 의존 구역의 완료어 금지 + 한계 12개와 소성 몫 재유도 | 41 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 213 |
 | `review_inbox.py --check` | 리뷰 브랜치(a3) 수신 — 원문 PDF 보유 확인·저자 명단·Zhang의 내부 참고문헌 30·32·33번·Ge Table 3 파괴에너지·두 초안 계보 대조 | 29 |
 | `check_manuscript_citations.py` | **제출본 범위** 인용 감사 — 표 등재분의 본문 인용·본문 마커의 표 등재·무인용 동향 주장·[S*] 보유 진술 | 14 |
-| `prerun_gate.py --check` | 최소 해석 계획 — §5.7 매트릭스 파싱·단계별 관문/소유자/낭비조건·보정 의존성(자리표 대 미보정 구분) | 27 |
+| `prerun_gate.py --check` | 최소 해석 계획 — §5.7 매트릭스 파싱·단계별 관문/소유자/낭비조건·보정 의존성(자리표 대 미보정 구분)·산출물 부재와 잡 차단의 분리 | 40 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 + T5 표적 정정 | 33 |
 | `plastic_dissipation_audit.py` | Ge 식 (23)(24) 소성 자유에너지가 $A_m$ 에 들어가는가 — **「누락」 지적 철회**와 그 자리에 들어갈 메시 의존 한계 + 균열대 봉 트리거 슬라이스의 의도치 않은 취성 | 15 |

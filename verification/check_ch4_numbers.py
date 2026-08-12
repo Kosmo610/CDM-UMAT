@@ -327,6 +327,38 @@ def main():
     for v in TABLE3:
         check("Ch.4 quotes %.2f MPa" % v, ("%.2f" % v) in ch4)
 
+    # ------------------------------------------- 4.9-10 the CTE ladder
+    # Every rung is recomputed here.  The chapter is allowed to PRINT the
+    # ladder; it is not allowed to be the place the ladder is decided.
+    print("\n 4.9-10 the four-rung CTE ladder -- every rung recomputed")
+    sys.path.insert(0, os.path.join(ROOT, "data", "literature"))
+    import cte_rve_verdict as crv
+    from cte_rve_verdict import ec
+    r1, r2, r3, r4 = crv.ladder()
+    r2, r3 = r2 * 1e6, r3 * 1e6
+    for tag, val in (("rung 1 RVE direct probe 3.2827", "%.4f" % r1),
+                     ("rung 2 mean field, card CTEs 3.6815", "%.4f" % r2),
+                     ("rung 3 mean field, PANEX33 4.0294", "%.4f" % r3)):
+        check("Ch.4 quotes %s" % tag, val in ch4, val)
+    check("Ch.4 quotes rung 4, refs/[61] at 600 C", "4.6" in ch4)
+    for tag, step in (("1->2", r2 / r1 - 1), ("2->3", r3 / r2 - 1),
+                      ("3->4", r4 / r3 - 1)):
+        s = "%.1f" % (100 * step)
+        check("Ch.4's step %s is %s %%, recomputed" % (tag, s),
+              ("+%s %%" % s) in ch4, s)
+    _, a_th, _ = crv.rve_alphas()
+    check("Ch.4 quotes the through-thickness value", "4.0891" in ch4)
+    check("...and its ratio to the matrix card",
+          ("%.3f" % (a_th / (ec.Z_AM * 1e6))) in ch4,
+          "%.3f" % (a_th / (ec.Z_AM * 1e6)))
+    check("Ch.4 quotes the composite/matrix ratio inside refs/[11]'s band",
+          ("%.3f" % (r1 / (ec.Z_AM * 1e6))) in ch4,
+          "%.3f" % (r1 / (ec.Z_AM * 1e6)))
+    check("Ch.4 refuses the phase-bound argument in writing",
+          "틀렸다" in ch4 and "카드에 대한 진술" in ch4)
+    check("Ch.4 names the crack share and says it is not enough",
+          "4.6 %" in ch4 and "미세균열만으로 설명하지 않는다" in ch4)
+
     print("\n" + "=" * 72)
     if _BAD:
         print("ROUND 1 FAIL -- %d of %d: %s"

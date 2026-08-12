@@ -221,10 +221,10 @@ MUST_BE_LISTED = {
           "4261-4265",
 }
 
-N_PDF = 72
-N_DISTINCT = 72
-N_NUMBERS = 70   # [01] and [05] each carry two different papers
-NEXT_FREE = 73   # 21 and 39 are retired, never reused
+N_PDF = 73
+N_DISTINCT = 73
+N_NUMBERS = 71   # [01] and [05] each carry two different papers
+NEXT_FREE = 74   # 21 and 39 are retired, never reused
 
 # Third batch, 2026-08-06.  Four of the five close [S*] gaps -- method primary
 # sources the thesis had been citing without holding the originals.
@@ -263,6 +263,9 @@ THIRD_BATCH = {
     70: (None, "smooth Lagrangian crack band model, IJNLM 186 (2026) 105340"),
     71: (None, "synchrotron XRD residual stress, JACS (2020)"),
     72: (None, "Raman residual stress vs heat treatment, JACS (2019)"),
+    73: (None, "Zhong, Guo, Liu, Lu, Zeng, Compos. Struct. 128 (2015) 1-9 "
+               "-- Zhang[5] ref 30, the ORIGIN of X_PO/K_1.  Holds the "
+               "definitions but publishes NO numeric value for either"),
 }
 
 # refs/[61] Table 1, as-received 2D C/SiC (CVI).  Read off the PDF.
