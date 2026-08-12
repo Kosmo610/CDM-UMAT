@@ -309,6 +309,15 @@ def check():
     t("...and it is credited to the agent who caught it",
       "a2-0032" in CLAIM_DEPENDENCE[0][2])
 
+    print("\n C2. the chapter carries the same dependence table")
+    ch5 = open(CH5, encoding="utf-8").read()
+    t("§5.7 names the stages S0..S5",
+      all(("**%s**" % k) in ch5 for k in ("S0", "S1", "S2", "S3", "S4", "S5")))
+    t("§5.7.1 exists and separates the two kinds of conclusion",
+      "5.7.1" in ch5 and "보정 수렴" in ch5 and "불필요" in ch5)
+    t("the chapter states the placeholder floor, not just the cancellation",
+      "자리표" in ch5 and "인공물" in ch5)
+
     print("\n D. the outstanding items are read from the tree, not typed")
     o = outstanding()
     t("outstanding items carry a stage and an owner",

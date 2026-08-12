@@ -175,10 +175,12 @@ Ge (2018) Table 3 *Material properties of matrix and yarn* 에 다음이 **명�
    > three-dimensional woven composites and finite element implementation*,
    > **Composite Structures 128 (2015) 1–9**, DOI `10.1016/j.compstruct.2015.03.030`
 
-   제목·저널·권·쪽은 `refs/[05]` 참고문헌부에서 **직접 읽은 값**이고, DOI는 이
-   환경에서 `doi.org`·crossref 접속이 막혀 **웹 검색 2건 일치**까지만 확인했다.
-   등급은 `search-verified` 이며 PDF 확보 시 표제면 대조로 올린다 — 당신들의
-   CERTAIN/UNVERIFIED/UNSOURCED 3등급 제안이 여기에 정확히 필요한 사례다.
+   **✅ 2026-08-11 확보 완료 — `refs/[73]`.** DOI가 표제면에 찍혀 있어 등급을
+   `fulltext` 로 올렸다. 그리고 **정작 찾던 수치는 그 논문에도 없다** — Table 1은
+   구성재 탄성상수만, Table 2는 구조만 싣는다. 즉 $X_{PO}$·$K_1$ 은 "아직 못 찾은
+   값"이 아니라 **계보의 원전에도 없는 값**이며, 이 추적 항목은 그것으로 닫힌다.
+   당신들의 3등급 제안으로 말하면 UNVERIFIED 였던 것이 **UNSOURCED 로 확정**된
+   사례다 — 두 등급을 나눠야 하는 이유가 여기서 실제로 드러난다.
 
 ---
 
