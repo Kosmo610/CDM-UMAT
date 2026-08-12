@@ -168,8 +168,17 @@ Ge (2018) Table 3 *Material properties of matrix and yarn* 에 다음이 **명�
    옮길 때 필요한 것은 두 가지뿐이다 — 이쪽 브랜치를 병합해 `refs/` 72편과
    `docs/CH1~CH7` 을 받는 것, 그리고 R1~R4의 대상 파일 목록을 바꾸는 것이다.
    `OUTLINE.md` 계약과 판정 등급 체계는 그대로 쓸 수 있다.
-4. **[5]의 Ref. 30 (Zhong 2015, Compos. Struct. 128 (2015) 1–9)** 을 새 P-1로
-   올려라. $X_{PO}$·$r_F$·$K_1$ 의 유일한 1차 출처다.
+4. **[5]의 Ref. 30 (Zhong 2015)** 을 새 P-1로 올려라. $X_{PO}$·$K_1$ 의 유일한
+   1차 출처다. 서지는 다음과 같다(2026-08-11 확정):
+
+   > S.Y. Zhong, L.C. Guo, G. Liu, H.Y. Lu, T. Zeng, *A continuum damage model for
+   > three-dimensional woven composites and finite element implementation*,
+   > **Composite Structures 128 (2015) 1–9**, DOI `10.1016/j.compstruct.2015.03.030`
+
+   제목·저널·권·쪽은 `refs/[05]` 참고문헌부에서 **직접 읽은 값**이고, DOI는 이
+   환경에서 `doi.org`·crossref 접속이 막혀 **웹 검색 2건 일치**까지만 확인했다.
+   등급은 `search-verified` 이며 PDF 확보 시 표제면 대조로 올린다 — 당신들의
+   CERTAIN/UNVERIFIED/UNSOURCED 3등급 제안이 여기에 정확히 필요한 사례다.
 
 ---
 
