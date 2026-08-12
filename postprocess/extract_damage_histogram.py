@@ -27,6 +27,20 @@
     (각 칸 = 그 구간 요소수 / 그룹 전체 요소수 * 100 [%])
   화면에 sum(손상요소율)/평균/p95 를 논문 대조용으로 찍는다.
 
+  yarn_shear_frac<TAG>_f<NN>.csv   (V2_7D SDV17 이 있는 odb 에서만)
+    얀 종방향 인장이 **무엇 때문에** 개시했는지의 분포.
+    0 = σ11 단독, 1 = 전단 단독.
+
+주의 — SDV17 은 반드시 걸러서 읽는다
+------------------------------------
+`SDV17 = 0` 은 두 가지를 뜻한다: "σ11 이 혼자 죽였다" 와
+"1T 모드가 개시조차 안 했다". 그래서 이 스크립트는 항상
+**`SDV5(=R1T) >= 1`** 인 적분점만 집계한다. 안 거르면 미개시
+요소가 전부 "σ11 주도" 로 잡혀 결론이 뒤집힌다.
+
+V2_7D 이전 odb 에는 SDV17 이 없다. 그 경우 이 절만 건너뛰고
+나머지는 그대로 나온다 — 기존 odb 재추출이 깨지지 않는다.
+
 논문 대조 기준값 (Fig.A1-A3 판독):
   23C  최대점(III): 기지 sum 100% (d 0.4~0.8), 워프종 60.67%,
        워프횡 99.77%, 위프종 2.40%, 위프횡 99.29%
@@ -126,6 +140,66 @@ def collect(field, elsets):
         for v in vals:
             out.append(_sc(v.data))
     return out
+
+
+def _key(v):
+    """적분점 하나를 유일하게 가리키는 키."""
+    try:
+        inst = v.instance.name if v.instance is not None else ''
+    except AttributeError:
+        inst = ''
+    return (inst, v.elementLabel, v.integrationPoint)
+
+
+def collect_keyed(field, elsets):
+    """{(인스턴스, 요소, 적분점): 값} — 두 필드를 짝지으려면 필요하다.
+
+    두 SDV 를 각각 flat 리스트로 뽑아 순서로 짝지으면 안 된다.
+    getSubset 의 반환 순서가 필드마다 같다는 보장이 없다.
+    """
+    out = {}
+    for es in elsets:
+        try:
+            vals = field.getSubset(region=es).values
+        except Exception:
+            continue
+        for v in vals:
+            out[_key(v)] = _sc(v.data)
+    return out
+
+
+def shear_row(r1t, shr):
+    """SDV5(R1T) 와 SDV17(전단분율) 을 짝지어 개시 기구를 집계한다.
+
+    SDV17=0 은 "σ11 단독"과 "1T 미개시" 를 둘 다 뜻하므로 반드시
+    R1T>=1 로 먼저 거른다. 이 필터가 이 함수의 존재 이유다.
+    """
+    keys = [k for k in r1t if k in shr]
+    n = len(keys)
+    on = [shr[k] for k in keys if r1t[k] >= 1.0]
+    if n == 0 or not on:
+        return dict(n=n, n_onset=len(on), pct_onset=0.0, mean=float('nan'),
+                    med=float('nan'), pct_shear=float('nan'),
+                    bins=[0.0] * NBIN)
+    s = sorted(on)
+    bins = [0] * NBIN
+    for v in on:
+        i = int(v * NBIN)
+        if i >= NBIN:
+            i = NBIN - 1
+        if i < 0:
+            i = 0
+        bins[i] += 1
+    nshear = len([v for v in on if v > 0.5])
+    return dict(
+        n=n,
+        n_onset=len(on),
+        pct_onset=100.0 * len(on) / n,
+        mean=sum(on) / len(on),
+        med=s[len(s) // 2],
+        pct_shear=100.0 * nshear / len(on),
+        bins=[100.0 * b / len(on) for b in bins],
+    )
 
 
 def hist_row(vals):
@@ -274,6 +348,53 @@ def main():
             finally:
                 f.close()
             print('  wrote %s' % out)
+
+            # ---- V2_7D 진단: 얀 1T 개시 기구 (σ11 인가 전단인가) ----
+            f_r1t = resolve_sdv(names, 'RY1T', 5)
+            f_shr = resolve_sdv(names, 'YSHR1T', 17)
+            if f_shr is None or f_r1t is None:
+                print('  (SDV17 없음 - V2_7D 이전 odb. 전단분율 생략)')
+                continue
+            sets = [('Warp', swarp), ('Weft', sweft)]
+            res = {}
+            for gname, es in sets:
+                res[gname] = shear_row(collect_keyed(FD[f_r1t], es),
+                                       collect_keyed(FD[f_shr], es))
+            print('')
+            print('  얀 종방향 인장 개시 기구  (SDV5>=1 로 거른 것만)')
+            print('  %-6s %8s %8s %8s %8s %9s'
+                  % ('group', 'onset%', 'mean', 'median', 'shear%',
+                     'n_onset'))
+            for gname, _ in sets:
+                r = res[gname]
+                print('  %-6s %8.2f %8.4f %8.4f %8.2f %9d'
+                      % (gname, r['pct_onset'], r['mean'], r['med'],
+                         r['pct_shear'], r['n_onset']))
+            print('  mean 0 에 가까우면 s11 주도, 1 에 가까우면 전단 주도.')
+            print('  shear%% = 개시 요소 중 전단분율>0.5 인 비율.')
+
+            outs = os.path.join(outdir,
+                                'yarn_shear_frac%s_f%02d.csv' % (tag, fi))
+            f = csv_open(outs)
+            try:
+                w = csv.writer(f)
+                w.writerow(['BinLo', 'BinHi'] + [g for g, _ in sets])
+                for b in range(NBIN):
+                    w.writerow(['%.2f' % (b / float(NBIN)),
+                                '%.2f' % ((b + 1) / float(NBIN))]
+                               + ['%.4f' % res[g]['bins'][b]
+                                  for g, _ in sets])
+                w.writerow([])
+                for k, lab in (('pct_onset', 'onset_pct'),
+                               ('mean', 'mean_shear_frac'),
+                               ('med', 'median_shear_frac'),
+                               ('pct_shear', 'pct_shear_driven'),
+                               ('n_onset', 'n_onset')):
+                    w.writerow([lab, ''] + ['%.4f' % res[g][k]
+                                            for g, _ in sets])
+            finally:
+                f.close()
+            print('  wrote %s' % outs)
     finally:
         odb.close()
     return 0

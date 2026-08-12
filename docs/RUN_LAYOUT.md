@@ -249,16 +249,23 @@ P2 / P2T500 / P2T1000 의 냉각 끝 손상요소율이 **소수점 15 자리까
 달렸다. 읽을 것은 숫자가 아니라 **421→2835 에서 주도항이 뒤집힌다는
 사실**이다. RVE 실제 값은 P3 배치가 답한다.
 
-**적용 명령** — 사용자 PC 의 P3 덱에 (순차적 진행):
+**실행 지침서는 `docs/BATCH_P3_XT.md`** — 폴더·job 이름·코어 배분
+(10×3=30/32)·덱 편집 명령·발사 후 30분 점검·추출까지 한 장에 있다.
+
+요약하면 준비는 두 도구 두 줄이다 (순차적 진행):
 
 ```bat
-python E:\LTH\patch_depvar_yarn.py --selftest
-python E:\LTH\patch_depvar_yarn.py Try_P3\*.inp
 python E:\LTH\patch_depvar_yarn.py --apply Try_P3\*.inp
+python E:\LTH\patch_material_prop.py --material YARN --slot 11 ^
+       --value 2835.0 --expect 421.0 --apply Try_P3\*.inp
 ```
 
-미리보기 → 적용 순서다. `--apply` 는 `.bak` 을 남긴다. 멱등이라
-두 번 돌려도 안전하다.
+둘 다 `--apply` 없이 먼저 돌리면 미리보기다. `--expect 421.0` 은
+P2 덱이 아닌 것을 실수로 지정하면 멈춘다.
+
+**냉각이 P2 와 같으리라 가정하지 말 것.** XT 는 Eq.11 에 들어가므로
+냉각 중 얀이 국부적으로 종방향 인장을 받으면 냉각 손상이 달라진다.
+대체로 압축이라 거의 같을 것으로 보지만 확인 전엔 단정하지 않는다.
 
 **V2_7D + `*Depvar` 16 조합도 안전하다** — `NSTATV<17` 이면 진단만
 꺼지고 나머지는 그대로 돈다. 그래서 기존 덱이 하나도 안 깨진다.
