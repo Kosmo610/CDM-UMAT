@@ -203,6 +203,48 @@ def main():
         print(" %-26s %8.4f %14.6f %14.6f %7.1f %%"
               % (label, le, g_dam, g_pl, 100.0 * share))
 
+    # ---- the crack-band bar's trigger slice (found 2026-08-12) ---------
+    # BAR_WEAK = 0.80 was chosen to make the localisation band pick itself.
+    # It also, unintentionally, put the trigger slice's X_t at 248 MPa --
+    # BELOW sy0 = 250 -- so that slice is elastic-brittle while every slice
+    # around it is elastoplastic.  The imperfection is therefore not "20 %
+    # weaker"; it is "20 % weaker AND zero plastic dissipation", and the
+    # second half is nowhere on the card.
+    print("""
+ THE CRACK-BAND BAR'S TRIGGER SLICE IS BRITTLE AND NOBODY ASKED FOR IT
+ ---------------------------------------------------------------------""")
+    bar_weak = 0.80
+    xt_w = XT_M * bar_weak
+    gp_w = g_plastic(xt_w, SY0, HISO)[0]
+    print(" %-18s %8s %12s %12s %10s"
+          % ("slice", "X_t [MPa]", "G^e", "G^p", "plastic"))
+    print(" " + "-" * 64)
+    for nm, xt in (("strong", XT_M), ("weak (trigger)", xt_w)):
+        _gp = g_plastic(xt, SY0, HISO)[0]
+        _ge = g_elastic(xt, E_M)
+        print(" %-18s %8.1f %12.6f %12.6f %9.1f %%"
+              % (nm, xt, _ge, _gp, 100.0 * _gp / (_ge + _gp)))
+    print("""
+ The two slices do not differ in one property, they differ in two, and the
+ one nobody wrote down is the larger.  abaqus/make_patch_tests.py --brittle
+ raises sy0 above the STRONG X_t so every slice is brittle; that is the only
+ configuration in which the three meshes' energies test the crack band and
+ nothing else.
+""")
+    check("the trigger slice's X_t falls below sy0", xt_w < SY0,
+          "%.1f < %.1f MPa" % (xt_w, SY0))
+    check("so the trigger slice carries NO plastic work", gp_w == 0.0,
+          "G^p = %.6f N/mm^2" % gp_w)
+    check("while its neighbours carry more plastic than elastic",
+          gp > ge, "%.3f vs %.3f N/mm^2" % (gp, ge))
+    check("the asymmetry is larger than the strength knockdown it came with",
+          gp / (ge + gp) > (1.0 - bar_weak),
+          "plastic share %.1f %% vs knockdown %.0f %%"
+          % (100.0 * gp / (ge + gp), 100.0 * (1.0 - bar_weak)))
+    check("--brittle exists and removes it",
+          "--brittle" in open(os.path.join(ROOT, "abaqus",
+                                           "make_patch_tests.py")).read())
+
     check("the plastic share is not negligible at the RVE mesh",
           shares[0][1] > 0.05, "%.1f %% at le = %.4f mm"
           % (100.0 * shares[0][1], shares[0][0]))
