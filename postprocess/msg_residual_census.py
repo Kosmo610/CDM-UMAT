@@ -211,8 +211,61 @@ def report(msg_path, deck_path, window=400):
         m = sorted(r["mesh_mag"])
         print("\n  MESH-NODE residuals [N.mm] -- R/V does NOT apply to these")
         print("    median %.3e   max %.3e" % (m[len(m) // 2], m[-1]))
+    out = write_csv(msg_path, r)
+    print("\n  wrote %s -- UPLOAD THIS ONE" % os.path.basename(out))
     print("=" * 74)
     return 0
+
+
+def write_csv(msg_path, r):
+    """<job>_residuals.csv -- value, basis and verdict in the same row.
+
+    Added 2026-08-12.  This file printed its census to the console only, which
+    meant the one way to get the answer into a conversation was a screen
+    capture -- and this project has lost three numbers to re-typing from
+    images (the Snead sign, the Pradere unit, the refs/[28] page range).  The
+    console stays; the CSV is the deliverable.
+    """
+    import csv as _csv
+    out = os.path.splitext(msg_path)[0] + "_residuals.csv"
+    tot = float(sum(r["cats"].values())) or 1.0
+    trans = sum(v for k, v in r["cats"].items() if k.startswith("TRANSVERSE"))
+    rows = []
+    for k, v in r["cats"].most_common():
+        rows.append(dict(kind="phase", label=k, count=v,
+                         pct="%.2f" % (100.0 * v / tot), value="", basis="",
+                         verdict=""))
+    rows.append(dict(
+        kind="summary", label="transverse-yarn involvement", count=trans,
+        pct="%.2f" % (100.0 * trans / tot), value="", basis="41-57 % was the "
+        "M5 signature that motivated turning the yarn crack band on",
+        verdict="dominant" if trans > 0.4 * tot else "minor"))
+    for k, v in r["drivers"].most_common():
+        rows.append(dict(kind="driver", label=k, count=v, pct="", value="",
+                         basis="", verdict=""))
+    if r["drv_mag"]:
+        w = max(r["drv_mag"])
+        rows.append(dict(
+            kind="summary", label="worst driver residual", count="",
+            pct="", value="%.6e" % (w / V_RVE),
+            basis="MPa of macro stress = R/V_RVE, V=%.4f mm^3" % V_RVE,
+            verdict="negligible" if w / V_RVE < 1.0e-2 else "significant"))
+    if r["mesh_mag"]:
+        m = sorted(r["mesh_mag"])
+        rows.append(dict(
+            kind="summary", label="mesh-node residual median", count="",
+            pct="", value="%.6e" % m[len(m) // 2],
+            basis="N.mm; R/V does NOT apply to a mesh node", verdict=""))
+        rows.append(dict(
+            kind="summary", label="mesh-node residual max", count="", pct="",
+            value="%.6e" % m[-1], basis="N.mm", verdict=""))
+    cols = ["kind", "label", "count", "pct", "value", "basis", "verdict"]
+    with open(out, "w") as fh:
+        w = _csv.writer(fh)
+        w.writerow(cols)
+        for row in rows:
+            w.writerow([row.get(c, "") for c in cols])
+    return out
 
 
 # ==========================================================================
@@ -260,6 +313,23 @@ def selftest():
                      % node)
     with open(msg, "w") as f:
         f.write("\n".join(lines) + "\n")
+
+    # The CSV is the deliverable (CLAUDE.md 3-2), so it is checked here and
+    # not left to the first real run to discover.
+    r = census(msg, deck)
+    out = write_csv(msg, r)
+    import csv as _csv
+    got = list(_csv.DictReader(open(out)))
+    ck("the census writes a CSV, not just a console log", bool(got),
+       "%d rows -> %s" % (len(got), os.path.basename(out)))
+    ck("  every row carries kind, label and a basis column",
+       all(set(g) == {"kind", "label", "count", "pct", "value", "basis",
+                      "verdict"} for got_ in [got] for g in got_))
+    ck("  the transverse share appears as a summary row with its verdict",
+       any(g["label"].startswith("transverse-yarn") and g["verdict"]
+           for g in got))
+    ck("  and a driver residual is reported in MPa, not in N.mm",
+       any("MPa of macro stress" in g["basis"] for g in got))
 
     n2s, drv, sets = parse_deck(deck)
     ck("element sets parsed, 'All' excluded as a phase",

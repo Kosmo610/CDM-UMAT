@@ -183,17 +183,30 @@ TRIAGE = [
 
     # ---- yarn card, softening-law shape ----------------------------------
     ("yarn", "X_PO", 700.0, "KNOB",
-     "auxiliary variable of Ge Eq.16-17.  The authors published the equation "
-     "and not the constant, so there is nothing to source"),
+     "auxiliary variable of Ge Eq.16-17.  The search is CLOSED, not open: "
+     "a1-0035 obtained the lineage's primary source (refs/[73] Zhong 2015, "
+     "the Ref.30 Zhang deferred to) and it does not publish S_po either -- "
+     "Table 1 has the constituent elastic constants and S_f,1t, Table 2 the "
+     "architecture, and the number appears nowhere in the text.  So this is "
+     "a DECLARED knob, not a value still being hunted.  And the whole "
+     "lineage is EPOXY-matrix (refs/[73] TDE-86 with T700/T300, Ge refs/[24] "
+     "carbon/phenolic), so even a published number would have entered a "
+     "C/SiC card as DEV -- which is the strongest defence of calibrating it"),
     ("yarn", "rF", 3.0, "DERIVED",
      "NOT an independent input.  Ge refs/[24] Eq.(17), third line, fixes the "
      "transition point r^F_f,1t from X_PO and X_1t, so rF is computed from "
      "slots 36/38 rather than tuned.  Leaving it free lets slots 36/37/38 "
      "specify three mutually inconsistent transition points.  Regraded "
      "2026-08-11 from KNOB after reading the Ge original "
-     "(refs/GE2018_EXTRACTION.md, sent to a1 as a2-0028)"),
+     "(refs/GE2018_EXTRACTION.md, sent to a1 as a2-0028).  a1-0035 then "
+     "confirmed it from the lineage's own primary source: refs/[73] states "
+     "that r^F_f,1t and S_po 'are on the intersection of linear and "
+     "exponential laws', which is the same intersection condition arrived at "
+     "independently.  The shape parameters are therefore FOUR, not five"),
     ("yarn", "K1", 8000.0, "KNOB",
-     "linear softening slope of the same unpublished equation"),
+     "linear softening slope of the same unpublished equation.  Closed by "
+     "a1-0035 on the same evidence as X_PO: refs/[73] does not publish K_f,1 "
+     "either, and its matrix is epoxy"),
 
     # ---- yarn card, derived ----------------------------------------------
     ("yarn", "Xc", 1956.0, "DERIVED",

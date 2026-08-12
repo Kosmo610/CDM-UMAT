@@ -220,7 +220,10 @@ def answers():
         dict(question="Zhang의 Ref.[30] (식 18 파라미터 출처)",
              answer=r30, their_belief="실체 미상 -- 목록에 넣지 않음",
              verdict="IDENTIFIED",
-             note="X_PO / r_F / K1 의 출처가 확정되었다. PDF는 아직 미보유"),
+             note="X_PO / r_F / K1 의 출처가 확정되었다. PDF도 확보됐다 "
+                  "(refs/[73] Zhong 2015, a1-0035) -- 그런데 그 원전에도 "
+                  "X_PO·K1 수치는 없다. 추적은 '못 찾음'이 아니라 '없음'으로 "
+                  "닫혔고, 계보 전체가 에폭시 기지라 있었어도 DEV였다"),
         dict(question="Zhang의 Ref.[32] Chamis 판본",
              answer=r32,
              their_belief="1984 SAMPE Q. (LIKELY) 또는 1987 JRPC (대안)",
@@ -354,8 +357,16 @@ def check():
       "" if gap else "git fetch origin " + REVIEW_BRANCH)
     if gap:
         tp, op, td, od = gap
-        t("this branch holds far more of the library", op > 20 * max(tp, 1),
-          "%d vs %d PDFs" % (op, tp))
+        # 2026-08-12: a3 merged the analysis branch and now carries the
+        # library itself.  The old form -- op > 20 * tp -- encoded the
+        # premise "the auditor has no originals", and a3 deliberately
+        # removed that premise, so the check went red for the RIGHT reason.
+        # Keep the check's INTENT, which was never the size of the gap: it
+        # was whether an audit is being made with the papers in hand.  That
+        # is the failure mode this file exists to catch -- a source-less
+        # audit downgraded a correct Ge citation to "our own assumption".
+        t("the auditor has the library in hand", tp >= 20,
+          "%d PDFs on the review branch (we hold %d)" % (tp, op))
         t("the two drafts are different documents",
           len(td) >= 3 and len(od) >= 7,
           "%d paper/ files vs %d docs/CH files" % (len(td), len(od)))

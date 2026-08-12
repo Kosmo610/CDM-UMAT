@@ -92,23 +92,65 @@ def load(path):
         return {float(r["N"]): r for r in csv.DictReader(fh)}
 
 
+#: Below this, d_cyc is numerical dust and no ratio taken against it means
+#: anything.  The 2026-08-12 run reported "400.002 %" on d_cyc = 2e-6 against
+#: an explicit 4e-7 -- both of which are zero for every purpose this thesis
+#: has -- and printed it directly under a verdict of "OK: 0.00 %".  The two
+#: lines contradicted each other and both were technically true, which is the
+#: worst kind of output a checker can produce.
+DCYC_FLOOR = 1.0e-4
+
+
 def compare(explicit, jumped):
-    """Rows of (N, quantity, explicit, jumped, rel_err) at shared N."""
+    """Rows of (N, quantity, explicit, jumped, rel_err) at shared N.
+
+    rel_err is None when the baseline is below the floor for its quantity.
+    None prints as "--", not as a number, because a percentage computed on
+    dust looks exactly like a percentage computed on a measurement.
+    """
     rows = []
     for n in sorted(set(explicit) & set(jumped)):
         for key in ("E_over_E0", "dcyc_mean", "dcyc_max"):
             a = float(explicit[n][key])
             b = float(jumped[n][key])
-            denom = abs(a) if abs(a) > 1e-12 else 1.0
-            rows.append((n, key, a, b, abs(b - a) / denom))
+            floor = DCYC_FLOOR if key.startswith("dcyc") else 1.0e-12
+            if abs(a) < floor and abs(b) < floor:
+                rows.append((n, key, a, b, None))
+            else:
+                denom = max(abs(a), floor)
+                rows.append((n, key, a, b, abs(b - a) / denom))
     return rows
+
+
+def cycling_happened(rows):
+    """Did either run accumulate cycle damage worth comparing?
+
+    A jump-error measured on a job where d_cyc never left the floor is not a
+    small error -- it is no test at all.  Saying "OK" there would certify the
+    jump on the strength of a run in which nothing happened, which is exactly
+    what this file did on 2026-08-12: the CJHEAT job it depended on had been
+    built on the placeholder thermal card, so the plate swung 900 -> 898.9 C
+    instead of 900 -> 300, and d_cyc stayed at 2e-6.
+    """
+    return any(max(abs(r[2]), abs(r[3])) >= DCYC_FLOOR
+               for r in rows if r[1].startswith("dcyc"))
 
 
 def verdict(rows):
     """(worst E-error, verdict string).  E rules; d_cyc is diagnostic."""
-    es = [r[4] for r in rows if r[1] == "E_over_E0" and r[0] > 0]
+    es = [r[4] for r in rows
+          if r[1] == "E_over_E0" and r[0] > 0 and r[4] is not None]
     if not es:
         return None, "no shared post-cycling checkpoint -- nothing compared"
+    if not cycling_happened(rows):
+        return None, (
+            "VOID: d_cyc never rose above %.0e in EITHER run, so there is no "
+            "cycle damage for the jump to get wrong.  This measures nothing "
+            "about the jump.  Check the temperature history first -- "
+            "extract_probe.py's stepdiag CSV shows whether the quench and "
+            "reheat steps actually swing, and a plate that only moves a "
+            "kelvin or two is a thermal CARD problem, not a jump problem."
+            % DCYC_FLOOR)
     w = max(es)
     if w < THRESH_OK:
         return w, ("OK: %.2f %% -- under refs/[10]'s smallest published "
@@ -153,6 +195,37 @@ def selftest():
     ck("N=0-only overlap says so instead of declaring victory",
        w is None and "nothing compared" in v)
 
+    # ---- the 2026-08-12 run, reproduced exactly ------------------------
+    # LTH_CJ1/LTH_CJ5 read a CJHEAT job built on the placeholder thermal
+    # card, so the plate swung 900 -> 898.9 C and d_cyc stayed at 2e-6.
+    # This file printed "400.002 %" on d_cyc and, three lines later, "OK:
+    # 0.00 %".  Both were true of their own column and together they were
+    # worthless.  Every check below fails on the OLD behaviour.
+    dead_ex = {0.0: dict(E_over_E0="1.0", dcyc_mean="0", dcyc_max="0"),
+               20.0: dict(E_over_E0="0.999813", dcyc_mean="0.0000004",
+                          dcyc_max="0.0000004")}
+    dead_jm = {0.0: dead_ex[0.0],
+               20.0: dict(E_over_E0="0.999822", dcyc_mean="0.000002",
+                          dcyc_max="0.000002")}
+    dead = compare(dead_ex, dead_jm)
+    w, v = verdict(dead)
+    ck("a run where d_cyc never grew is VOID, not OK",
+       w is None and v.startswith("VOID"))
+    ck("  and the verdict says to look at the temperature history first",
+       "stepdiag" in v and "thermal CARD" in v)
+    ck("  no percentage is printed against a baseline of dust",
+       all(e is None for nn, key, a, b, e in dead if key.startswith("dcyc")),
+       "the old code printed 400.002 %")
+    ck("  while the stiffness column, which is real, still gets its number",
+       all(e is not None for nn, key, a, b, e in dead
+           if key == "E_over_E0" and nn > 0))
+    # The floor must not swallow a real result: 0.30 vs 0.31 is 3 %, and
+    # three orders of magnitude above the floor.
+    ck("a genuine d_cyc comparison is untouched by the floor",
+       cycling_happened(compare(ex, jm)))
+    ck("  and the floor sits far below any d_cyc worth reporting",
+       DCYC_FLOOR < 0.30 / 1000.0, "floor %.0e vs a real 0.30" % DCYC_FLOOR)
+
     # a1-0021: the two citations do different jobs, and the tolerance gap
     # is a number that must not quietly go missing from the limitation.
     ck("refs/[57] is named the criterion's SOURCE, not an alternative",
@@ -182,9 +255,28 @@ def main(argv):
     print("%-6s %-11s %12s %12s %10s" % ("N", "quantity", "explicit",
                                          "jumped", "rel.err"))
     for nn, key, a, b, e in rows:
-        print("%-6g %-11s %12.6f %12.6f %9.3f %%" % (nn, key, a, b, 100 * e))
+        print("%-6g %-11s %12.6f %12.6f %9s" %
+              (nn, key, a, b,
+               "--" if e is None else "%.3f %%" % (100 * e)))
+    if any(e is None for _, _, _, _, e in rows):
+        print("\n  '--' = the baseline is below the floor (d_cyc %.0e), so a"
+              % DCYC_FLOOR)
+        print("  ratio against it would be a percentage of nothing.")
     w, v = verdict(rows)
     print("\n" + v)
+    # The CSV is the deliverable (CLAUDE.md 3-2), and it has to carry the
+    # verdict too -- a console line does not survive being pasted into chat.
+    out = "cyclejump_summary.csv"
+    with open(out, "w") as fh:
+        fh.write("N,quantity,explicit,jumped,rel_err_pct,dcyc_floor,verdict\n")
+        for nn, key, a, b, e in rows:
+            fh.write("%g,%s,%.9g,%.9g,%s,%g,%s\n"
+                     % (nn, key, a, b,
+                        "" if e is None else "%.4f" % (100 * e),
+                        DCYC_FLOOR, v.split(":")[0].split(" --")[0]))
+    print("wrote %s -- UPLOAD THIS ONE" % out)
+    if w is None:
+        return 1
     print("\nCONDITIONAL ON THE DAMAGE-INCREMENT TOLERANCE.  This error was")
     print("measured with max_djump = %g (retune_deck.py D_DJUMP), the cap the"
           % _djump())
@@ -192,7 +284,7 @@ def main(argv):
     print("the same quantity but with an example tolerance of 0.01 -- ours is")
     print("10x looser, so quote the number above together with the tolerance")
     print("it was measured at, never on its own.")
-    return 0 if w is not None and w < THRESH_WARN else 1
+    return 0 if w < THRESH_WARN else 1
 
 
 def _djump(default=0.10):
