@@ -34,8 +34,13 @@ import os
 try:
     from odbAccess import openOdb
 except ImportError:
-    sys.exit("odbAccess not found -- run this with 'abaqus python', "
-             "not with plain python.")
+    # Not fatal at import time.  Everything that DECIDES something here --
+    # the volume-weighted fractions, the ATEFF clamp threshold, the verdict
+    # columns -- is plain arithmetic, and --check exercises exactly that part
+    # with ordinary python.  Exiting on import instead meant this file could
+    # not be in the gate at all, which is how it reached 2026-08-12 with no
+    # test despite deciding whether a strength may be quoted.
+    openOdb = None
 
 # SDV slots, from the *Depvar block in the deck.
 #
@@ -176,7 +181,8 @@ def mean_stress(frame, region):
     return [a / tot for a in acc], tot
 
 
-def report_region(frame, label, region, sdvlist):
+def report_region(frame, label, region, sdvlist, rows=None,
+                  step=""):
     print("  --- %s" % label)
     ms = mean_stress(frame, region)
     if ms:
@@ -203,6 +209,11 @@ def report_region(frame, label, region, sdvlist):
                   % (var, name))
             continue
         st = stats(pairs)
+        if rows is not None:
+            for k in ("mean", "p50", "p90", "p99", "mx"):
+                rows.append(dict(step=step, region=label, quantity=var,
+                                 stat=k, value="%.6f" % st[k],
+                                 basis=name, verdict=""))
         print("      %-9s %s" % (var, name))
         print("        mean %.4f  p50 %.4f  p90 %.4f  p99 %.4f  max %.4f"
               % (st["mean"], st["p50"], st["p90"], st["p99"], st["mx"]))
@@ -222,20 +233,66 @@ def report_region(frame, label, region, sdvlist):
             if clamped > 0.05:
                 print("        ** over 5 %% -- do not quote a strength from "
                       "this run without saying so **")
+            if rows is not None:
+                rows.append(dict(
+                    step=step, region=label, quantity=var, stat="clamped_frac",
+                    value="%.6f" % clamped,
+                    basis="volume fraction with ATEFF >= %.0f, the KABAND "
+                          "snap-back clamp" % ATEFF_CLAMP,
+                    verdict=("STRENGTH NOT QUOTABLE" if clamped > 0.05
+                             else "quotable")))
             continue
         bins = R_BINS if kind == "r" else D_BINS
         txt = "  ".join("%s>=%.2f: %5.1f%%"
                         % (kind, b, 100.0 * frac_over(pairs, b)) for b in bins)
         print("        volume fraction   %s" % txt)
+        if rows is not None:
+            for b in bins:
+                rows.append(dict(
+                    step=step, region=label, quantity=var,
+                    stat="frac_over_%.2f" % b,
+                    value="%.6f" % frac_over(pairs, b),
+                    basis="volume fraction of the region with %s >= %.2f"
+                          % (kind, b),
+                    verdict=("AT THE CARD CEILING" if kind == "d" and b >= 0.9
+                             and frac_over(pairs, b) > 0.05 else "")))
+
+
+CSV_COLUMNS = ["step", "region", "quantity", "stat", "value", "basis",
+               "verdict"]
+
+
+def write_csv(odb_path, rows):
+    """<job>_damage_census.csv -- value, basis and verdict in one row.
+
+    Added 2026-08-12.  m6_verdict.py refuses to let a strength be quoted
+    before this script reports the ATEFF clamped fraction, which made the
+    console-only output a bottleneck on the thesis's headline numbers: the
+    only way to move them into a conversation was a screen capture, and this
+    project has lost three numbers to re-typing from images.  The console
+    output is unchanged; the CSV is the deliverable.
+    """
+    import csv as _csv
+    out = os.path.splitext(odb_path)[0] + "_damage_census.csv"
+    with open(out, "w") as fh:
+        w = _csv.writer(fh)
+        w.writerow(CSV_COLUMNS)
+        for r in rows:
+            w.writerow([r.get(c, "") for c in CSV_COLUMNS])
+    return out
 
 
 def main():
     if len(sys.argv) < 2:
         sys.exit("usage: abaqus python damage_census.py <job.odb>")
+    if openOdb is None:
+        sys.exit("odbAccess not found -- run this with 'abaqus python', "
+                 "not with plain python.")
     path = sys.argv[1]
     if not os.path.exists(path):
         sys.exit("no such file: %s" % path)
     odb = openOdb(path, readOnly=True)
+    rows = []
     inst, sets = find_sets(odb)
     print("=" * 72)
     print("damage census: %s" % path)
@@ -264,9 +321,10 @@ def main():
                   "damage number below is unavailable.  Check the .dat file "
                   "for a warning on the *Element Output line.")
         if "Matrix" in sets:
-            report_region(fr, "Matrix", sets["Matrix"], MATRIX_SDV)
+            report_region(fr, "Matrix", sets["Matrix"], MATRIX_SDV,
+                          rows, sname)
         for k, es in enumerate(sets.get("Yarn", [])):
-            report_region(fr, "Yarn%d" % k, es, YARN_SDV)
+            report_region(fr, "Yarn%d" % k, es, YARN_SDV, rows, sname)
 
         # driver reaction, if the history is there
         for rname in step.historyRegions.keys():
@@ -278,8 +336,82 @@ def main():
                     print("  driver %-22s U1 = %.6e   RF1 = %.6e"
                           % (rname, u[1], rf[1]))
     odb.close()
+    out = write_csv(path, rows)
+    print("\n  wrote %s -- UPLOAD THIS ONE" % os.path.basename(out))
     print("=" * 72)
 
 
+def selftest():
+    """No odb needed: everything that DECIDES something is plain arithmetic."""
+    fails = []
+
+    def ck(name, ok, detail=""):
+        print("  [%s] %-58s %s" % ("PASS" if ok else "FAIL", name, detail))
+        if not ok:
+            fails.append(name)
+
+    print("damage_census.py --check")
+    print("\n A. the volume fraction is by VOLUME, not by element count")
+    # One huge undamaged element and nine tiny saturated ones: counting
+    # elements says 90 %, weighting by volume says 9 %.  The card ceiling
+    # verdict hangs on this, so it is worth a check of its own.
+    pairs = [(0.0, 100.0)] + [(0.95, 1.0)] * 9
+    ck("nine small saturated elements are 8.3 %, not 90 %",
+       abs(frac_over(pairs, 0.9) - 9.0 / 109.0) < 1e-12,
+       "%.4f by volume" % frac_over(pairs, 0.9))
+    ck("an empty region does not divide by zero",
+       frac_over([], 0.9) == 0.0)
+
+    print("\n B. the ATEFF clamp threshold is the one KABAND uses")
+    ck("ATEFF_CLAMP matches the KABAND upper clamp",
+       abs(ATEFF_CLAMP - 50.0) < 1e-12, "A = %g" % ATEFF_CLAMP)
+    # Just below the clamp is not clamped; at it, it is.  KABAND sets exactly
+    # ATEFF_CLAMP on snap-back, so a >= test with a tolerance is required.
+    ck("an element at the clamp counts, one just below does not",
+       frac_over([(ATEFF_CLAMP, 1.0)], ATEFF_CLAMP - 1e-9) == 1.0
+       and frac_over([(ATEFF_CLAMP - 0.1, 1.0)], ATEFF_CLAMP - 1e-9) == 0.0)
+
+    print("\n C. the CSV carries value, basis and verdict together")
+    import csv as _csv
+    import tempfile
+    d = tempfile.mkdtemp()
+    rows = [dict(step="Tension", region="Yarn0", quantity="SDV_ATEFF",
+                 stat="clamped_frac", value="0.120000",
+                 basis="volume fraction with ATEFF >= 50, the KABAND "
+                       "snap-back clamp",
+                 verdict="STRENGTH NOT QUOTABLE"),
+            dict(step="Tension", region="Yarn0", quantity="SDV_DYT",
+                 stat="frac_over_0.90", value="0.310000",
+                 basis="volume fraction of the region with d >= 0.90",
+                 verdict="AT THE CARD CEILING")]
+    out = write_csv(os.path.join(d, "j.odb"), rows)
+    ck("it is named after the job, not a fixed filename",
+       os.path.basename(out) == "j_damage_census.csv", os.path.basename(out))
+    got = list(_csv.DictReader(open(out)))
+    ck("every promised column exists", set(got[0]) == set(CSV_COLUMNS))
+    ck("a clamped fraction over 5 %% says the strength is not quotable",
+       got[0]["verdict"] == "STRENGTH NOT QUOTABLE",
+       "m6_verdict.py refuses to quote one without this row")
+    ck("and saturation at the card ceiling is named as such",
+       got[1]["verdict"] == "AT THE CARD CEILING")
+    ck("an odb with no SDV fields still writes a header-only CSV",
+       len(list(_csv.DictReader(open(write_csv(
+           os.path.join(d, "empty.odb"), []))))) == 0)
+
+    print("\n D. the percentile summary is order-independent")
+    a = stats([(0.1, 1.0), (0.9, 1.0), (0.5, 1.0)])
+    b = stats([(0.9, 1.0), (0.5, 1.0), (0.1, 1.0)])
+    ck("shuffling the elements does not change the statistics",
+       a == b, "max %.4f" % a["mx"])
+
+    if fails:
+        print("\nSELFTEST FAILED: %s" % ", ".join(fails))
+        return 1
+    print("\nSELFTEST PASSED")
+    return 0
+
+
 if __name__ == "__main__":
+    if "--check" in sys.argv or "--selftest" in sys.argv:
+        sys.exit(selftest())
     main()
