@@ -132,8 +132,13 @@ def main():
     print("\n D. the limitations list is honest and complete")
     lim = re.search(r"(?ms)^## 7\.3 .*?(?=^## 7\.4 )", txt)
     L = lim.group(0) if lim else ""
-    check("eleven numbered limitations", len(
-        re.findall(r"(?m)^\d+\. ", L)) == 11)
+    # 2026-08-11: 11 -> 12.  The crack band regularises the DAMAGE
+    # dissipation only; the matrix plastic work is dissipated in the same
+    # band and stays proportional to l_e, so the TOTAL is mesh-dependent
+    # even when the band is perfect.  Measured by
+    # verification/plastic_dissipation_audit.py.
+    check("twelve numbered limitations", len(
+        re.findall(r"(?m)^\d+\. ", L)) == 12)
     for needle, why in (
             ("분위기 변수가 없다", "one-atmosphere model"),
             ("미측정", "the 900-1200 hole"),
@@ -145,10 +150,21 @@ def main():
             ("예측이 아니다", "band width"),
             ("빌려온", "borrowed matrix card"),
             ("PIP인데", "process mismatch"),
-            ("독립성이 완전하지 않다", "target independence")):
+            ("독립성이 완전하지 않다", "target independence"),
+            ("소성 소산은 놓아준다", "plastic work is outside the crack band")):
         check("  covers: %s" % why, needle in L)
     check("the two unresolved 6.2.3 rows surface here too",
           "굽힘" in L)
+    # The plastic-share numbers must be the audit's, not typed ones.
+    sys.path.insert(0, HERE)
+    import plastic_dissipation_audit as pda
+    _ge = pda.g_elastic(pda.XT_M, pda.E_M)
+    _gp = pda.g_plastic(pda.XT_M, pda.SY0, pda.HISO)[0]
+    for le, want in ((pda.LE_RVE_MEAN, "16.1"), (pda.LE_RVE_MAX, "42.3")):
+        share = 100.0 * (_gp * le) / ((pda.GMT - _ge * le) + _gp * le)
+        check("  plastic share at le=%.4f mm is re-derived, not typed" % le,
+              abs(share - float(want)) < 0.05 and want + " %" in L,
+              "%.1f %% (text says %s %%)" % (share, want))
 
     # ------------------------------------------------------------------ E
     print("\n E. citations resolve against Ch.2's table")

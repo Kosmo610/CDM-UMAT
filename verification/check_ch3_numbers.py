@@ -144,7 +144,7 @@ CASES = [
      count_plain, 63),
     ("check_ch7_numbers.py",
      "python3 verification/check_ch7_numbers.py",
-     count_plain, 38),
+     count_plain, 41),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
      count_plain, 213),
@@ -319,6 +319,27 @@ def main():
           m.group(1) + " %" if m else "not found")
     check("Vf = 0.79194 recovered from E1", "0.79194" in out or True,
           "reported in VERIFICATION_REPORT")
+
+    # 3.8-7: the plastic-dissipation table must be the audit's numbers.
+    # The chapter uses them to warn that the N=5 bar's dissipated energy is
+    # 90 % plastic, which is what stops the crack-band bars being read as a
+    # pure regularisation test -- so a typed number here would mislead.
+    print("\n section 3.8-7 -- plastic share of the dissipated energy")
+    sys.path.insert(0, HERE)
+    import plastic_dissipation_audit as pda
+    _ge = pda.g_elastic(pda.XT_M, pda.E_M)
+    _gp = pda.g_plastic(pda.XT_M, pda.SY0, pda.HISO)[0]
+    sec = text.split("7. **균열대가 붙드는 것은")[-1].split("\n### ")[0]
+    for le, want in ((pda.LE_RVE_MEAN, "16.1"), (pda.LE_RVE_MAX, "42.3"),
+                     (0.200, "90.5"), (0.100, "49.3"), (0.050, "25.8")):
+        share = 100.0 * (_gp * le) / ((pda.GMT - _ge * le) + _gp * le)
+        check("le=%.4f mm -> %s %% plastic" % (le, want),
+              abs(share - float(want)) < 0.05 and ("**%s %%**" % want) in sec,
+              "%.1f %%" % share)
+    check("3.8-7 points at the audit script",
+          "plastic_dissipation_audit.py" in sec)
+    check("3.8-7 records the withdrawal rather than the old gap",
+          "철회하였다" in sec and "과대추정" in sec)
 
     # the grand total the chapter states
     print("\n the grand total stated in Ch.3 section 3.1")
