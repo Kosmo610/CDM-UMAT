@@ -75,7 +75,7 @@ CASES = [
      count_bracketed, 5),
     ("make_macro_thermalshock.py --selftest",
      "python3 abaqus/make_macro_thermalshock.py --selftest",
-     count_bracketed, 81),
+     count_bracketed, 92),
     ("conductivity_bounds.py --check",
      "python3 data/properties/conductivity_bounds.py --check",
      count_bracketed, 34),
@@ -87,7 +87,7 @@ CASES = [
      count_bracketed, 31),
     ("cte_sensitivity.py --check",
      "python3 data/properties/cte_sensitivity.py --check",
-     count_bracketed, 59),
+     count_bracketed, 61),
     ("cte_r11_envelope.py --check",
      "python3 data/literature/cte_r11_envelope.py --check",
      count_bracketed, 27),
@@ -106,6 +106,9 @@ CASES = [
     ("make_property_workbook.py --check",
      "python3 data/properties/make_property_workbook.py --check",
      count_bracketed, 22),
+    ("compare_tangent.py --selftest",
+     "python3 postprocess/compare_tangent.py --selftest",
+     count_bracketed, 21),
     ("msg_residual_census.py --check",
      "python3 postprocess/msg_residual_census.py --check",
      count_bracketed, 12),
@@ -123,7 +126,7 @@ CASES = [
      count_bracketed, 12),
     ("retune_deck.py --check",
      "python3 abaqus/retune_deck.py --check",
-     count_plain, 131),
+     count_plain, 156),
     ("check_ch1_numbers.py",
      "python3 verification/check_ch1_numbers.py",
      count_plain, 53),
@@ -138,10 +141,10 @@ CASES = [
      count_plain, 54),
     ("check_ch4_numbers.py",
      "python3 verification/check_ch4_numbers.py",
-     count_plain, 63),
+     count_plain, 75),
     ("check_ch7_numbers.py",
      "python3 verification/check_ch7_numbers.py",
-     count_plain, 38),
+     count_plain, 41),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
      count_plain, 215),
@@ -153,7 +156,7 @@ CASES = [
      count_plain, 14),
     ("prerun_gate.py --check",
      "python3 verification/prerun_gate.py --check",
-     count_bracketed, 30),
+     count_bracketed, 40),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
      count_bracketed, 5),
@@ -172,6 +175,9 @@ CASES = [
     ("cte_composite_targets.py --check",
      "python3 data/literature/cte_composite_targets.py --check",
      count_bracketed, 32),
+    ("cte_rve_verdict.py --check",
+     "python3 data/literature/cte_rve_verdict.py --check",
+     count_bracketed, 38),
     ("modulus_definition.py --check",
      "python3 data/literature/modulus_definition.py --check",
      count_bracketed, 25),
@@ -190,6 +196,9 @@ CASES = [
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
      count_plain, 33),
+    ("plastic_dissipation_audit.py",
+     "python3 verification/plastic_dissipation_audit.py",
+     count_plain, 15),
     ("knob_sensitivity.py --check",
      "python3 verification/knob_sensitivity.py --check",
      count_bracketed, 47),
@@ -203,7 +212,7 @@ CASES = [
          r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 10),
     ("make_thesis_figures.py --check",
      "python3 postprocess/make_thesis_figures.py --check",
-     count_bracketed, 29),
+     count_bracketed, 40),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
      count_bracketed, 33),
@@ -227,7 +236,7 @@ CASES = [
      count_bracketed, 40),
     ("extract_thermal_profile.py --selftest",
      "python3 postprocess/extract_thermal_profile.py --selftest",
-     count_bracketed, 20),
+     count_bracketed, 31),
     ("homogenize.py --selftest",
      "python3 postprocess/homogenize.py --selftest",
      count_bracketed, 18),
@@ -313,6 +322,53 @@ def main():
           m.group(1) + " %" if m else "not found")
     check("Vf = 0.79194 recovered from E1", "0.79194" in out or True,
           "reported in VERIFICATION_REPORT")
+
+    # 3.8-7: the plastic-dissipation table must be the audit's numbers.
+    # The chapter uses them to warn that the N=5 bar's dissipated energy is
+    # 90 % plastic, which is what stops the crack-band bars being read as a
+    # pure regularisation test -- so a typed number here would mislead.
+    print("\n section 3.8-7 -- plastic share of the dissipated energy")
+    sys.path.insert(0, HERE)
+    import plastic_dissipation_audit as pda
+    _ge = pda.g_elastic(pda.XT_M, pda.E_M)
+    _gp = pda.g_plastic(pda.XT_M, pda.SY0, pda.HISO)[0]
+    sec = text.split("7. **균열대가 붙드는 것은")[-1].split("\n### ")[0]
+    for le, want in ((pda.LE_RVE_MEAN, "16.1"), (pda.LE_RVE_MAX, "42.3"),
+                     (0.200, "90.5"), (0.100, "49.3"), (0.050, "25.8")):
+        share = 100.0 * (_gp * le) / ((pda.GMT - _ge * le) + _gp * le)
+        check("le=%.4f mm -> %s %% plastic" % (le, want),
+              abs(share - float(want)) < 0.05 and ("**%s %%**" % want) in sec,
+              "%.1f %%" % share)
+    check("3.8-7 points at the audit script",
+          "plastic_dissipation_audit.py" in sec)
+    check("3.8-7 records the withdrawal rather than the old gap",
+          "철회하였다" in sec and "과대추정" in sec)
+
+    # 3.8-5a: the bar's trigger slice was brittle by accident.  This is the
+    # kind of finding that quietly disappears, so the chapter's numbers are
+    # re-derived here rather than trusted.
+    print("\n section 3.8-5a -- the trigger slice's unintended brittleness")
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    import make_patch_tests as mpt
+    xt_w = mpt.MATRIX_CARD[3] * mpt.BAR_WEAK
+    sy0 = mpt.MATRIX_CARD[mpt.MATRIX_SY0_SLOT - 1]
+    sec5a = text.split("5-a. **트리거")[-1].split("\n6. ")[0]
+    check("the weak slice really is below sy0", xt_w < sy0,
+          "%.1f < %.1f" % (xt_w, sy0))
+    check("3.8-5a quotes that X_t", "**248 MPa**" in sec5a and
+          abs(xt_w - 248.0) < 1e-9)
+    check("3.8-5a quotes sy0", "**250 MPa**" in sec5a and abs(sy0 - 250.0) < 1e-9)
+    _gp_s = pda.g_plastic(mpt.MATRIX_CARD[3], pda.SY0, pda.HISO)[0]
+    _ge_s = pda.g_elastic(mpt.MATRIX_CARD[3], pda.E_M)
+    check("3.8-5a's 55.0 %% plastic share is re-derived",
+          abs(100.0 * _gp_s / (_ge_s + _gp_s) - 55.0) < 0.05
+          and "**55.0 %**" in sec5a)
+    check("and the trigger slice's zero is real",
+          pda.g_plastic(xt_w, pda.SY0, pda.HISO)[0] == 0.0
+          and "**0 %**" in sec5a)
+    check("3.8-5a points at --brittle as the fix", "--brittle" in sec5a)
+    check("3.8-5a routes the regularisation verdict to the _BR bars",
+          "_BR` 봉으로 한다" in sec5a)
 
     # the grand total the chapter states
     print("\n the grand total stated in Ch.3 section 3.1")

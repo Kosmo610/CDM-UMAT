@@ -174,18 +174,67 @@ def savings(m):
     return naive - actual, naive, actual
 
 
+def thermal_card_magnitude_fixed():
+    """Is the macro THERMAL card's magnitude actually decided?
+
+    a2-0036 caught this file answering that question with the wrong evidence.
+    It used to test whether postprocess/kbar_summary.csv EXISTS, and reported
+    a missing file as "the macro thermal card's magnitude is not fixed".  That
+    reads as "S2 is blocked", and S2 is not blocked.
+
+    The RVE_COND job has already run.  Its answer, 5.449 W/(m.K) at 23 C, is
+    wired into data/properties/conductivity_temperature.py as KBAR3_FE, and
+    Ch.4 4.9 / Ch.5 5.4.2 fix h = 161.7 and Bi = 0.0445 from it.  So the card
+    is decided, and the right test is whether that wiring is in place -- not
+    whether a summary file happens to be sitting in the repository.
+
+    The most expensive mistake this project can make is not running a job it
+    could have run.  A missing artefact file must never masquerade as one.
+    """
+    ct = os.path.join(ROOT, "data", "properties", "conductivity_temperature.py")
+    if not os.path.exists(ct):
+        return False
+    src = open(ct, encoding="utf-8").read()
+    m = re.search(r"^KBAR3_FE\s*=\s*([0-9.]+)", src, re.M)
+    return m is not None and float(m.group(1)) > 0.0
+
+
+def s3_deck_is_placeholder(deck_text):
+    """Does an S3 mechanical deck still carry the placeholder macro card?
+
+    a2-0034 pointed out that the S3 gate does not need a human to eyeball the
+    card: make_macro_thermalshock.py stamps this exact comment into a deck
+    built on the placeholder.  So the gate can be executed instead of read.
+    """
+    return PLACEHOLDER_MARK in deck_text
+
+
+#: The stamp make_macro_thermalshock.py writes into a placeholder deck.
+PLACEHOLDER_MARK = "PLACEHOLDER macro card -- replace with the RVE output"
+
+
 def outstanding():
-    """Source-side items that gate a stage, with who owns each."""
+    """Source-side items that gate a stage, with who owns each.
+
+    Each entry is (stage, what is actually blocked, owner).  "What is actually
+    blocked" is the part a2-0036 made this file get right: a deliverable that
+    is missing does not automatically block the jobs downstream of it.
+    """
     out = []
     mac = os.path.join(ROOT, "abaqus", "make_macro_thermalshock.py")
     src = open(mac, encoding="utf-8").read() if os.path.exists(mac) else ""
     if "REF20_K_RATIO" in src and "conductivity_temperature" not in src:
         out.append(("S2", "k(T) 형상이 아직 refs/[20] 차용값이다 (a1-0031 판정: "
                     "기각). 배선 전에는 열 잡이 재실행 대상이다", "a2"))
+    if not thermal_card_magnitude_fixed():
+        out.append(("S2", "거시 열카드의 크기가 확정되지 않았다 -- KBAR3_FE가 "
+                    "conductivity_temperature 에 배선되어 있지 않다", "a1"))
     kbar = os.path.join(ROOT, "postprocess", "kbar_summary.csv")
     if not os.path.exists(kbar):
-        out.append(("S1", "LTH_RUN2의 kbar 요약 CSV가 아직 없다 -- 거시 열카드의 "
-                    "크기가 확정되지 않았다", "사용자 실행"))
+        out.append(("S1", "LTH_RUN2의 kbar 요약 CSV **파일**이 없다 -> 그림 4.5와 "
+                    "admissible 판정 기록이 막힌다. 카드값(5.449)은 이미 확정이며 "
+                    "새 해석은 필요 없다 -- 이미 돌린 잡의 산출물 회수다",
+                    "사용자 회수"))
     return out
 
 
@@ -326,10 +375,39 @@ def check():
                encoding="utf-8").read()
     wired = "conductivity_temperature" in mac
     t("the k(T) wiring state is detected, not assumed",
-      wired == (not any(x[0] == "S2" for x in o)),
+      wired == (not any("refs/[20]" in x[1] for x in o)),
       "wired" if wired else "still on the borrowed ratio")
     t("this module does not tell a2 how to run anything",
       not re.search(r"abaqus\s+job=", open(__file__, encoding="utf-8").read()))
+
+    print("\n D2. a missing artefact is not allowed to look like a blocked job"
+          "  (a2-0036)")
+    t("the thermal card's magnitude is judged by the WIRING, not by a file",
+      thermal_card_magnitude_fixed(),
+      "KBAR3_FE = 5.4490, conductivity_temperature")
+    t("...so no S2 item is raised on account of the kbar CSV",
+      not any(x[0] == "S2" and "kbar" in x[1] for x in o))
+    s1 = [x for x in o if x[0] == "S1"]
+    t("the kbar CSV item, if raised, blocks the FIGURE and the record only",
+      not s1 or ("그림 4.5" in s1[0][1] and "새 해석은 필요 없다" in s1[0][1]),
+      s1[0][1][:44] + "..." if s1 else "CSV present")
+    t("and its owner is artefact recovery, not a run",
+      not s1 or s1[0][2] == "사용자 회수")
+    t("the reason this distinction exists is written down",
+      "could have run" in thermal_card_magnitude_fixed.__doc__)
+    t("and it is credited to the agent who caught it",
+      "a2-0036" in thermal_card_magnitude_fixed.__doc__)
+
+    print("\n D3. the S3 gate is executable, not a reading  (a2-0034)")
+    mark_in_generator = PLACEHOLDER_MARK in mac
+    t("make_macro_thermalshock stamps a placeholder deck", mark_in_generator,
+      PLACEHOLDER_MARK[:38] + "...")
+    t("the detector fires on a stamped deck",
+      s3_deck_is_placeholder("*Material, name=M\n** " + PLACEHOLDER_MARK))
+    t("and stays silent on a deck without the stamp",
+      not s3_deck_is_placeholder("*Material, name=M\n1.0, 2.0"))
+    t("so S3's gate can be executed against the deck a2 is about to run",
+      "a2-0034" in s3_deck_is_placeholder.__doc__)
 
     print("\n E. the CSV a2 executes from")
     path, n = write_csv()

@@ -678,9 +678,23 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
                          "NPROPS >= 47 (got %d)" % (tag, p[35] if n >= 36
                                                     else "n/a", n))
     nt = int(round(p[46]))
-    if nt < 0 or n not in (47 + 8 * nt, 56 + 8 * nt):
-        raise SystemExit("macro card%s: NT=%d needs NPROPS = %d or %d, got %d"
-                         % (tag, nt, 47 + 8 * nt, 56 + 8 * nt, n))
+    legal = (47 + 8 * nt, 49 + 8 * nt, 56 + 8 * nt, 58 + 8 * nt)
+    if nt < 0 or n not in legal:
+        raise SystemExit("macro card%s: NT=%d needs NPROPS in %s, got %d"
+                         % (tag, nt, ", ".join(str(v) for v in legal), n))
+    # The tangent block is the LAST thing on the card, so strip it before the
+    # criterion block is located -- otherwise 58+8*NT would be read as a card
+    # with no criterion block and the 41.0 guard would never be checked.
+    itan = None
+    if n in (49 + 8 * nt, 58 + 8 * nt):
+        if abs(p[n - 1] - 33.0) > 1e-9:
+            raise SystemExit("macro card%s: tangent block must end with 33.0, "
+                             "got %g" % (tag, p[n - 1]))
+        itan = int(round(p[n - 2]))
+        if itan not in (0, 1):
+            raise SystemExit("macro card%s: ITAN must be 0 or 1, got %d"
+                             % (tag, itan))
+        p, n = p[:n - 2], n - 2
     if n == 56 + 8 * nt:
         if abs(p[55 + 8 * nt] - 41.0) > 1e-9:
             raise SystemExit("macro card%s: failure-criterion block must end "
@@ -733,7 +747,10 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
         msg.append("  pass allow_total_gf=True if this card really was "
                    "measured at le(macro).")
         raise SystemExit("\n".join(msg))
-    return dict(nprops=n, nt=nt, ndepvar=ndep, gf=gf, props=p,
+    # n and p are the card WITHOUT the tangent block (stripped above), so
+    # nprops is reported back at its true on-deck length.
+    return dict(nprops=n + (0 if itan is None else 2), nt=nt, ndepvar=ndep,
+                gf=gf, props=p, itan=itan,
                 criteria=(n == 56 + 8 * nt and
                           int(round(p[47 + 8 * nt])) > 0))
 
@@ -943,6 +960,54 @@ def selftest():
 
     bad = c.replace("constants=56", "constants=48")
     expect_reject("constants= disagrees with the values", bad)
+
+    # ---- the consistent-tangent block (2026-08-11) -----------------------
+    # The UMAT has carried Ge Eqs.(31)-(33) behind an ITAN switch since
+    # 2026-08-10, but no generator emitted the slots, so it could not be
+    # exercised at all.  The rules that matter are: omitting the flag must
+    # change NOTHING, the block must not hide the criterion block behind it,
+    # and a 0/1 pair must differ in exactly one number.
+    expect_true("omitting --itan leaves the card untouched",
+                append_tangent_block(c, None) == c)
+    for want in (0, 1):
+        t = append_tangent_block(c, want)
+        i = check_macro_card(t, "itan%d" % want)
+        expect_true("--itan %d gives NPROPS 58 and reads back ITAN=%d"
+                    % (want, want),
+                    i["nprops"] == 58 and i["itan"] == want,
+                    "NPROPS=%d ITAN=%s" % (i["nprops"], i["itan"]))
+        # THE TRAP THAT WAS ALREADY SPRUNG ONCE.  The HSMO and ICRIT readers
+        # keyed on total NPROPS, so appending any block silently switched
+        # them off.  Here the criterion block sits BEFORE the tangent block,
+        # so if the validator located it by raw length it would now miss it.
+        expect_true("--itan %d does not switch the criterion block off" % want,
+                    i["criteria"] is True)
+    t0, t1 = append_tangent_block(c, 0), append_tangent_block(c, 1)
+
+    def _data(txt):
+        return " ".join(ln for ln in txt.splitlines()
+                        if not ln.lstrip().startswith("**")).split()
+    d = [(a, b) for a, b in zip(_data(t0), _data(t1)) if a != b]
+    expect_true("the 0/1 pair differs in exactly one number",
+                len(d) == 1 and d[0] == ("0,", "1,"),
+                "%d difference(s): %s" % (len(d), d))
+    expect_true("the criterion guard 41.0 is still the second-to-last "
+                "of its own block",
+                check_macro_card(t1, "itan")["props"][-1] == 41.0)
+    expect_reject("tangent block with a broken guard",
+                  t1.replace("1, 33", "1, 34"))
+    expect_reject("tangent block with ITAN = 2",
+                  t1.replace("1, 33", "2, 33"))
+    try:
+        append_tangent_block(t1, 1)
+        fails.append("double --itan")
+        print("  [FAIL] appended the tangent block twice")
+    except SystemExit:
+        print("  [PASS] %-46s" % "refuses to append the block twice")
+    # A card with the tangent block but WITHOUT the criterion block is the
+    # 49+8*NT length, and it must still be legal.
+    expect_ok("tangent block on a criteria-off card (49 slots)",
+              append_tangent_block(_mangle(c, depvar=29, drop=9), 1))
 
     # ---- the Ch.4 4.9-16 convention -------------------------------------
     # These are the ones the UMAT will NOT catch.  A positive Gf runs, and
@@ -1353,6 +1418,53 @@ def patch_card(card_text, slot, value):
     return "\n".join(lines[:head + 1] + body + lines[tail:])
 
 
+ITAN_KEY = 33.0          # PROPS(NPROPS) guard on the consistent-tangent block
+
+
+def append_tangent_block(card_text, itan):
+    """Append the 2-slot consistent-tangent block to the MACRO card.
+
+    The block sits at the very end, with or without the failure-criterion
+    block, so the legal lengths become 49+8*NT and 58+8*NT (UMAT header
+    'MACRO consistent-tangent block').  `itan` is 0 or 1; 0 means the block
+    is present but the routine still returns the secant DDSDDE, which is
+    what makes an ITAN=0 vs ITAN=1 pair differ in exactly one number.
+
+    Passing itan=None returns the card untouched -- that is the default and
+    it keeps every shipped deck byte-identical to what it was before this
+    function existed.
+    """
+    if itan is None:
+        return card_text
+    if itan not in (0, 1):
+        raise SystemExit("--itan takes 0 or 1, got %r" % itan)
+    lines = card_text.splitlines()
+    for i, ln in enumerate(lines):
+        if ln.lstrip().lower().startswith("*user material"):
+            head = i
+            break
+    else:
+        raise SystemExit("no *User Material line in the macro card")
+    vals, tail = [], len(lines)
+    for j in range(head + 1, len(lines)):
+        if lines[j].lstrip().startswith("*"):
+            tail = j
+            break
+        vals.extend(v.strip() for v in lines[j].split(",") if v.strip())
+    else:
+        tail = len(lines)
+    if abs(float(vals[-1]) - ITAN_KEY) < 1e-9:
+        raise SystemExit("macro card already carries a tangent block; "
+                         "--itan must not be applied twice")
+    vals = vals + ["%.10g" % itan, "%.10g" % ITAN_KEY]
+    header = re.sub(r"constants\s*=\s*\d+", "constants=%d" % len(vals),
+                    lines[head], flags=re.I)
+    body = [", ".join(vals[k:k + 8]) for k in range(0, len(vals), 8)]
+    note = ("** consistent-tangent block appended: ITAN=%d, guard %.1f "
+            "(NPROPS %d -> %d)" % (itan, ITAN_KEY, len(vals) - 2, len(vals)))
+    return "\n".join(lines[:head] + [note, header] + body + lines[tail:])
+
+
 def read_block(path, default):
     if path and os.path.exists(path):
         return open(path).read().rstrip()
@@ -1647,6 +1759,14 @@ def main():
                          "other respect, so the difference between the two is "
                          "the closure model alone.  The value goes in the job "
                          "name so it cannot overwrite the job it controls.")
+    ap.add_argument("--itan", type=int, default=None, choices=(0, 1),
+                    help="append the 2-slot consistent-tangent block to the "
+                         "macro card (UMAT Ge Eqs.31-33).  Omitting the flag "
+                         "leaves the card and the whole deck byte-identical "
+                         "to before -- the block is not written at all.  "
+                         "--itan 0 writes the block with the switch OFF, "
+                         "--itan 1 with it ON, so a 0/1 pair differs in "
+                         "exactly one number and isolates the tangent.")
     ap.add_argument("--checkpoints", type=int, nargs="+",
                     default=None,
                     help="cycle counts at which to probe E and write a restart")
@@ -1787,6 +1907,10 @@ def main():
             "** --card-slot %d=%g applied by make_macro_thermalshock.py\n"
             "*Material, Name=CSIC_MACRO_CDM" % (k, v), 1)
         print("  card slot %d forced to %g" % (k, v))
+
+    if args.itan is not None:
+        card = append_tangent_block(card, args.itan)
+        print("  consistent-tangent block appended: ITAN=%d" % args.itan)
 
     info = check_macro_card(card, os.path.basename(args.card or "placeholder"),
                             le=le_range, allow_total_gf=args.allow_total_gf)

@@ -117,6 +117,20 @@
 
 ---
 
+## ★ 자동 체크인은 하루 4번 고정이다 (사용자 지정, 2026-08-12)
+
+a1 우편함(`sync/sync_check.py`)을 보는 자동 체크인은 **한국시각
+06:30 · 13:00 · 19:00 · 23:00 네 번만** 돈다. 그 사이에 스스로 깨어나지 않는다.
+
+- 예전에는 1시간(뒤에 2시간) 간격으로 계속 돌았다. 사용자가 **고정 시각**으로 바꿨다.
+- 크론은 UTC로 저장된다: `30 21 * * *` 과 `0 4,10,14 * * *`.
+- **서버가 발동 시각을 몇 분 뒤로 흩뜨린다**(부하 분산). 실제 발동은 지정 시각
+  +5~7분이며 이것은 조절할 수 없다.
+- 체크인에서 **변한 것이 없으면 사용자에게 말하지 않는다.** 조용히 끝낸다.
+- 체크인 안에서 `send_later` 로 다음 회차를 다시 잡지 않는다 — 크론이 한다.
+
+---
+
 ## ★ 두 에이전트 구조 (사용자 지정, 2026-08-05) — **양쪽 세션 공통**
 
 이 논문은 **두 채팅이 각자 브랜치를 갖고** 진행한다.
@@ -524,6 +538,7 @@ python3 data/literature/refs_audit.py --check          # refs/ 전수 점검 (�
 python3 data/literature/gf_temperature.py --check      # Gf(T) 방향 출처 + A 표류 한계
 python3 data/literature/pls_validation.py --check      # 비례한도를 TRS 검증 지표로
 python3 data/literature/cte_composite_targets.py --check # 복합재 CTE 절대 표적 4점
+python3 data/literature/cte_rve_verdict.py --check    # RVE 실물 CTE 대 절대 표적 (4단 사다리)
 python3 data/literature/modulus_definition.py --check  # 대조 모듈러스 정의 (접선 vs 할선)
 python3 data/literature/crack_band_simplex.py --check   # refs/[47]의 2D 사면체 배수 (a2 kappa 검증)
 python3 data/literature/thermal_cycling_dataset.py --check # 반복 열충격 전 데이터 + 심각도 역설
@@ -548,8 +563,10 @@ python3 verification/prerun_gate.py --check            # 최소 해석 계획·�
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
+python3 verification/plastic_dissipation_audit.py      # Ge (23)(24) 소성분이 A_m에 들어가는가 (철회 기록)
 python3 verification/knob_sensitivity.py --check       # knob→관측량 정량 자코비안 + SVD 식별성 (rF 파생)
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
+python3 postprocess/compare_tangent.py --selftest      # ITAN 0/1 수렴 비용 대조 (.msg)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 postprocess/md_to_docx.py --selftest           # 논문 초안 워드(.docx) 합본 생성기
 python3 postprocess/make_thesis_figures.py --check      # 논문 그림 생성기 (문헌값 재유도 + 본문 삽입)
@@ -566,7 +583,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 65개를 전부 통과시킨다.**
+**커밋 전에 위 69개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

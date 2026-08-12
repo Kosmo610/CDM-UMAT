@@ -313,6 +313,7 @@ def _fmt(x):
 
 
 HSMO_KEY = 32.0                        # PROPS(25+4*NT) guard, V3_0 only
+ITAN_KEY = 33.0                        # tangent-block guard, V3_0 only
 
 
 def _apply_kappa(n, modes, kappa, card):
@@ -350,7 +351,8 @@ def _apply_kappa(n, modes, kappa, card):
     return n
 
 
-def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None, kappa=1.0):
+def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None, kappa=1.0,
+                  itan=None):
     kw, n = card_numbers(MATRIX_USERMAT["v2"])
     if len(n) != MATRIX_NPROPS:
         raise ValueError("matrix card has %d constants, expected %d"
@@ -376,9 +378,17 @@ def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None, kappa=1.0):
                           MATRIX_SLOTS["e"]),
                          ("c", MATRIX_SLOTS["gm_c"], MATRIX_SLOTS["xc"],
                           MATRIX_SLOTS["e"])), kappa, "matrix")
-    if hsmo > 0.0:
+    if hsmo > 0.0 or itan is not None:
         # V3_0 25+4*NT layout: NT=0, then HSMO, then the block guard.
+        # The tangent block may ONLY follow the smoothing block (UMAT header,
+        # MATRIX layouts), so asking for ITAN forces the smoothing block to be
+        # written even at HSMO=0 -- which is the published step and therefore
+        # changes no physics, only the card length.
         n = n + [0.0, hsmo, HSMO_KEY]
+    if itan is not None:
+        if itan not in (0, 1):
+            raise ValueError("ITAN must be 0 or 1, got %r" % itan)
+        n = n + [float(itan), ITAN_KEY]
     out = emit_card(kw, n)
     if kappa != 1.0:
         out = ("** crack-band le correction: Gm_t/Gm_c divided by kappa=%g\n"
@@ -389,7 +399,8 @@ def retune_matrix(dmax, eta, djump, hsmo=0.0, matrix_e=None, kappa=1.0):
 
 
 def retune_yarn(dmax, eta, djump, yarn_xt=None,
-                g1t=None, g1c=None, gtt=None, gtc=None, kappa=1.0):
+                g1t=None, g1c=None, gtt=None, gtc=None, kappa=1.0,
+                itan=None, hclo=0.0):
     """Retune the yarn card.
 
     The four fracture energies are exposed because Ch.4 4.9-0 (2nd amendment)
@@ -457,6 +468,17 @@ def retune_yarn(dmax, eta, djump, yarn_xt=None,
                           YARN_SLOTS["e2"]),
                          ("tc", YARN_SLOTS["gtc"], YARN_SLOTS["yc"],
                           YARN_SLOTS["e2"])), kappa, "yarn")
+    if itan is not None:
+        if itan not in (0, 1):
+            raise ValueError("ITAN must be 0 or 1, got %r" % itan)
+        if not (0.0 <= hclo <= 1.0):
+            raise ValueError("HCLO must be in [0,1], got %r" % hclo)
+        # The 38-slot card is the V1_0 layout, where the UMAT reads HCLO=0 and
+        # NT=0 by implication.  The tangent block only exists on the 42+7*NT
+        # layout, so those two slots have to be written out explicitly first.
+        # At HCLO=0, NT=0 the 40-slot card is the same material as the 38-slot
+        # one -- the length changes, the physics does not.
+        n = n + [hclo, 0.0, float(itan), ITAN_KEY]
     out = emit_card(kw, n)
     if kappa != 1.0:
         live = [k for k in ("g1t", "g1c", "gtt", "gtc")
@@ -473,13 +495,13 @@ def materials(a):
     L = ["*Material, Name=SIC_MATRIX_DAMAGE",
          MATRIX_DEPVAR,
          retune_matrix(a.dmax, a.eta, a.djump, a.hsmo, a.matrix_e,
-                       a.kappa),
+                       a.kappa, a.itan),
          "*Expansion, zero=%g." % a.zero,
          "4.5e-06,",
          "*Material, Name=CSIC_YARN_DAMAGE",
          YARN_DEPVAR,
          retune_yarn(a.dmax, a.eta, a.djump, a.yarn_xt,
-                     a.g1t, a.g1c, a.gtt, a.gtc, a.kappa),
+                     a.g1t, a.g1c, a.gtt, a.gtc, a.kappa, a.itan),
          "*Expansion, type=ORTHO, zero=%g." % a.zero,
          "1.070925962822e-06, 3.324908565604e-06, 3.324908565604e-06"]
     return "\n".join(L)
@@ -713,6 +735,7 @@ class _A(object):
     matrix_e, yarn_xt, gtt, gtc = D_MATRIX_E, D_YARN_XT, D_GTT, D_GTC
     g1t, g1c = D_G1T, D_G1C
     kappa = D_KAPPA                    # 1.0 -- see D_KAPPA_MEASURED
+    itan = None                        # no tangent block by default
 
 
 def check():
@@ -860,6 +883,74 @@ def check():
       "*User Material, constants=38" in outh)
     t("no-hsmo deck writes constants=22",
       "*User Material, constants=22" in out)
+
+    # ---- the consistent-tangent block (2026-08-11) ----------------------
+    # The UMAT has carried Ge Eqs.(31)-(33) behind ITAN since 2026-08-10 but
+    # nothing emitted the slots, so it could not be run at all.  Three rules:
+    # omitting the flag changes nothing, the block sits at the legal length,
+    # and it must not switch off the block it sits behind.
+    ai = _A()
+    ai.itan = None
+    out_none, _, _ = retune(_fake_deck(), ai)
+    t("omitting --itan leaves the deck byte-identical", out_none == out)
+
+    for want in (0, 1):
+        _, nmi = card_numbers(retune_matrix(D_DMAX, D_ETA, D_DJUMP,
+                                            itan=want))
+        t("--itan %d gives a 27-slot matrix card (27+4*NT)" % want,
+          len(nmi) == 27, "(%d)" % len(nmi))
+        t("--itan %d matrix keeps the V1_0 guard at slot 22" % want,
+          nmi[21] == MATRIX_KEY)
+        # THE TRAP THAT WAS ALREADY SPRUNG ONCE: readers keyed on total
+        # NPROPS meant appending a block silently switched the earlier one
+        # off.  The smoothing guard has to still be where the UMAT looks.
+        t("--itan %d matrix keeps the HSMO guard 32.0 at slot 25" % want,
+          nmi[24] == HSMO_KEY, "(%g)" % nmi[24])
+        t("--itan %d lands in slot 26 with guard 33.0 in slot 27" % want,
+          nmi[25] == float(want) and nmi[26] == ITAN_KEY,
+          "(%g, %g)" % (nmi[25], nmi[26]))
+        t("--itan %d leaves matrix slots 1-22 untouched" % want,
+          nmi[:22] == nm[:22])
+
+        _, nyi = card_numbers(retune_yarn(D_DMAX, D_ETA, D_DJUMP, itan=want))
+        t("--itan %d gives a 42-slot yarn card (42+7*NT)" % want,
+          len(nyi) == 42, "(%d)" % len(nyi))
+        t("--itan %d yarn writes HCLO=0 at 39 and NT=0 at 40" % want,
+          nyi[38] == 0.0 and nyi[39] == 0.0)
+        t("--itan %d lands in yarn slot 41 with guard 33.0 in 42" % want,
+          nyi[40] == float(want) and nyi[41] == ITAN_KEY,
+          "(%g, %g)" % (nyi[40], nyi[41]))
+        t("--itan %d leaves yarn slots 1-38 untouched" % want,
+          nyi[:38] == ny[:38])
+
+    # the four legal matrix lengths stay mutually distinguishable, which is
+    # what lets the UMAT identify the layout from NPROPS alone
+    t("22 / 25 / 27 slot lengths are distinct mod 4",
+      len({22 % 4, 25 % 4, 27 % 4}) == 3)
+
+    # a 0/1 pair must differ in exactly one number per card, and nowhere else
+    a0, a1 = _A(), _A()
+    a0.itan, a1.itan = 0, 1
+    o0, _, _ = retune(_fake_deck(), a0)
+    o1, _, _ = retune(_fake_deck(), a1)
+    diffs = [(x, y) for x, y in zip(o0.split("\n"), o1.split("\n")) if x != y]
+    t("the --itan 0/1 pair differs in exactly two data lines "
+      "(one per card)", len(diffs) == 2, "%d line(s)" % len(diffs))
+    t("--itan deck writes constants=27 and constants=42",
+      "*User Material, constants=27" in o1
+      and "*User Material, constants=42" in o1)
+
+    for ibad in (2, -1):
+        try:
+            retune_matrix(D_DMAX, D_ETA, D_DJUMP, itan=ibad)
+            t("itan=%s rejected" % ibad, False)
+        except ValueError:
+            t("itan=%s rejected" % ibad, True)
+    try:
+        retune_yarn(D_DMAX, D_ETA, D_DJUMP, itan=1, hclo=1.5)
+        t("hclo out of [0,1] rejected", False)
+    except ValueError:
+        t("hclo out of [0,1] rejected", True)
 
     # the 2026-07-30 regression guards
     t("default djump is NOT the 0.03 that caused the crawl", D_DJUMP >= 0.08,
@@ -1217,6 +1308,16 @@ def main():
                          "0 = published step (default). REQUIRES the V3_0 "
                          "UMAT: it lengthens the matrix card to 25 slots, "
                          "which V1_0 rejects.")
+    ap.add_argument("--itan", type=int, default=None, choices=(0, 1),
+                    help="append the 2-slot consistent-tangent block (Ge "
+                         "Eqs.31-33) to BOTH micro cards. Omitting the flag "
+                         "writes no block at all and leaves the deck "
+                         "byte-identical to before. --itan 0 writes the block "
+                         "with the switch off, --itan 1 with it on, so the "
+                         "pair differs in one number per card. REQUIRES the "
+                         "V3_0 UMAT; on the yarn it also writes the HCLO/NT "
+                         "slots and on the matrix the HSMO block, because the "
+                         "tangent block may only follow them.")
     ap.add_argument("--i-r", dest="i_r", type=int, default=D_IR,
                     help="I_R, iteration at which the log-rate divergence "
                          "check starts (default %d)" % D_IR)
