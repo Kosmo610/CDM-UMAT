@@ -116,6 +116,12 @@ def patch_one(lines, um_line, name, slot, value, expect, show):
     total = count_consts(lines, dls)
     k, m, old = locate(lines, dls, slot)
     if k is None:
+        # --show 는 "있는지 보는" 명령이므로 없는 것이 오류가 아니다.
+        # 실제로 P 계열 얀 카드는 상수 31 개라 슬롯 32(GF1T)가 없다.
+        # 이걸 ERROR 로 찍으면 정상 상태가 고장처럼 보인다.
+        if show:
+            return False, ('       %s: 상수 %d 개 — 슬롯 %d 없음'
+                           % (name, total, slot))
         return False, ('ERROR  %s: 슬롯 %d 이 없다 (상수 %d 개뿐)'
                        % (name, slot, total))
     if show:
@@ -244,6 +250,16 @@ def selftest():
     if rc == 0:
         print('  %-26s FAIL  (rc 이 0 이면 안 된다)' % 'slot-99-rc')
         fails.append('slot-99-rc')
+    # 7) --show 로 없는 슬롯을 묻는 것은 오류가 아니다. 실제 P 계열
+    #    얀 카드는 상수 31 개라 슬롯 32(GF1T)가 없는데, 그것을 ERROR
+    #    로 찍으면 정상 상태가 고장처럼 보인다.
+    rc = run('show-missing-slot-ok',
+             ['--material', 'YARN', '--slot', '99', '--show'],
+             '15876.6, 421.0,')
+    if rc != 0:
+        print('  %-26s FAIL  (--show 는 rc 0 이어야 한다)'
+              % 'show-missing-rc0')
+        fails.append('show-missing-rc0')
 
     shutil.rmtree(tmp)
     print('')

@@ -264,10 +264,22 @@ def main(argv=None):
     head('4) 발사 전 최종 확인')
     show(decks, XT_SLOT, 'XT — 세 줄 모두 %s' % XT_TO)
     print('')
-    show(decks, GF_SLOT,
-         'GF1T (슬롯 32) — 0.03962 여야 한다. 12.5 면 잡이 즉시 XIT 한다')
+    show(decks, GF_SLOT, 'GF1T (슬롯 32)')
+    gf = [read_slot(d, 'YARN', GF_SLOT) for d in decks]
+    if all(v is None for v in gf):
+        print('       -> 슬롯 32 가 없다. 얀 크랙밴드는 꺼져 있다(GF1T=0).')
+        print('          A1TEFF = A1T = PROPS(18) 고정. 정상이며, 이 배치엔')
+        print('          오히려 유리하다 — 크랙밴드가 켜져 있었다면 XT 를')
+        print('          바꿀 때 g0=XT^2/(2E1) 을 통해 연화지수까지 같이')
+        print('          움직여 "변수 하나" 가 깨진다.')
+    else:
+        for d, v in zip(decks, gf):
+            if v is not None and abs(float(v)) > 0.5:
+                print('       [경고] %s 의 GF1T=%s 는 가드 상한(0.5)을 넘는다.'
+                      % (os.path.basename(d), v))
+                print('              잡이 첫 증분에서 XIT 한다.')
     print('')
-    print('  [*Depvar — 얀 17 / 기지 20]')
+    print('  [*Depvar — 얀 17, 기지는 그대로]')
     DEPVAR.main(decks + ['--check'])
 
     head('5) 발사 (창 3개, 10코어씩 = 30/32)')
