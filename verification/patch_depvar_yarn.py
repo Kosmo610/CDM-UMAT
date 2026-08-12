@@ -200,16 +200,40 @@ NOYARN = """*Material, Name=SIC_MATRIX_DAMAGE
 """
 
 
+WIN_BAD = set('<>:"|?*')
+
+
+def win_safe(path):
+    """윈도우에서 파일명으로 쓸 수 있는 이름인가.
+
+    이 저장소는 리눅스에서 검증하고 윈도우에서 실행한다. 리눅스는
+    `>` 같은 글자를 파일명에 허용하므로, 컨테이너에서 전부 통과한
+    자체시험이 사용자 PC 에서 OSError 22 로 죽는 일이 실제로 있었다.
+    그래서 리눅스에서도 윈도우 규칙으로 판정한다."""
+    return not (set(os.path.basename(path)) & WIN_BAD)
+
+
 def selftest():
     """합성 덱으로 여섯 가지를 확인한다. 이 스크립트는 22 만 줄짜리
     되돌릴 수 없는 덱을 고치므로, 자체시험 없이 쓰지 않는다."""
     import tempfile
     tmp = tempfile.mkdtemp()
     fails = []
+    seq = [0]
 
     def run(tag, text, expect_yarn, expect_desc, expect_rc,
             twice=False):
-        path = os.path.join(tmp, tag + '.inp')
+        # 파일명은 tag 가 아니라 일련번호로 짓는다. tag 를 파일명에 쓰면
+        # `<>:"/\|?*` 가 든 시험 이름이 윈도우에서 OSError 22 로 터진다
+        # (실제로 'named-16->17' 이 그렇게 터졌다). 리눅스는 허용하므로
+        # 컨테이너 검증만으로는 안 잡힌다 -- 이름과 경로를 분리해 둔다.
+        seq[0] += 1
+        path = os.path.join(tmp, 'case%02d.inp' % seq[0])
+        if not win_safe(path):
+            print('  %-22s FAIL  (윈도우에서 못 쓰는 파일명: %s)'
+                  % (tag, os.path.basename(path)))
+            fails.append(tag)
+            return ''
         with io.open(path, 'w', encoding='utf-8', newline='') as fh:
             fh.write(text)
         quiet = io.StringIO() if str is not bytes else io.BytesIO()
@@ -220,7 +244,8 @@ def selftest():
                 rc = main([path, '--apply', '--no-backup'])
         finally:
             sys.stdout = keep
-        got = io.open(path, encoding='utf-8').read()
+        with io.open(path, encoding='utf-8') as fh:
+            got = fh.read()
         # 얀 카운트
         yarn_ok = ('%d,' % expect_yarn) in got.split('YARN_DAMAGE')[-1]
         # 기지 20 은 절대 변하면 안 된다
@@ -236,16 +261,16 @@ def selftest():
         return got
 
     print('자체시험')
-    run('named-16->17', NAMED, 17, True, 0)
+    named = run('named 16->17', NAMED, 17, True, 0)
     run('unnamed-no-desc', UNNAMED, 17, False, 0)
     run('idempotent-twice', NAMED, 17, True, 0, twice=True)
     run('odd-count-refused', ODD, 12, False, 1)
     run('no-yarn-untouched', NOYARN, 20, False, 0)
 
-    # 기지 20 이 절대 17 로 바뀌지 않는지 따로 못박는다
-    got = io.open(os.path.join(tmp, 'named-16->17.inp'),
-                  encoding='utf-8').read()
-    head = got.split('YARN_DAMAGE')[0]
+    # 기지 20 이 절대 17 로 바뀌지 않는지 따로 못박는다.
+    # run() 이 돌려준 내용을 그대로 쓴다 -- 경로를 다시 조립하면
+    # 파일명 규칙이 바뀔 때 같이 안 따라와서 깨진다.
+    head = named.split('YARN_DAMAGE')[0]
     if '20,' in head and '17,' not in head:
         print('  %-22s PASS' % 'matrix-20-untouched')
     else:

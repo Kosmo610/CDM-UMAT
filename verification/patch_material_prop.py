@@ -156,13 +156,35 @@ SELF_DECK = """*Material, Name=SIC_MATRIX_DAMAGE
 """
 
 
+WIN_BAD = set('<>:"|?*')
+
+
+def win_safe(path):
+    """윈도우에서 파일명으로 쓸 수 있는 이름인가.
+
+    리눅스에서 검증하고 윈도우에서 실행하므로, 리눅스가 허용하는
+    `>` 같은 글자가 사용자 PC 에서만 OSError 22 를 내는 일이 있었다.
+    리눅스에서도 윈도우 규칙으로 판정한다."""
+    return not (set(os.path.basename(path)) & WIN_BAD)
+
+
 def selftest():
     import tempfile
     tmp = tempfile.mkdtemp()
     fails = []
+    seq = [0]
 
     def run(tag, argv, want_line, want_absent=None):
-        path = os.path.join(tmp, tag + '.inp')
+        # 파일명은 tag 가 아니라 일련번호로 짓는다. tag 를 파일명에 쓰면
+        # `<>:"/\|?*` 가 든 시험 이름이 윈도우에서 OSError 22 로 터진다.
+        # 리눅스는 허용하므로 컨테이너 검증만으로는 안 잡힌다.
+        seq[0] += 1
+        path = os.path.join(tmp, 'case%02d.inp' % seq[0])
+        if not win_safe(path):
+            print('  %-26s FAIL  (윈도우에서 못 쓰는 파일명: %s)'
+                  % (tag, os.path.basename(path)))
+            fails.append(tag)
+            return 1
         with io.open(path, 'w', encoding='utf-8', newline='') as fh:
             fh.write(SELF_DECK)
         quiet = io.StringIO() if str is not bytes else io.BytesIO()
@@ -171,7 +193,8 @@ def selftest():
             rc = main(argv + [path])
         finally:
             sys.stdout = keep
-        got = io.open(path, encoding='utf-8').read()
+        with io.open(path, encoding='utf-8') as fh:
+            got = fh.read()
         ok = (want_line in got)
         if want_absent is not None:
             ok = ok and (want_absent not in got)
