@@ -212,6 +212,40 @@ def filter_mesh(text):
     return kept, matrix_elset, yarn_elsets, orient_name, max_node, seen_allnodes
 
 
+def inline_ori(blocks, meshdir):
+    """Paste the TexGen .ori contents into the deck instead of referencing it.
+
+    TexGen writes the per-element fibre orientation to a separate file and the
+    .inp points at it with `*Distribution, ..., Input=<name>.ori`.  That file
+    is easy to lose when a deck is copied or zipped, and Abaqus then dies
+    immediately.  Inlining makes the deck self-contained: one file to move,
+    nothing to forget.
+
+    Costs one extra line per element in the .inp, which is why it pairs
+    naturally with the coarse trial meshes (20-40k elements).
+    """
+    out = []
+    for kw, data in blocks:
+        if kwname(kw) == "distribution":
+            src = kw_option(kw, "Input")
+            if src:
+                path = src if os.path.isabs(src) else os.path.join(meshdir, src)
+                if not os.path.exists(path):
+                    sys.exit("ERROR: --inline-ori needs %s, which is missing.\n"
+                             "       TexGen writes it next to the mesh .inp."
+                             % path)
+                toks = [t for t in kw.split(",")
+                        if not t.strip().lower().startswith("input=")]
+                kw = ",".join(toks)
+                with open(path) as f:
+                    extra = [l.rstrip("\n") for l in f
+                             if l.strip() and not l.lstrip().startswith("**")]
+                print("  inlined %s (%d rows)" % (src, len(extra)))
+                data = list(data) + extra
+        out.append((kw, data))
+    return out
+
+
 def emit_blocks(blocks):
     out = []
     for kw, data in blocks:
@@ -305,6 +339,9 @@ def main():
     ap.add_argument("--prefix", default="ZHANG2022", help="output filename prefix")
     ap.add_argument("--only", choices=list(CASES), default=None,
                     help="assemble only one temperature case")
+    ap.add_argument("--inline-ori", action="store_true",
+                    help="paste the TexGen .ori orientation data into the deck "
+                         "so it is self-contained (no external file to lose)")
     args = ap.parse_args()
 
     with open(args.mesh) as f:
@@ -316,6 +353,8 @@ def main():
     print("detected: matrix ElSet=%s, %d yarn ElSets %s, orientation=%s, max node=%d"
           % (matrix_es or "Matrix", len(yarn_es), yarn_es, orient, max_node))
 
+    if args.inline_ori:
+        kept = inline_ori(kept, os.path.dirname(os.path.abspath(args.mesh)))
     mesh_txt = emit_blocks(kept)
     extra = allnodes_block(max_node, seen)
     matsec = material_section(args.model, matrix_es, yarn_es, orient)
@@ -335,7 +374,12 @@ def main():
         with open(out, "w") as f:
             f.write("\n".join(parts) + "\n")
         print("wrote", out)
-    print("Done. Keep the TexGen .ori file beside the outputs; run with 'abaqus ... double'.")
+    if args.inline_ori:
+        print("Done. Decks are SELF-CONTAINED (.ori inlined); "
+              "run with 'abaqus ... double'.")
+    else:
+        print("Done. Keep the TexGen .ori file beside the outputs; "
+              "run with 'abaqus ... double'.")
 
 
 if __name__ == "__main__":

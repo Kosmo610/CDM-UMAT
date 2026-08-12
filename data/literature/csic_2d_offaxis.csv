@@ -1,0 +1,188 @@
+# On- and off-axis mechanical properties of 2D plain-woven C/SiC.
+#
+# SOURCE  refs/[28] Part 1.pdf, Table 1 --
+#   Li J., Jiao G.Q., Wang B., Yang C.P., Wang G.,
+#   "Damage characteristics and constitutive modeling of the 2D C/SiC
+#    composite: Part I - Experiment and analysis",
+#   Chinese Journal of Aeronautics 27(6) (2014) 1586-1597,
+#   doi:10.1016/j.cja.2014.10.026     (open access)
+#
+# MATERIAL  2D C/SiC, CVI, T-300 plain-woven fabric, PyC interphase.
+#           Same architecture, same fibre and same process as this thesis.
+#
+# ROLE      validation  --  COMPOSITE-LEVEL.  Never a card input.
+#           See data/properties/README.md: composite values entered as card
+#           input double-count the thermal residual stress, because the RVE
+#           cool-down already computes it.
+#           These are the targets the homogenised macro card must REPRODUCE
+#           (Cbar, Xbar_t, Xbar_c, Sbar), and in particular the only
+#           independent handle on X_c, which is a GUESS in the card today
+#           (docs/CH4_RVE_HOMOGENISATION.md 4.9-8).
+#
+# COLUMNS
+#   mode        tension | compression | shear
+#   theta_deg   off-axis angle of the loading direction
+#   E0_GPa      initial modulus (shear row: initial shear modulus G0)
+#   nu          Poisson ratio (blank for the shear row)
+#   sig0_MPa    proportional limit stress (shear row: proportional limit tau)
+#   sigu_MPa    ultimate strength         (shear row: ultimate tau)
+#   epsf_pct    failure strain
+#   *_sd        standard deviation as printed
+#   confidence  fulltext -- read from the printed table, not from a figure
+#
+mode,theta_deg,E0_GPa,E0_sd,nu,nu_sd,sig0_MPa,sig0_sd,sigu_MPa,sigu_sd,epsf_pct,epsf_sd,confidence
+tension,0,142.06,13.69,0.07,0.02,19.53,1.07,265.28,15.95,0.50,0.07,fulltext
+tension,15,121.74,3.10,0.17,0.03,12.71,7.48,199.22,52.43,0.55,0.33,fulltext
+tension,30,106.04,10.18,0.30,0.03,7.70,1.46,173.96,8.88,0.80,0.11,fulltext
+tension,45,102.05,18.35,0.34,0.02,7.36,2.94,125.08,11.81,0.70,0.18,fulltext
+compression,0,144.87,1.35,0.06,0.01,158.28,14.37,338.94,11.51,0.23,0.01,fulltext
+compression,15,127.58,2.03,0.14,0.01,127.32,13.99,299.86,16.84,0.23,0.01,fulltext
+compression,30,104.12,12.80,0.35,0.03,27.43,6.91,279.32,3.06,0.38,0.04,fulltext
+compression,45,99.89,14.26,0.36,0.03,21.80,2.09,257.84,16.40,0.44,0.07,fulltext
+shear,0,37.34,5.53,,,12.96,3.73,139.76,16.71,1.40,0.20,fulltext
+#
+# WHAT THESE NUMBERS SETTLE
+#
+# 1. Xbar_c / Xbar_t = 338.94 / 265.28 = 1.278 on-axis.
+#    The card's X_c is a GUESS; this is the composite-level number the
+#    calibrated card has to land on.
+#
+# 2. Proportional limit, compression / tension = 158.28 / 19.53 = 8.1.
+#    The asymmetry is far larger in onset than in ultimate strength.  That is
+#    contribution C3 in one ratio: compression suppresses crack initiation,
+#    tension promotes it.
+#
+# 3. Sbar = 139.76 MPa at room temperature.
+#    refs/[35] (Yan, Mater. Des. 32 (2011) 3504) measures 144.1 MPa at 293 K
+#    on 2D C/SiC by a different method.  Agreement to 3.1 % across two
+#    independent groups -- see data/literature/failure_criteria.csv.
+#
+# 4. Ebar_0 = 142.06 GPa (tension) / 144.87 GPa (compression).
+#    "The measured modulus of 2D C/SiC" is not one number.  Four published
+#    values split into two clusters:
+#
+#      ~140 GPa : this table, 142.06 (printed, initial tangent)
+#                 ZHANG2013 refs/[03] Fig. 3, ~140 (stress-strain slope)
+#      70-98    : ZHANG2013 refs/[03] Fig. 4(b) N=0, 97.7
+#                 Mei refs/[43] Table I, 70
+#
+#    The split is not scatter between labs -- ZHANG2013 straddles it on its
+#    own, its Fig. 3 and Fig. 4(b) disagreeing by 43 %.  What each source
+#    calls "the modulus" differs.  So a model INITIAL TANGENT must be set
+#    against the ~140 cluster, not against 70.
+#
+#    This corrects docs/CH4_RVE_HOMOGENISATION.md 4.9-0, which compared the
+#    M5 initial tangent of 235.2 GPa against Mei alone and concluded the model
+#    was 3.36x too stiff.  Like for like it is 1.66x.  The direction of that
+#    diagnosis survives; its magnitude halves, and so does how far the
+#    calibration knobs have to move.
+#
+# 5. nu rises 0.07 -> 0.17 -> 0.30 -> 0.34 with off-axis angle (tension).
+#    A balanced weave loaded on-axis has very low nu; this is the check that
+#    the column really is Poisson ratio.
+#
+# ==========================================================================
+# FULL-TEXT RE-READ, 2026-08-03.  What the first pass missed.
+# ==========================================================================
+#
+# 5. PROCESSING AND POROSITY OF THIS EXACT MATERIAL (section 2.1).
+#
+#    "The preforms were laminated by T300 carbon fibre plain-woven fabrics,
+#     and then the CVI process was employed to deposit a thin layer of
+#     pyrocarbon interface and a SiC matrix at around 1000 C ...
+#     After final deposition of the 50 um SiC matrix on the surface, the
+#     bulk density of the as-received specimens is about 2.0 g/cm3, with
+#     fibre and porosity contents of 40% and 10-15%, respectively."
+#
+#      fibre volume fraction    40 %          <- our RVE is 39.5 %
+#      POROSITY                 10-15 %       <- COMPOSITE level, measured
+#      bulk density             2.0 g/cm3
+#      SiC deposition temp.     ~1000 C
+#
+#    WHY THIS MATTERS.  Ch.4 4.7.3 had to argue that porosity is REQUIRED
+#    because the dense two-phase lower bound (6.74) exceeds the measured
+#    conductivity (6.29), and it borrowed 24 % from refs/[22], which is a
+#    DIFFERENT material characterised by X-ray CT.  Now the same material
+#    that Table 1 describes carries its own measured figure.
+#
+#    conductivity_bounds.py needs 4.48-5.89 % MATRIX porosity to reach the
+#    measured kbar3.  Matrix is ~50 % of the volume, so that is roughly
+#    2-3 % at composite level -- comfortably inside the measured 10-15 %.
+#    The porosity argument no longer rests on a borrowed number.
+#
+#    The 1000 C deposition temperature is a second, independent statement
+#    of the same quantity ZHANG2013 refs/[03] gives.  The deck uses a
+#    stress-free temperature of 1050 C (4.9-2, 4.9-11).
+#
+# 6. ** THE KAISER EFFECT -- the experimental counterpart of 2.5.4. **
+#
+#    "During the cyclic loadings, AE counts and energy increase are
+#     NEGLIGIBLE until the stress (or strain) exceeds the maximum stress
+#     (or strain) in the previous cycle.  This phenomenon reveals the
+#     distinct 'Kaiser effect' of the material and it also indicates that
+#     RE-OPENING of the matrix microcracks and interface sliding DO NOT
+#     CREATE significant AE."   (section 3.1, and again in 3.2)
+#
+#    Ch.2 2.5.4 argues that a history-variable damage law produces exactly
+#    zero further damage once the previous maximum is not exceeded, and
+#    treats that as a LIMITATION to be repaired with a cycle term.
+#
+#    ** 2026-08-04 AMENDMENT -- the first reading of this OVERCLAIMED. **
+#    It said the shakedown limitation is "correct physics".  Too strong,
+#    for reasons the paper itself supplies:
+#
+#      (i)  AE silence is not absence of damage.  The very sentence quoted
+#           says interface SLIDING happens without significant AE -- and
+#           interfacial WEAR (Ch.2 2.5.4 mechanism #1, the dominant CMC
+#           mechanical-fatigue mechanism) is exactly such an AE-quiet,
+#           gradual process.  AE detects discrete cracking events, not
+#           friction.
+#      (ii) These were INCREMENTAL-amplitude tests over a handful of
+#           cycles.  They say nothing about constant-amplitude N >= 100.
+#
+#    What the Kaiser effect DOES establish, and all it establishes: no new
+#    CRACKING occurs below the previous maximum.  So T5's exact-zero drift
+#    is the cracking model being faithful to its own mechanism -- not a
+#    coding artifact, but also not proof that nothing accumulates.
+#
+#    The cycle term then carries the mechanisms OUTSIDE the previous-
+#    maximum rule: oxidation (dominant here -- Mei refs/[43]'s argon
+#    retention of 98.90 % bounds the total of all non-oxidative
+#    mechanisms over that test) and interfacial wear (declared a model
+#    limitation in Ch.2 2.9-4).  Frame it as "adding mechanisms the rule
+#    does not cover", never as "repairing a defect" NOR as "the defect
+#    was correct physics".
+#
+#      mechanical cycling, RT, air     Kaiser effect: no new damage   [28]
+#      thermal cycling, 1200 C, argon  98.90 % retained               [43]
+#      thermal cycling, 900 C, air     E 98 -> 46.5 GPa               [03]
+#
+#    Three independent observations, one story: damage accumulates only
+#    when a mechanism beyond "exceeding the previous maximum" is present,
+#    and in this temperature range that mechanism is oxidation.
+#
+# 7. COMPRESSION PRODUCES NO ADDITIONAL DAMAGE (section 3.2).
+#
+#    "Since there is no obvious modulus change at low stress levels of
+#     these unloading-reloading curves, it is reasonable to assume that
+#     the compression stress components sigma_1 and sigma_2 DO NOT RESULT
+#     IN ADDITIONAL DAMAGE."
+#
+#    This is the direct experimental basis for the unilateral treatment:
+#    compression deactivates existing damage and creates none of its own.
+#
+# 8. SHEAR RECOVERY CAN BE COMPLETE (section 3.2).
+#
+#    "the damaged shear modulus PARTLY OR EVEN FULLY recovers as the
+#     stress increases"
+#
+#    So the HCLOS slot proposed in REFS_CANDIDATES 4.7-(b) must admit the
+#    full range [0, 1], not a small correction.
+#
+# 9. THE HYSTERESIS-INTERSECTION METHOD IS NOT THIS PAPER'S (ref 4).
+#
+#    The reading of O'(sigma_r, eps_r) as the thermal residual stress is
+#    attributed to Camus, Guillaumat & Baste, Compos. Sci. Technol.
+#    56(12) (1996) 1363-1372.  data/literature/digitize_ref28_fig17.py
+#    uses that method, so the METHOD should be cited to Camus and the
+#    MEASUREMENT to refs/[28].

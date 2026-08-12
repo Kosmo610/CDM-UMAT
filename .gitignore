@@ -22,4 +22,10 @@ __pycache__/
 *.pac
 *.sel
 *_ss.csv
+# ...except this one.  m6_calibration.py and extract_pls.py both read it, so
+# a clean checkout that does not have it reports a DIFFERENT number of checks
+# than the workstation does -- and a check count that depends on the machine
+# is not a check.  It is a verification input, not an analysis leftover.
+!data/properties/M5_c26k_T1000_ss.csv
 ss_curves_by_temperature.png
+dist/*.pdf

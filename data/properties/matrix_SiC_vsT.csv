@@ -1,0 +1,65 @@
+# SiC matrix properties vs temperature -- CONSTITUENT INPUT DATA.
+#
+# See data/properties/README.md.  Same two rules as the fibre file: constituent
+# data only, and cte_type/cte_ref_C must describe how the source reports CTE.
+#
+# PROCESS CAVEAT: Zhang 2022 uses a PIP matrix (1050 C pyrolysis), while most
+# published SiC thermal-property data (Snead 2007 and the ORNL handbook) is for
+# CVD/CVI SiC, which is denser, stiffer and far more conductive.  Record which
+# process each row came from in `process` and treat the difference as a
+# sensitivity study, not as an equivalence.
+#
+# Units: E, X in MPa;  alpha in 1/K;  k in W/(mm.K);  cp in mJ/(tonne.K);
+#        rho in tonne/mm^3;  T in degC.
+# process: PIP | CVI | CVD | monolithic
+T_C,E,nu,alpha,Xt,Xc,k,cp,rho,cte_type,cte_ref_C,process,status,source
+23,350000,0.20,4.5e-6,310,310,,,,secant,1050,PIP,verified,"Zhang 2022 Table 2 (RT anchor)"
+500,343563.2,0.20,5.034474e-06,310.8,310.8,1.187920e-01,1.116461e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
+1000,332131.2,0.20,5.103451e-06,328.5,328.5,7.316319e-02,1.257702e+09,3.210000e-09,secant,1050,PIP,literature,"see eval_correlations.py"
+# E ratio: Snead 2007 Eq.18 (Wachtman).  alpha: Snead Eq.16 integrated exactly
+#          and offset onto the card value (they agree to 2.3 % anyway).
+# cp: Snead Eq.10.  rho: 3.21 g/cm3 theoretical.
+# !! k is Snead Eq.12, the SINGLE-CRYSTAL UPPER LIMIT (293 W/m.K at RT).
+#
+#    THIS ROW IS NOW KNOWN TO BE UNUSABLE AS AN INPUT, not merely suspect.
+#    conductivity_bounds.py shows that with k = 293 the homogenised
+#    through-thickness conductivity cannot be brought below 61 W/(m.K) even
+#    by setting the fibre transverse conductivity to ZERO, while the measured
+#    value for C/SiC is 6.29 W/(m.K) (refs/[12], stated in the text).  The
+#    matrix alone short-circuits the composite.  That is a proof, not an
+#    estimate, and it needs no solver.
+#
+#    Two modelling papers on C/SiC use 25 W/(m.K) for the SiC matrix
+#    (refs/[17] Table 3) and refs/[13] uses 70 for a denser CVI matrix.
+#    Only the 25 W/(m.K) class reproduces the measured composite value.
+#    Keep the Snead column as the documented UPPER SENSITIVITY ENDPOINT and
+#    add a 25 W/(m.K) case as the physically representative one; the choice
+#    must be stated in the thesis because the quench gradient depends on it
+#    more than on anything else.
+#
+#    Porosity is the other half: refs/[22] measures 24 % matrix porosity by
+#    X-ray CT and treats voids as air (0.025 W/(m.K)).  Our RVE mesh has
+#    100 % fill, so RVE_COND will OVERPREDICT kbar and make the quench
+#    gradient too shallow -- the non-conservative direction.  Decide this
+#    before M4.
+# Xt, Xc: Snead 2007 Fig. 15 STRENGTH RETENTION, sintered/CVD trend curve,
+#    digitized in eval_correlations.py.  The figure's own y-axis is
+#    "high-temperature strength normalised by room-temperature strength",
+#    i.e. it IS the fX multiplier, so no conversion was needed.
+#    Retention 1.000 (296 K) -> 1.002 (773 K) -> 1.060 (1273 K).
+#
+# !! THE GAP IS CLOSED BUT BOUNDED, NOT ELIMINATED.  Snead draws THREE
+#    trend curves, one per process route, and above ~1300 K they diverge by
+#    more than a factor of four (reaction-bonded collapses to 0.2 at 1700 K
+#    while sintered/CVD rises to 1.27).  Our matrix is PIP and is none of
+#    them.  Reaction-bonded is excluded on chemistry -- it fails because of
+#    free silicon, which PIP does not contain -- leaving sintered/CVD as
+#    the baseline and hot-pressed/HIP as the pessimistic bound.
+#    Across OUR range, 296-1323 K, those two bracket fX at +8 / -11 %.
+#    So the old constant fX = 1.0 was DEFENSIBLE; what is new is the bound.
+# !! APPLICABILITY LIMIT: do not extend this card above ~1400 K.  There the
+#    process route dominates and no single multiplier can be justified.
+#    That is above our 1050 C stress-free temperature, so it does not bite.
+# !! Snead also states that the Weibull modulus has NO systematic
+#    temperature dependence and holds it constant; we do the same, and the
+#    scatter of the composite strength is not modelled at all (limitation).

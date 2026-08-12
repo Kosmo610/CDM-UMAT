@@ -1,0 +1,131 @@
+*Heading
+ crack-band mesh-objectivity bar, 5 x 1 x 1 cubic C3D8, h=0.2 mm
+*Node
+1, 0, 0, 0
+2, 0, 0, 0.2
+3, 0, 0.2, 0
+4, 0, 0.2, 0.2
+5, 0.2, 0, 0
+6, 0.2, 0, 0.2
+7, 0.2, 0.2, 0
+8, 0.2, 0.2, 0.2
+9, 0.4, 0, 0
+10, 0.4, 0, 0.2
+11, 0.4, 0.2, 0
+12, 0.4, 0.2, 0.2
+13, 0.6, 0, 0
+14, 0.6, 0, 0.2
+15, 0.6, 0.2, 0
+16, 0.6, 0.2, 0.2
+17, 0.8, 0, 0
+18, 0.8, 0, 0.2
+19, 0.8, 0.2, 0
+20, 0.8, 0.2, 0.2
+21, 1, 0, 0
+22, 1, 0, 0.2
+23, 1, 0.2, 0
+24, 1, 0.2, 0.2
+*Element, Type=C3D8
+1, 1, 3, 4, 2, 5, 7, 8, 6
+2, 5, 7, 8, 6, 9, 11, 12, 10
+3, 9, 11, 12, 10, 13, 15, 16, 14
+4, 13, 15, 16, 14, 17, 19, 20, 18
+5, 17, 19, 20, 18, 21, 23, 24, 22
+*ElSet, ElSet=BAR_STRONG
+1, 2, 4, 5
+*ElSet, ElSet=BAR_WEAK
+3
+*NSet, NSet=X0
+1, 2, 3, 4
+*NSet, NSet=XL
+21, 22, 23, 24
+*NSet, NSet=Y0
+1, 2, 5, 6, 9, 10, 13, 14, 17, 18, 21, 22
+*NSet, NSet=Z0
+1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23
+*NSet, NSet=ALLN
+1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+17, 18, 19, 20, 21, 22, 23, 24
+*Material, Name=SIC_MATRIX_BAR
+*Depvar
+20,
+1, DMT, Matrix tensile damage
+2, DMC, Matrix compressive damage
+3, RMT, Matrix maximum tensile criterion
+4, RMC, Matrix maximum compressive criterion
+5, DMACT, Stress-state-active matrix damage
+6, I1SGN, Sign of first effective-stress invariant
+7, MMODE, Dominant matrix mode
+8, TMINIT, First matrix damage-initiation temperature
+9, EQPS, Equivalent plastic strain
+10, ATEFF, Effective softening factor (crack band)
+11, MDJUMP, Matrix maximum historical damage jump
+12, MCUTREQ, Matrix minimum historical PNEWDT factor
+13, MTJUMP, Temperature at maximum matrix damage jump
+14, MRJUMP, Criterion at maximum matrix damage jump
+15, EP11, Plastic strain 11
+16, EP22, Plastic strain 22
+17, EP33, Plastic strain 33
+18, EP12, Plastic strain 12
+19, EP13, Plastic strain 13
+20, EP23, Plastic strain 23
+*User Material, constants=22
+2, 350000, 0.2, 310, 310, 0, 0, 0.9
+0.9, 0.05, 0.03, 3, 0.25, 1, 0.031, 0.031
+250, 100000, 1.15, 0.75, 0.5, 30
+*Material, Name=SIC_MATRIX_BAR_WEAK
+*Depvar
+20,
+1, DMT, Matrix tensile damage
+2, DMC, Matrix compressive damage
+3, RMT, Matrix maximum tensile criterion
+4, RMC, Matrix maximum compressive criterion
+5, DMACT, Stress-state-active matrix damage
+6, I1SGN, Sign of first effective-stress invariant
+7, MMODE, Dominant matrix mode
+8, TMINIT, First matrix damage-initiation temperature
+9, EQPS, Equivalent plastic strain
+10, ATEFF, Effective softening factor (crack band)
+11, MDJUMP, Matrix maximum historical damage jump
+12, MCUTREQ, Matrix minimum historical PNEWDT factor
+13, MTJUMP, Temperature at maximum matrix damage jump
+14, MRJUMP, Criterion at maximum matrix damage jump
+15, EP11, Plastic strain 11
+16, EP22, Plastic strain 22
+17, EP33, Plastic strain 33
+18, EP12, Plastic strain 12
+19, EP13, Plastic strain 13
+20, EP23, Plastic strain 23
+*User Material, constants=22
+2, 350000, 0.2, 248, 248, 0, 0, 0.9
+0.9, 0.05, 0.03, 3, 0.25, 1, 0.031, 0.031
+250, 100000, 1.15, 0.75, 0.5, 30
+*Solid Section, ElSet=BAR_STRONG, Material=SIC_MATRIX_BAR
+1.0,
+*Solid Section, ElSet=BAR_WEAK, Material=SIC_MATRIX_BAR_WEAK
+1.0,
+*Boundary
+X0, 1, 1
+Y0, 2, 2
+Z0, 3, 3
+*Step, Name=Tension, nlgeom=NO, inc=100000
+displacement-controlled tension to localisation and beyond
+*Static, stabilize=2e-4, allsdtol=0.05, continue=NO
+0.002, 1.0, 1e-8, 0.005
+*Controls, parameters=time incrementation
+ 12, 16, , 40, , , , 8, , ,
+*Controls, parameters=field, field=displacement
+ , 1
+*Boundary
+XL, 1, 1, 2.00000000e-02
+*Output, field, number interval=200
+*Element Output, directions=YES
+S, E, IVOL, SDV
+*Node Output
+U, RF
+*Output, history, frequency=1
+*Node Output, nset=XL
+U1, RF1
+*Energy Output
+ALLIE, ALLSD, ALLWK, ALLPD
+*End Step

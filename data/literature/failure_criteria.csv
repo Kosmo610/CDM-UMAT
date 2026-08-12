@@ -1,0 +1,106 @@
+# Failure-criterion data for C/SiC -- inputs and validation targets for C4
+# (the Hashin / Tsai-Wu / D-criterion comparison in KMACRO31).
+#
+# READ data/literature/README.md BEFORE USING.  The `confidence` column says
+# whether a number came from the full text, a digitized figure, or a secondary
+# summary.  Nothing marked `secondary` may be cited.
+#
+# ROLE column -- this matters more here than anywhere else in the project:
+#   input       a number that is allowed to go on a UMAT card
+#   validation  a COMPOSITE-level measurement.  The model must PREDICT it.
+#               Putting one of these on a card double-counts the thermal
+#               residual stress and destroys the whole TRS argument.
+#
+# The D-criterion critical damages (D11max, D22max, D66max) are the awkward
+# case: they are composite-level, but the criterion is DEFINED by them the way
+# Tsai-Wu is defined by Xt/Xc/S12.  They are therefore `input` -- but they are
+# properties OF THE CRITERION, and using Yang's values means using Yang's
+# material.  Replace them with values read off our own RVE virtual tests (the
+# damage at the peak of the homogenised sigma-epsilon curve) as soon as M3 has
+# run, and state in the thesis which set produced which figure.
+#
+# Units: strengths and moduli in MPa; damages and ratios dimensionless; T in K.
+source_key,material,quantity,T_K,value,lo,hi,unit,role,confidence,note
+# --------------------------------------------------------------------------
+# [27] Yang, Jiao, Wang, Huang, Guo, Composites: Part A 77 (2015) 181-187.
+#      2D cross-woven C/SiC, isothermal CVI, Vf(preform) = 40 %, rho ~ 2.0
+#      g/cm3, STRONG fibre/matrix interface.  Table 1 + Section 4.1.
+# --------------------------------------------------------------------------
+YANG2015,2D C/SiC CVI strong-interface,E1,293,145700,,,MPa,validation,fulltext,"Table 1 initial modulus 145.7 GPa"
+YANG2015,2D C/SiC CVI strong-interface,G12,293,37500,,,MPa,validation,fulltext,"Table 1 shear modulus 37.5 GPa (Section 4.1 quotes 37.53)"
+YANG2015,2D C/SiC CVI strong-interface,nu12,293,0.07,,,-,validation,fulltext,"Table 1"
+YANG2015,2D C/SiC CVI strong-interface,Xt,293,226.0,,,MPa,validation,fulltext,"Table 1 tensile strength"
+YANG2015,2D C/SiC CVI strong-interface,S12,293,125.7,,,MPa,validation,fulltext,"Table 1 shear strength"
+YANG2015,2D C/SiC CVI strong-interface,D11max,293,0.5224,,,-,input,fulltext,"Section 4.1: Djj = A*sj - B*sj^2 with A = 3.6e-3 /MPa, B = 5.7e-6 /MPa^2, evaluated at sj = Xt = 226 MPa. VERIFIED: 3.6e-3*226 - 5.7e-6*226^2 = 0.5225"
+YANG2015,2D C/SiC CVI strong-interface,D22max,293,0.5224,,,-,input,fulltext,"same as D11max -- the paper sets j = 1 or 2 by structural symmetry of the plain weave"
+YANG2015,2D C/SiC CVI strong-interface,D66max,293,0.5405,,,-,input,fulltext,"Section 4.1: D66 = B66*s6 with B66 = 4.3e-3 /MPa at s6 = S12 = 125.7 MPa. VERIFIED: 4.3e-3*125.7 = 0.5405"
+YANG2015,2D C/SiC CVI strong-interface,damage_A,293,3.6e-3,,,1/MPa,input,fulltext,"Eq.12 normal-damage evolution, fitted to the unloading-modulus curve of Fig. 3"
+YANG2015,2D C/SiC CVI strong-interface,damage_B,293,5.7e-6,,,1/MPa^2,input,fulltext,"Eq.12 quadratic term. The exponent is NOT readable from the PDF text layer; it was recovered by requiring Djj(Xt) = 0.5224, the value the paper itself quotes"
+YANG2015,2D C/SiC CVI strong-interface,damage_B66,293,4.3e-3,,,1/MPa,input,fulltext,"Eq.13 shear-damage evolution (linear)"
+YANG2015,2D C/SiC CVI strong-interface,offaxis_15deg,293,233.7,230.3,237.1,MPa,validation,fulltext,"Table 2. Criterion predictions: Eq.7 211.4, Eq.10a 202.1, Eq.10b 216.7, Eq.10c 209.1"
+YANG2015,2D C/SiC CVI strong-interface,offaxis_30deg,293,200.6,200.1,201.1,MPa,validation,fulltext,"Table 2. Predictions: 187.7 / 179.8 / 206.7 / 195.4"
+YANG2015,2D C/SiC CVI strong-interface,offaxis_45deg,293,195.0,175.0,215.0,MPa,validation,fulltext,"Table 2. Predictions: 175.5 / 172.7 / 203.3 / 191.8. ALL FOUR criteria UNDERPREDICT at every angle -- the D-criterion is conservative, which is the paper's own claim"
+# --------------------------------------------------------------------------
+# [33] Yang, Jiao, Guo, Theor. Appl. Mech. Lett. 4 (2014) 021007.
+#      Source of the D-criterion itself (Eq.12).  Two different 2D C/SiC
+#      materials are used to draw the tension-shear envelopes of Figs. 1-2.
+# --------------------------------------------------------------------------
+YANG2014,2D C/SiC weak-interface,Xc,293,430.2,,,MPa,validation,fulltext,"Fig. 1 caption / text; the weak-interface material"
+YANG2014,2D C/SiC strong-interface,Xt,293,246.6,,,MPa,validation,fulltext,"Fig. 2 material"
+YANG2014,2D C/SiC strong-interface,Xc,293,389.6,,,MPa,validation,fulltext,"Fig. 2 material"
+YANG2014,2D C/SiC strong-interface,S12,293,128.5,,,MPa,validation,fulltext,"Fig. 2 material"
+YANG2014,2.5D C/SiC,eta1_shear_knockdown,293,0.2,,,-,input,fulltext,"Eq.7a: tensile s1 REDUCES the shear strength, S12_eff = S12 - eta1*s1. Not implemented in KMACRO31 -- noted as a modelling limitation"
+YANG2014,2.5D C/SiC,eta2_shear_friction,293,0.15,,,-,input,fulltext,"Eq.7b: compressive s1 RAISES the shear strength (internal friction). KMACRO31 gets a similar effect through unilateral crack closure (HCLO) rather than through the strength envelope"
+# --------------------------------------------------------------------------
+# [35] Yan, Zhang, Qiao, Li, Han, Materials and Design 32 (2011) 3504-3508.
+#      2D plain-woven C/SiC, in-plane shear strength by compression of
+#      double-notched specimens, vacuum, 0.595 mm/min.  Fig. 5.
+#
+#      *** THIS IS THE TEMPERATURE-DEPENDENT FAILURE TARGET ***
+#      IPSS RISES ~39 % from RT to 1273 K and then falls.  The paper
+#      attributes the rise to RELAXATION OF THE THERMAL RESIDUAL TENSILE
+#      STRESS at the fibre/matrix interface as T approaches the 1273 K
+#      preparation temperature (their Eq.2), and the fall above 1273 K to
+#      matrix cracking under the now-compressive residual stress.
+#      A TRS-resolved model should reproduce the shape WITHOUT being told.
+#      That makes this the cleanest available validation of the TRS theme.
+# --------------------------------------------------------------------------
+YAN2011,2D C/SiC CVI plain weave,S12,293,144.1,134.3,153.9,MPa,validation,digitized,"Fig. 5, room temperature. Digitized by connected-component detection of the marker squares; axis calibration from the plot frame (250/100 MPa, 200/2000 K). Marker-centre accuracy ~1 MPa, well inside the plotted scatter"
+YAN2011,2D C/SiC CVI plain weave,S12,973,183.7,173.5,194.2,MPa,validation,digitized,"Fig. 5. ratio to RT = 1.275"
+YAN2011,2D C/SiC CVI plain weave,S12,1173,185.7,177.5,193.9,MPa,validation,digitized,"Fig. 5. ratio to RT = 1.289"
+YAN2011,2D C/SiC CVI plain weave,S12,1273,200.1,184.1,216.4,MPa,validation,digitized,"Fig. 5 PEAK. ratio to RT = 1.389. The paper states in its conclusions that the maximum is at 1273 K, which is the preparation temperature -- the digitized peak lands on exactly that abscissa, which is the check that the calibration is right"
+YAN2011,2D C/SiC CVI plain weave,S12,1473,183.7,163.0,204.4,MPa,validation,digitized,"Fig. 5. ratio to RT = 1.275"
+YAN2011,2D C/SiC CVI plain weave,S12,1673,188.1,176.8,199.3,MPa,validation,digitized,"Fig. 5. ratio to RT = 1.305"
+YAN2011,2D C/SiC CVI plain weave,S12,1873,178.3,167.7,188.8,MPa,validation,digitized,"Fig. 5, highest temperature tested. ratio to RT = 1.237"
+YAN2011,2D C/SiC CVI plain weave,T_preparation,1273,1273,,,K,input,fulltext,"stated preparation temperature; the stress-free temperature of THEIR material. Ours is 1050 C = 1323 K (PIP pyrolysis), so the peak of our predicted S12(T) should sit near 1323 K, not 1273 K"
+YAN2011,2D C/SiC CVI plain weave,alpha_fibre_axial,293,1.0e-6,,,1/K,validation,fulltext,"quoted in Section 3.2 for their Eq.2. Our card uses -0.3e-6 (Zhang 2022 Table 1); the disagreement is real and is why constituent CTE is a sensitivity parameter"
+YAN2011,2D C/SiC CVI plain weave,alpha_matrix,293,4.8e-6,,,1/K,validation,fulltext,"quoted in Section 3.2; compare our SiC card value 4.5e-6 at 23 C -- these agree to 7 %"
+SZHANG2026,3D C/SiC (XRD),TRS_matrix_axial,293,114.7,,,MPa,validation,fulltext,"refs/[15] Compos. A 207 (2026) 109796. Measured by X-ray diffraction. TENSILE (positive) in the matrix. This is THE reference value for the stress-free-temperature question: our RVE cooldown from 1050 C predicts +268.08 MPa, i.e. 2.34x this"
+SZHANG2026,3D C/SiC (XRD),TRS_matrix_transverse,293,40.3,,,MPa,validation,fulltext,"refs/[15]. Tensile, transverse to the matrix axis"
+SZHANG2026,3D C/SiC (XRD),TRS_yarn_axial,293,-68.7,,,MPa,validation,fulltext,"refs/[15]. COMPRESSIVE (negative) in the yarn -- opposite sign to the matrix, which is the equilibrium requirement any TRS model must satisfy"
+SZHANG2026,3D C/SiC (XRD),TRS_yarn_transverse,293,-23.9,,,MPa,validation,fulltext,"refs/[15]. Compressive, transverse to the yarn axis"
+SHI2023,2D plain weave CVI-C/SiC,G_Ic_interlaminar,293,0.107,0.090,0.124,N/mm,input,fulltext,"refs/[31] Compos. A 168 (2023) 107466 Fig. 7(b). Mode-I wedge-loaded DCB. +/-0.017. ADOPTED as the yarn transverse tensile fracture energy Gtt (card slot 34). Mechanism reported: matrix/fibre debonding with NO fibre bridging and LEFM valid -- the mechanism that governs transverse tow cracking. CAVEAT: interlaminar, not intra-tow; closest measured analogue in the right material"
+SHI2023,2D plain weave CVI-C/SiC,E11,293,74500,,,MPa,validation,fulltext,"refs/[31] Table 1, ultrasonic"
+SHI2023,2D plain weave CVI-C/SiC,E22,293,21300,,,MPa,validation,fulltext,"refs/[31] Table 1, ultrasonic"
+SHI2023,2D plain weave CVI-C/SiC,transverse_tensile_strength,293,36.5,,,MPa,validation,fulltext,"refs/[31] Eq. 17 cohesive Tmax. They note it is ~3x the through-thickness tensile strength 13.4 MPa"
+GE2018,3D braided carbon/phenolic,Gf_1t,293,12.5,,,N/mm,input,fulltext,"refs/[24] Table 3. THIS is where our yarn card slots 32/33 come from. Fibre-dominated and both use T300, so the transfer to C/SiC is arguable"
+GE2018,3D braided carbon/phenolic,Gf_1c,293,12.5,,,N/mm,input,fulltext,"refs/[24] Table 3, same origin as Gf_1t"
+GE2018,3D braided carbon/phenolic,Gf_2t,293,1.0,,,N/mm,validation,fulltext,"refs/[24] Table 3. NOT ADOPTED -- their matrix is phenolic at Em=3.2 GPa against our SiC at 350 GPa, and the transverse mode is matrix-dominated. Recorded so the rejection is on the record"
+GE2018,3D braided carbon/phenolic,Gf_2c,293,1.0,,,N/mm,validation,fulltext,"refs/[24] Table 3. NOT ADOPTED, same reason as Gf_2t"
+GE2018,phenolic matrix,E_matrix,293,3200,,,MPa,validation,fulltext,"refs/[24] Table 3. Quoted only to document why their transverse fracture energies cannot be carried over"
+SNEAD2007,dense CVD beta-SiC,K_Ic,298,3.35,3.2,3.5,MPa m^0.5,validation,fulltext,"refs/[06] summary table. With E=460 GPa gives G=0.0223-0.0266 N/mm for neat SiC; evaluated at our matrix E=350 GPa it gives 0.0293-0.0350, bracketing the 0.031 already in the matrix card"
+QZHANG2006,bulk CVD SiC (their reference),alpha_inst,873,5.85,,,1/K_e-6,validation,digitized,"refs/[11] Fig.1 top envelope, reproduced by data/literature/cte_r11_envelope.py. Snead refs/[06] gives 4.88e-6 at the same temperature -- this paper reads 20 % HIGH on a well-characterised reference material, at every temperature from 200 to 1000 C. Consequence: refs/[11] is usable for ORDERING and SHAPE only, never as an absolute target for alpha_bar"
+QZHANG2006,bulk CVD SiC (their reference),alpha_secant_1050_23,296,5.298,,,1/K_e-6,validation,digitized,"refs/[11] Fig.1, mean of the instantaneous curve over 23-1050 C = the secant. Snead refs/[06] secant over the same range is 4.397e-6. The +20 % gap is the reason the 2D in-plane curve in the same figure cannot settle our alpha_bar question"
+QZHANG2006,2D C/SiC CVI plain weave,alpha_inplane_ratio_to_CVD,296,,0.571,1.000,-,validation,fulltext,"BRACKET, not a value. Section 3.2 states the 2D in-plane CTE is above the other two composites and below bulk CVD SiC; the two envelopes of Fig.1 turn that into 0.571-1.000. Our three candidates are 0.696 (RVE), 0.818 (mean field, card CTE) and 0.895 (mean field, measured CTE) -- ALL INSIDE. Does not discriminate"
+QZHANG2006,2D C/SiC CVI plain weave,alpha_inplane_lowT_prose,296,,,,-,validation,fulltext,"DO NOT USE AS A CONSTRAINT. The grade is fulltext because the sentence was read in the paper; the problem is that it is contradicted by the paper's own figure, not that it is unverified. Section 3.2 says the 2D in-plane CTE exceeds the other two 'in the whole temperature range', but Fig.1 shows the 2D line diving to about -1.9e-6/K near 150 C, below both. Almost certainly a dilatometer start-up artefact. Recorded so the sentence is not quoted as a constraint"
+MEI2005,2D C/SiC CVI,E_composite,293,70000,,,MPa,validation,fulltext,"refs/[43] Table I, as-received. Composite-level -- VALIDATION ONLY, never a card input"
+MEI2005,2D C/SiC CVI,UTS_composite,293,248,,,MPa,validation,fulltext,"refs/[43] Table I. Compare ZHANG2013 as-received peak 259.3 MPa -- the two agree to 4.4 %"
+MEI2005,2D C/SiC CVI,nu_composite,293,0.32,,,-,validation,fulltext,"refs/[43] Table I"
+MEI2005,2D C/SiC CVI,porosity,293,13.0,,,%,validation,fulltext,"refs/[43] Table I. Independent measurement of CVI 2D C/SiC porosity. Our RVE mesh is 100 % filled, which is why k_bar is over-predicted (Ch.3 3.8-1)"
+MEI2005,2D C/SiC CVI,alpha_inplane_inst,873,4.6,,,1/K_e-6,validation,fulltext,"refs/[43] Table I, DIL402C dilatometer, TABULATED not a figure -- so unlike refs/[11] it needs no digitisation. Instantaneous CTE. No data below 600 C, so it cannot be integrated to our 23 C secant; use as the target for the alpha_bar(T) curve in 4.6"
+MEI2005,2D C/SiC CVI,alpha_inplane_inst,1073,6.1,,,1/K_e-6,validation,fulltext,"refs/[43] Table I"
+MEI2005,2D C/SiC CVI,alpha_inplane_inst,1273,5.2,,,1/K_e-6,validation,fulltext,"refs/[43] Table I"
+MEI2005,2D C/SiC CVI,alpha_inplane_inst,1473,5.4,,,1/K_e-6,validation,fulltext,"refs/[43] Table I"
+SHEN2016,2D woven SiCf/SiC CVI,porosity_RVE,293,17.5,,,%,validation,fulltext,"refs/[36] JMEPEG 25 (2016) 5138. An RVE that includes porosity GEOMETRICALLY predicts the tensile modulus within 3.26 % of experiment (228.8 +- 4.5 GPa). States that CVI cannot produce a pore-free composite and that a pore-free RVE is not applicable. Bears on our undecided porosity treatment"
+JEONG2024,SiCf/SiC CVI-LSI-PIP hybrid,E_composite,1673,152300,,,MPa,validation,fulltext,"refs/[45] J Korean Ceram Soc 61 (2024) 161. At 1400 C. Apparent density 2.77 g/cm3, residual Si 2 vol%"
+JEONG2024,SiCf/SiC CVI-LSI-PIP hybrid,UTS_composite,1673,144.1,,,MPa,validation,fulltext,"refs/[45]. At 1400 C; PLS 125.1 MPa"
