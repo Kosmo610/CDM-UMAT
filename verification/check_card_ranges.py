@@ -196,14 +196,21 @@ YARN = [
      "switch-off, not a missing source",
      "see data/properties/yarn_fracture_energy.py"),
     (36, "X_PO yarn [MPa]", 700.0, None, None, "GUESS",
-     "pull-out parameter of the mixed softening law; no measurement",
-     "roughly 0.25*Xt; CALIBRATION_GUIDE knob"),
+     "pull-out parameter of the mixed softening law.  NOT 'not yet found': "
+     "a1-0035 read the lineage's primary source, refs/[73] Zhong 2015, and "
+     "S_po is absent there too.  Declared knob, search closed",
+     "roughly 0.25*Xt; CALIBRATION_GUIDE knob.  Lineage is epoxy-matrix -> "
+     "DEV even if a number existed"),
     (37, "rF yarn", 3.0, None, None, "DERIVED",
      "Ge refs/[24] Eq.(17) fixes r^F_f,1t as the transition point implied by "
-     "X_PO and K1 -- it is NOT an independent input",
+     "X_PO and K1 -- it is NOT an independent input.  refs/[73], the primary "
+     "source of that lineage, says the same in words: r^F_f,1t and S_po lie "
+     "on the intersection of the linear and exponential laws (a1-0035)",
      "should be computed from slots 36/38, not tuned"),
     (38, "K1 yarn [MPa]", 8000.0, None, None, "GUESS",
-     "linear softening slope; no measurement", "knob"),
+     "linear softening slope.  Absent from refs/[73] as well, so the trail "
+     "is closed rather than open (a1-0035)",
+     "declared knob; epoxy-matrix lineage -> DEV regardless"),
 ]
 
 # Constituent CTEs, which live on *Expansion rather than in the cards.

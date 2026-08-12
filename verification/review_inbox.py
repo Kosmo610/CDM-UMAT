@@ -220,7 +220,10 @@ def answers():
         dict(question="Zhang의 Ref.[30] (식 18 파라미터 출처)",
              answer=r30, their_belief="실체 미상 -- 목록에 넣지 않음",
              verdict="IDENTIFIED",
-             note="X_PO / r_F / K1 의 출처가 확정되었다. PDF는 아직 미보유"),
+             note="X_PO / r_F / K1 의 출처가 확정되었다. PDF도 확보됐다 "
+                  "(refs/[73] Zhong 2015, a1-0035) -- 그런데 그 원전에도 "
+                  "X_PO·K1 수치는 없다. 추적은 '못 찾음'이 아니라 '없음'으로 "
+                  "닫혔고, 계보 전체가 에폭시 기지라 있었어도 DEV였다"),
         dict(question="Zhang의 Ref.[32] Chamis 판본",
              answer=r32,
              their_belief="1984 SAMPE Q. (LIKELY) 또는 1987 JRPC (대안)",
