@@ -218,7 +218,7 @@ CASES = [
      count_bracketed, 13),
     ("compare_cyclejump.py --selftest",
      "python3 postprocess/compare_cyclejump.py --selftest",
-     count_bracketed, 11),
+     count_bracketed, 17),
     ("sync_check.py --selftest",
      "python3 sync/sync_check.py --selftest",
      count_bracketed, 46),
