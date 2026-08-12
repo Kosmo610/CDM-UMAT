@@ -111,7 +111,7 @@ CASES = [
      count_bracketed, 21),
     ("msg_residual_census.py --check",
      "python3 postprocess/msg_residual_census.py --check",
-     count_bracketed, 12),
+     count_bracketed, 16),
     ("make_rve_conductivity.py --check",
      "python3 abaqus/make_rve_conductivity.py --check",
      count_bracketed, 41),
