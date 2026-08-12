@@ -205,7 +205,7 @@ CASES = [
      count_bracketed, 40),
     ("extract_thermal_profile.py --selftest",
      "python3 postprocess/extract_thermal_profile.py --selftest",
-     count_bracketed, 20),
+     count_bracketed, 31),
     ("homogenize.py --selftest",
      "python3 postprocess/homogenize.py --selftest",
      count_bracketed, 18),
