@@ -90,9 +90,9 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `extract_probe.py --selftest` | E(N) 프로브 판독 — **Δ기반**(절대반력은 차단 열응력을 읽는다) + `*Depvar` 양쪽 조회 + 스텝 진단 | 13 |
 | `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 + refs/[57]·[58] 역할 분리와 10배 격차 | 11 |
 | `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis | 40 |
-| `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) | 20 |
+| `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) · **저Bi 고유값·욕조온도·alpha(T) 창** | 31 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **2824** |
+| **합계** | | **2835** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

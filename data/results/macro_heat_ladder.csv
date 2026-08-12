@@ -1,0 +1,4 @@
+severity,bi,h_W_m2K,peak_grad_K,drop_K,grad_pct,front_depth_mm,elements_in_front,space_verdict,peak_time_s,first_frame_s,alpha_odb_mm2s,alpha_card_lo,alpha_card_hi,uniform_assumption
+L,0.05,181.6,19.767,283.0,6.99,1.8248,7,equilibrating,0.8362,0.0113,1.809,1.2269,2.4512,holds
+M,1.00,3632.7,221.230,600.0,36.87,1.1461,6,resolved,0.3298,0.003223,2.100,1.2269,2.4512,strained
+H,5.00,18163.3,433.289,600.0,72.21,0.8155,5,resolved,0.1670,0.0005185,1.427,1.2269,2.4512,BROKEN

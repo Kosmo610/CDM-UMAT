@@ -27,10 +27,31 @@ while the job converges beautifully, so all three are checked here:
      time of the peak is compared against the first frame available.
 
   3. IS THE CARD THE ONE WE THINK IT IS?  Biot cannot see a unit error that
-     scales h and k together, so the Fourier number is recovered FROM THE
-     ODB -- by fitting the observed mid-plane decay -- and compared with the
-     card's own alpha.  A card whose k is 1000x off makes the plate cool
-     1000x slower, and this is the check that notices.
+     scales h and k together, so the diffusivity is recovered FROM THE ODB --
+     by fitting the observed mid-plane decay -- and compared with the card's
+     own alpha.  A card whose k is 1000x off makes the plate cool 1000x
+     slower, and this is the check that notices.
+
+     The first version of this check called all three real runs
+     CARD_MISMATCH on 2026-08-11, and all three were false alarms.  It got
+     three things wrong, and each is worth stating because each is a way to
+     misread a perfectly good cooling curve:
+
+       * theta was normalised by the COLDEST NODE EVER SEEN instead of the
+         bath the film blows against.  At Bi = 0.05 the plate never reaches
+         the bath in one quench, so that denominator was 283 K instead of
+         600 K and the fitted decay came out seven times too fast.
+       * the eigenvalue was pinned at the Bi -> infinity limit, lam^2 =
+         2.4674.  The real lam solves lam*tan(lam) = Bi and runs from 0.0492
+         at Bi = 0.05 to 1.7262 at Bi = 5 -- a factor of 35 across our own
+         ladder, applied as if it were a constant.
+       * alpha was compared against its value at 23 C while the quench runs
+         between 900 C and 300 C, where the card's own alpha is 1.23 to 2.45
+         rather than 3.98.
+
+     Fixed, the same three runs read 1.81 / 2.10 / 1.43 mm^2/s against a card
+     range of 1.23-2.45.  A 1000x unit error is still three orders outside
+     that window, so the check keeps all of its power and none of its bite.
 
 Everything is written to <job>_thermal.csv, one row per quench step, with the
 value, the basis it was judged against and the verdict in the same row.  The
@@ -58,40 +79,100 @@ MIN_ELEMENTS_IN_LAYER = 3
 #: The first frame must land this far inside the diffusion time, or the peak
 #: has already passed before anything was recorded.
 PEAK_FRAME_FRACTION = 0.5
-#: Card alpha and odb alpha may differ by this much before it is called a
-#: unit or property error rather than discretisation.
-ALPHA_TOLERANCE = 0.25
+#: The odb's fitted alpha may sit this far outside the card's own alpha
+#: RANGE over the quench before it is called a unit or property error.  A
+#: factor of 2 is loose on purpose: the fit is a one-term series against a
+#: temperature-dependent card, so a tight window would only ever produce
+#: false alarms.  The failure it exists to catch is a factor of 1000.
+ALPHA_FACTOR = 2.0
+
+
+def _table(txt, keyword, ncol):
+    """[(value, T), ...] from a keyword's data block.  T is None if absent."""
+    m = re.search(r"\*%s[^\n]*\n((?:[^*\n][^\n]*\n?)+)" % keyword, txt, re.I)
+    if not m:
+        return []
+    rows = []
+    for ln in m.group(1).splitlines():
+        v = [float(x) for x in ln.split(",") if x.strip()]
+        if len(v) >= ncol:
+            rows.append((v[ncol - 1], v[ncol] if len(v) > ncol else None))
+    return rows
+
+
+def _at(rows, T):
+    """Linear interpolation of a (value, temperature) table, flat outside."""
+    pts = sorted((t, v) for v, t in rows if t is not None)
+    if not pts:
+        return rows[0][0] if rows else None
+    if T <= pts[0][0]:
+        return pts[0][1]
+    for (ta, va), (tb, vb) in zip(pts, pts[1:]):
+        if ta <= T <= tb:
+            return va + (vb - va) * (T - ta) / (tb - ta)
+    return pts[-1][1]
 
 
 def card_thermal(inp_path):
-    """(k3, rho, cp, alpha) from the deck's own thermal card, or None.
+    """The deck's own thermal card, with alpha as a function of temperature.
 
     Read from the .inp next to the odb.  The deck is the authority: a value
     remembered from the generator is a value that can drift away from the
-    file the solver actually read.
+    file the solver actually read.  The card is temperature dependent, so
+    `alpha_at` is a function and `alpha` is only its value at the first row.
     """
     if not inp_path or not os.path.exists(inp_path):
         return None
     txt = open(inp_path).read()
-    k = re.search(r"\*Conductivity[^\n]*\n([^\n]+)", txt, re.I)
-    r = re.search(r"\*Density\s*\n\s*([0-9.eE+-]+)", txt, re.I)
-    c = re.search(r"\*Specific Heat\s*\n\s*([0-9.eE+-]+)", txt, re.I)
-    if not (k and r and c):
+    ks = _table(txt, "Conductivity", 3)
+    rs = _table(txt, "Density", 1)
+    cs = _table(txt, "Specific Heat", 1)
+    if not (ks and rs and cs):
         return None
-    vals = [float(v) for v in k.group(1).split(",") if v.strip()]
-    if len(vals) < 3:
-        return None
-    k3, rho, cp = vals[2], float(r.group(1)), float(c.group(1))
-    return dict(k3=k3, rho=rho, cp=cp, alpha=k3 / (rho * cp))
+    rho = rs[0][0]
+
+    def alpha_at(T):
+        return _at(ks, T) / (rho * _at(cs, T))
+
+    return dict(k3=ks[0][0], rho=rho, cp=cs[0][0], alpha=alpha_at(ks[0][1] or 0.0),
+                alpha_at=alpha_at, k_rows=ks, cp_rows=cs)
 
 
 def card_film(inp_path):
-    """h in mW/(mm^2.K) from the first *Sfilm data line, or None."""
+    """(h, T_sink) from the first *Sfilm data line, or (None, None).
+
+    T_sink is the BATH the film blows against, and it is the denominator of
+    every normalised temperature below.  Taking it from the coldest node
+    instead -- which this file did until 2026-08-11 -- silently rescales the
+    whole decay whenever the plate does not reach the bath within one
+    quench, which is exactly what happens at low Biot number.
+    """
     if not inp_path or not os.path.exists(inp_path):
-        return None
-    m = re.search(r"\*Sfilm[^\n]*\n[^,\n]+,\s*F\s*,\s*[0-9.eE+-]+\s*,"
+        return None, None
+    m = re.search(r"\*Sfilm[^\n]*\n[^,\n]+,\s*F\s*,\s*([0-9.eE+-]+)\s*,"
                   r"\s*([0-9.eE+-]+)", open(inp_path).read(), re.I)
-    return float(m.group(1)) if m else None
+    if not m:
+        return None, None
+    return float(m.group(2)), float(m.group(1))
+
+
+def eigenvalue(bi):
+    """lam solving lam*tan(lam) = Bi, the first root in (0, pi/2).
+
+    This is the whole temperature-decay problem in one number, and it is NOT
+    a constant: lam^2 runs 0.0492 -> 1.7262 across our own Bi = 0.05 -> 5
+    ladder and only reaches 2.4674 as Bi -> infinity.
+    """
+    if bi <= 0:
+        return 0.0
+    lo, hi = 1.0e-12, 0.5 * math.pi - 1.0e-12
+    for _ in range(200):
+        m = 0.5 * (lo + hi)
+        if m * math.tan(m) < bi:
+            lo = m
+        else:
+            hi = m
+    return 0.5 * (lo + hi)
 
 
 def profile_resolution(zs, temps, t_hot, alpha, t):
@@ -140,19 +221,26 @@ def peak_gradient(frames):
     return best, t_best, i_best
 
 
-def alpha_from_decay(frames, t_hi, t_sink, half):
+def alpha_from_decay(frames, t_hi, t_sink, half, bi):
     """Thermal diffusivity implied by the mid-plane cooling history, mm^2/s.
 
-    For Fo > 0.2 the series collapses to its first term,
+    Once the transient has settled the series collapses to its first term,
 
-        theta = A exp(-lam^2 Fo),   Fo = alpha t / L^2
+        theta = A exp(-lam^2 Fo),   Fo = alpha t / L^2,   lam tan lam = Bi
 
-    so a straight line through ln(theta) against t has slope -lam^2 alpha/L^2.
-    lam is not known without Bi, but lam^2 <= 2.4674 (the Bi -> infinity
-    limit, (pi/2)^2), so the slope gives a LOWER bound on alpha that is still
-    tight enough to catch a factor of 1000.  Returns None if the history is
-    too short or never cools.
+    so a straight line through ln(theta) against t has slope lam^2 alpha/L^2
+    and alpha = slope L^2 / lam^2.
+
+    Both `t_sink` and `bi` matter and both were wrong here once:
+    `t_sink` must be the film's bath, not the coldest node, or a plate that
+    has not finished cooling reports a decay many times too fast; and lam
+    must come from this run's own Bi, not from the Bi -> infinity limit.
+
+    Returns None if the history is too short or never cools -- an honest
+    None beats a number that looks like a measurement.
     """
+    if bi is None or bi <= 0 or t_hi <= t_sink:
+        return None
     pts = []
     for t, fr in frames:
         if not fr or t <= 0:
@@ -161,7 +249,7 @@ def alpha_from_decay(frames, t_hi, t_sink, half):
         mid = 0.5 * (min(zs) + max(zs))
         centre = min(fr, key=lambda p: abs(p[0] - mid))[1]
         theta = (centre - t_sink) / float(t_hi - t_sink)
-        if theta > 1e-6:
+        if theta > 1.0e-4:
             pts.append((t, math.log(theta)))
     if len(pts) < 4:
         return None
@@ -169,7 +257,25 @@ def alpha_from_decay(frames, t_hi, t_sink, half):
     if t1 <= t0 or y1 >= y0:
         return None
     slope = (y0 - y1) / (t1 - t0)          # positive decay rate
-    return slope * half * half / 2.4674
+    lam = eigenvalue(bi)
+    if lam <= 0:
+        return None
+    return slope * half * half / (lam * lam)
+
+
+def alpha_window(card, t_lo, t_hi):
+    """(lo, hi) card diffusivity across the temperatures the quench visits.
+
+    The card is temperature dependent and the quench spans hundreds of
+    degrees, so there is no single "the card's alpha" to compare against --
+    comparing against its 23 C value while the plate sits at 900 C is a
+    factor of three before anything is even wrong.
+    """
+    if not card or "alpha_at" not in card:
+        return None
+    vals = [card["alpha_at"](t_lo + (t_hi - t_lo) * i / 8.0)
+            for i in range(9)]
+    return min(vals), max(vals)
 
 
 def judge(row):
@@ -191,7 +297,7 @@ def read(path):
                  "not with plain python.")
     inp = os.path.splitext(path)[0] + ".inp"
     card = card_thermal(inp)
-    h = card_film(inp)
+    h, t_sink_card = card_film(inp)
     odb = openOdb(path, readOnly=True)
     rows = []
     try:
@@ -230,35 +336,48 @@ def read(path):
                 print("  %s: no NT field output" % sname)
                 continue
             t_hi = max(t for _, pts in frames[:1] for _, t in pts)
-            t_sink = min(t for _, pts in frames for _, t in pts)
+            # The bath is the film's own sink temperature.  Falling back to
+            # the coldest node is only right when the plate actually reaches
+            # the bath, so the fallback is announced rather than assumed.
+            t_bath = (t_sink_card if t_sink_card is not None
+                      else min(t for _, pts in frames for _, t in pts))
+            reached = min(t for _, pts in frames for _, t in pts)
             g, tg, ig = peak_gradient(frames)
-            alpha_card = card["alpha"] if card else None
+            bi = (h * half / card["k3"]) if (h and card) else None
+            # The front is judged on the alpha the material HAS while it is
+            # cooling, not on its room-temperature value.
+            win = alpha_window(card, t_bath, t_hi)
+            alpha_mid = (0.5 * (win[0] + win[1])) if win else None
             n_el, depth, sv = (profile_resolution(
-                zs, None, t_hi, alpha_card, tg) if alpha_card
+                zs, None, t_hi, alpha_mid, tg) if alpha_mid
                 else (0, 0.0, "no card"))
             t_first = frames[1][0] if len(frames) > 1 else frames[0][0]
             tv = ("PEAK_MISSED" if ig <= 1 and t_first > 0 else "sampled")
-            a_odb = alpha_from_decay(frames, t_hi, t_sink, half)
-            if a_odb is None or alpha_card is None:
+            a_odb = alpha_from_decay(frames, t_hi, t_bath, half, bi)
+            if a_odb is None or win is None:
                 av, aratio = "not testable", ""
             else:
-                aratio = a_odb / alpha_card
-                av = ("consistent" if abs(math.log(max(aratio, 1e-30)))
-                      < math.log(1.0 + ALPHA_TOLERANCE) + 1.0
-                      else "CARD_MISMATCH")
+                # Judged against the WINDOW, loosened by ALPHA_FACTOR.  The
+                # ratio reported is against the nearest edge, so 1.0 means
+                # "inside" and 0.001 means the thermal unit error.
+                lo, hi = win[0] / ALPHA_FACTOR, win[1] * ALPHA_FACTOR
+                aratio = (1.0 if lo <= a_odb <= hi
+                          else (a_odb / lo if a_odb < lo else a_odb / hi))
+                av = "consistent" if lo <= a_odb <= hi else "CARD_MISMATCH"
             rows.append(judge(dict(
                 odb=os.path.basename(path), step=sname,
                 h_card=("" if h is None else "%.6g" % h),
-                bi=("" if not (h and card) else "%.4f" % (h * half / card["k3"])),
+                bi=("" if bi is None else "%.4f" % bi),
                 peak_grad_K="%.3f" % g, peak_time_s="%.4g" % tg,
-                drop_K="%.1f" % (t_hi - t_sink),
-                grad_pct=("%.2f" % (100.0 * g / (t_hi - t_sink))
-                          if t_hi > t_sink else ""),
+                drop_K="%.1f" % (t_hi - t_bath),
+                grad_pct=("%.2f" % (100.0 * g / (t_hi - t_bath))
+                          if t_hi > t_bath else ""),
+                reached_K="%.1f" % reached, bath_K="%.1f" % t_bath,
                 front_depth_mm="%.4f" % depth, elements_in_front=str(n_el),
                 min_elements=str(MIN_ELEMENTS_IN_LAYER), space_verdict=sv,
                 first_frame_s="%.4g" % t_first,
                 peak_frame_index=str(ig), time_verdict=tv,
-                alpha_card=("" if alpha_card is None else "%.4f" % alpha_card),
+                alpha_card=("" if win is None else "%.4f-%.4f" % win),
                 alpha_odb=("" if a_odb is None else "%.4f" % a_odb),
                 alpha_ratio=("" if aratio == "" else "%.3f" % aratio),
                 alpha_verdict=av)))
@@ -268,7 +387,8 @@ def read(path):
 
 
 COLUMNS = ["odb", "step", "h_card", "bi", "peak_grad_K", "peak_time_s",
-           "drop_K", "grad_pct", "front_depth_mm", "elements_in_front",
+           "drop_K", "grad_pct", "reached_K", "bath_K",
+           "front_depth_mm", "elements_in_front",
            "min_elements", "space_verdict", "first_frame_s",
            "peak_frame_index", "time_verdict", "alpha_card", "alpha_odb",
            "alpha_ratio", "alpha_verdict", "verdict"]
@@ -324,54 +444,104 @@ def selftest():
        peak_gradient(frames[2:])[2] == 0)
 
     print("\n C. the diffusivity is recovered from the odb, not trusted")
-    # Manufacture a first-term decay with a known alpha and read it back.
-    alpha, half, lam2 = 3.9825, 1.5, 2.4674
-    made = []
-    for k in range(12):
-        t = 0.1 + 0.1 * k
-        th = math.exp(-lam2 * alpha * t / (half * half))
-        centre = 25.0 + th * (900.0 - 25.0)
-        made.append((t, [(0.0, 25.0), (1.5, centre), (3.0, 25.0)]))
-    got = alpha_from_decay(made, 900.0, 25.0, half)
-    ck("a known decay returns its own diffusivity",
-       got is not None and abs(got / alpha - 1.0) < 0.02,
-       "%.4f vs %.4f mm^2/s" % (got, alpha))
-    # The whole reason this exists: h and k both 1000x low leaves Bi exactly
-    # right, so only the cooling RATE can expose it.
-    slow = []
-    for k in range(12):
-        t = 0.1 + 0.1 * k
-        th = math.exp(-lam2 * (alpha / 1000.0) * t / (half * half))
-        slow.append((t, [(0.0, 25.0), (1.5, 25.0 + th * 875.0), (3.0, 25.0)]))
-    got_slow = alpha_from_decay(slow, 900.0, 25.0, half)
-    ck("a 1000x-slow quench reads back 1000x smaller",
-       got_slow is not None and abs(got_slow / (alpha / 1000.0) - 1.0) < 0.02,
-       "%.6f mm^2/s" % got_slow)
-    ck("  so the ratio against the card exposes the unit error",
-       got_slow / alpha < 0.01)
+    ck("the eigenvalue is solved, not assumed",
+       abs(eigenvalue(5.0) ** 2 - 1.7262) < 1e-3
+       and abs(eigenvalue(0.05) ** 2 - 0.0492) < 1e-3,
+       "lam^2 = %.4f at Bi=5, %.4f at Bi=0.05 (the old constant was 2.4674)"
+       % (eigenvalue(5.0) ** 2, eigenvalue(0.05) ** 2))
+    ck("  and it approaches (pi/2)^2 only as Bi -> infinity",
+       abs(eigenvalue(1e9) ** 2 - 2.4674) < 1e-3)
+
+    def decay(alpha, bi, half=1.5, t_hi=900.0, t_bath=300.0, n=12):
+        """A synthetic first-term history with a KNOWN alpha and Bi.
+
+        The SURFACE follows cos(lam) of the mid-plane rather than sitting at
+        the bath, because that is what a real plate does: at Bi = 0.05 the
+        surface is within 2.5 % of the centre and the whole plate is still
+        hundreds of degrees above the bath when the quench ends.  A test
+        whose surface is pinned at the bath cannot see the bug that
+        normalising by the coldest node causes.
+        """
+        lam = eigenvalue(bi)
+        out = []
+        for k in range(n):
+            t = 0.1 + 0.1 * k
+            th = math.exp(-lam * lam * alpha * t / (half * half))
+            c = t_bath + th * (t_hi - t_bath)
+            srf = t_bath + th * math.cos(lam) * (t_hi - t_bath)
+            out.append((t, [(0.0, srf), (1.5, c), (3.0, srf)]))
+        return out
+
+    alpha, half = 1.8, 1.5
+    for bi in (0.05, 1.0, 5.0):
+        got = alpha_from_decay(decay(alpha, bi), 900.0, 300.0, half, bi)
+        ck("a known decay returns its alpha at Bi = %-4g" % bi,
+           got is not None and abs(got / alpha - 1.0) < 0.02,
+           "%.4f vs %.4f mm^2/s" % (got, alpha))
+    # The bug that produced three false alarms: at low Bi the plate does not
+    # reach the bath in one quench, and normalising by the coldest node seen
+    # instead of the bath inflates the fitted decay several times over.
+    fr = decay(alpha, 0.05)
+    coldest = min(t for _, pts in fr for _, t in pts)
+    wrong = alpha_from_decay(fr, 900.0, coldest, half, 0.05)
+    right = alpha_from_decay(fr, 900.0, 300.0, half, 0.05)
+    ck("normalising by the coldest node instead of the bath inflates alpha",
+       wrong is not None and wrong > 3.0 * right,
+       "%.3f vs the correct %.3f mm^2/s" % (wrong, right))
+    # And the failure it exists for is still three orders away.
+    slow = alpha_from_decay(decay(alpha / 1000.0, 5.0), 900.0, 300.0, half, 5.0)
+    ck("a 1000x-slow quench still reads back 1000x smaller",
+       slow is not None and abs(slow / (alpha / 1000.0) - 1.0) < 0.02,
+       "%.6f mm^2/s" % slow)
     ck("a history that never cools returns None, not a fake number",
        alpha_from_decay([(t, [(0.0, 900.0), (1.5, 900.0), (3.0, 900.0)])
                          for t in (0.1, 0.2, 0.3, 0.4)],
-                        900.0, 25.0, half) is None)
+                        900.0, 300.0, half, 1.0) is None)
     ck("too few frames returns None",
-       alpha_from_decay(made[:2], 900.0, 25.0, half) is None)
+       alpha_from_decay(decay(alpha, 1.0, n=2), 900.0, 300.0, half, 1.0)
+       is None)
 
     print("\n D. the card is read from the deck, never remembered")
     import tempfile
     d = tempfile.mkdtemp()
     inp = os.path.join(d, "j.inp")
+    # The real card, all three temperature rows -- a one-row fixture cannot
+    # test the very thing that produced the false alarms.
     open(inp, "w").write(
         "*Conductivity, type=ORTHO, dependencies=0\n"
         "8.8627, 8.8631, 5.449, 23\n"
-        "*Density\n2.00821e-09,\n*Specific Heat\n6.8132e+08, 23\n"
+        "7.37023, 7.37056, 4.53139, 500\n"
+        "5.80579, 5.80606, 3.56954, 1000\n"
+        "*Density\n2.00821e-09,\n"
+        "*Specific Heat\n6.8132e+08, 23\n1.22787e+09, 500\n"
+        "1.60149e+09, 1000\n"
         "*Sfilm\nSURF_LO, F, 300., 0.1816\n")
     c = card_thermal(inp)
     ck("k3 comes off the ORTHO card's THIRD slot", abs(c["k3"] - 5.449) < 1e-9,
        "%.4f mW/(mm.K)" % c["k3"])
     ck("and the diffusivity it implies is physical",
        1.0 < c["alpha"] < 100.0, "%.4f mm^2/s" % c["alpha"])
+    h_got, sink_got = card_film(inp)
     ck("the film coefficient comes off *Sfilm, not from a constant",
-       abs(card_film(inp) - 0.1816) < 1e-9)
+       abs(h_got - 0.1816) < 1e-9)
+    ck("  and so does the BATH temperature, the denominator of every theta",
+       abs(sink_got - 300.0) < 1e-9, "%.1f C" % sink_got)
+    ck("alpha is a temperature FUNCTION, not the 23 C value",
+       abs(c["alpha_at"](23.0) - 3.9825) < 1e-3
+       and abs(c["alpha_at"](900.0) - 1.2269) < 1e-3,
+       "%.4f at 23 C, %.4f at 900 C" % (c["alpha_at"](23.0),
+                                        c["alpha_at"](900.0)))
+    lo, hi = alpha_window(c, 300.0, 900.0)
+    ck("  so the quench is judged against a WINDOW, not a point",
+       abs(lo - 1.2269) < 1e-3 and abs(hi - 2.4512) < 1e-3,
+       "%.4f - %.4f mm^2/s over 300-900 C" % (lo, hi))
+    # The three real runs of 2026-08-11, judged by the fixed rule.
+    for name, a in (("SL", 1.809), ("SM", 2.100), ("SH", 1.427)):
+        ck("  the real %s run sits inside that window" % name,
+           lo / ALPHA_FACTOR <= a <= hi * ALPHA_FACTOR,
+           "%.3f mm^2/s" % a)
+    ck("  and a 1000x unit error still does not",
+       not (lo / ALPHA_FACTOR <= 1.427e-3 <= hi * ALPHA_FACTOR))
     ck("a missing deck returns None so the caller can say so",
        card_thermal(os.path.join(d, "absent.inp")) is None)
     old = os.path.join(d, "old.inp")
