@@ -94,6 +94,17 @@ T_SF_DECK = 1050.0                     # what the deck ships with
 VARIANTS = [
     ("CARD", -0.3e-6, 3.1e-6, "T300 (Zhang 2022 Table 1)",
      "the value the RVE card was verified against"),
+    # PROVENANCE OF THE TRANSVERSE NUMBERS (2026-08-12).  refs/[07]'s transverse
+    # CTEs are not a direct measurement.  The companion paper that produced them
+    # is titled "ESTIMATION of the transverse coefficient of thermal expansion on
+    # carbon fibers at very high temperature" and appeared in Inverse Problems in
+    # Science and Engineering 15 (1) (2007) 77-89 -- an inverse identification,
+    # not a dilatometer reading.  The 5-10e-6 band also mixes rayon-, PAN- and
+    # pitch-based fibres over 300-2500 K.  An in-situ TEM study measured PAN
+    # fibres over 20-1100 C, our own range, and reports a much tighter 3.8-5.6e-6
+    # (candidate N1, docs/LIT_FIBRE_TRANSVERSE_CTE.md).  Both are search-verified
+    # only; no PDF is held, so nothing here is changed on their account.  Do not
+    # call the 5-10 band "measured" in the manuscript -- call it identified.
     ("PANEX33", None, None, "PANEX 33 ex-PAN, E = 230 GPa",
      "Pradere & Sauder refs/[07] Tables 3/4, evaluated as a secant"),
     ("HTA5131", None, None, "HTA 5131 ex-PAN, E = 248 GPa",
