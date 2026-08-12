@@ -239,8 +239,15 @@ def main():
                 return 2
             TA, TB = tr
         heating = TB > TA
-        log('step  : %s  (%.0f -> %.0f C, %s)'
-            % (st.name, TA, TB, 'heating' if heating else 'cooling'))
+        # 스텝 주기: frameValue 는 0..주기 로 가므로 주기로 나눠야
+        # 온도가 맞는다. (승온 2.05 주기 덱에서 23->2026 C 로 찍히던 버그)
+        period = getattr(st, 'timePeriod', None)
+        if not period or period <= 0:
+            fv = [st.frames[i].frameValue for i in range(len(st.frames))]
+            period = max(fv) if fv and max(fv) > 0 else 1.0
+        log('step  : %s  (%.0f -> %.0f C, %s, period %.4g)'
+            % (st.name, TA, TB, 'heating' if heating else 'cooling',
+               period))
         sets = {}
         for ph in PHASES:
             es = get_elset(odb, ph)
@@ -268,10 +275,10 @@ def main():
             if not said[0]:
                 # 어느 필드를 잡았는지 남긴다. 이름 없는 덱(V2_7P)이면
                 # SDV1/SDV2 로, 이름 있는 덱이면 SDV_DMT 식으로 뜬다.
-                log('fields: 기지=%s  얀종=%s  얀횡=%s'
+                log('fields: matrix=%s  yarnL=%s  yarnT=%s'
                     % (f_dmt, f_dy1, f_dyt))
                 said[0] = True
-            temp = TA + (TB - TA) * fr.frameValue
+            temp = TA + (TB - TA) * (fr.frameValue / period)
             row = {'Frame': fi, 'StepTime': fr.frameValue,
                    'Temp_degC': temp}
             FD = fr.fieldOutputs

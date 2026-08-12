@@ -101,20 +101,25 @@ def step_trange(name):
     return None
 
 
-def frames_from_temps(temps, trange, fvals):
-    """온도 목록 -> [(프레임번호, 실제온도)]. fvals = frameValue 목록."""
+def frames_from_temps(temps, trange, fvals, period=1.0):
+    """온도 목록 -> [(프레임번호, 실제온도)]. fvals = frameValue 목록.
+
+    frameValue 는 0..스텝주기 로 가므로 주기로 정규화한다. (주기 2.05
+    승온 덱에서 1000 C 를 달라니 500 C 프레임을 주던 버그)"""
     A, B = trange
     if A == B:
         return None
+    if not period or period <= 0:
+        period = max(fvals) if fvals and max(fvals) > 0 else 1.0
     out = []
     for T in temps:
         ft = (T - A) / (B - A)
         best, bd = 0, 1.0e30
         for i in range(len(fvals)):
-            d = abs(fvals[i] - ft)
+            d = abs(fvals[i] / period - ft)
             if d < bd:
                 best, bd = i, d
-        out.append((best, A + (B - A) * fvals[best]))
+        out.append((best, A + (B - A) * fvals[best] / period))
     return out
 
 
@@ -241,6 +246,9 @@ def main():
     st = odb.steps[sname]
     nfr = len(st.frames)
     fvals = [st.frames[i].frameValue for i in range(nfr)]
+    period = getattr(st, 'timePeriod', None)
+    if not period or period <= 0:
+        period = max(fvals) if fvals and max(fvals) > 0 else 1.0
     print('step  : %s  (%d frames)' % (sname, nfr))
     if nfr == 0:
         print('[error] step has no frames (never ran?)')
@@ -271,7 +279,8 @@ def main():
         for i in idx:
             if trange and trange[0] != trange[1]:
                 t = '%8.1f' % (trange[0]
-                               + (trange[1] - trange[0]) * fvals[i])
+                               + (trange[1] - trange[0]) * fvals[i]
+                               / period)
             else:
                 t = '     - '
             print('  %-6d %-10.4f %s' % (i, fvals[i], t))
@@ -290,7 +299,7 @@ def main():
                   ' Give --trange A,B, or use --frames.')
             return 2
         temps = [float(x) for x in temps_arg.split(',') if x.strip() != '']
-        got = frames_from_temps(temps, trange, fvals)
+        got = frames_from_temps(temps, trange, fvals, period)
         for (fi, Tact), Twant in zip(got, temps):
             if abs(Tact - Twant) > 25.0:
                 print('  [warn] requested %.0fC -> nearest frame %d is '
@@ -303,7 +312,8 @@ def main():
             if 0 <= fi < nfr:
                 T = None
                 if trange:
-                    T = trange[0] + (trange[1] - trange[0]) * fvals[fi]
+                    T = (trange[0]
+                         + (trange[1] - trange[0]) * fvals[fi] / period)
                 sel.append((fi, T, 'f%02d' % fi))
     else:
         for fi in sorted(set(int(round(f * (nfr - 1)))
