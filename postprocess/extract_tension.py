@@ -142,6 +142,9 @@ def subset_values(field, elset, labels):
     return [x for x in field.values if x.elementLabel in labels]
 
 
+_SDV_SAID = set()
+
+
 def resolve_sdv(names, idx, nm):
     tgt = 'SDV_' + nm
     for n in names:
@@ -155,6 +158,18 @@ def resolve_sdv(names, idx, nm):
         if n == 'SDV%d' % idx:
             return n, 'num'
     return None, None
+
+
+def resolve_sdv_logged(names, idx, nm):
+    """resolve_sdv + 처음 한 번만 어느 필드를 잡았는지 기록.
+
+    이름 없는 덱(V2_7P)이면 SDV1/SDV2/SDV14 로, 이름 있는 덱이면
+    SDV_DMT 식으로 뜬다. 라벨 체계가 의도대로인지 확인용."""
+    n, how = resolve_sdv(names, idx, nm)
+    if n is not None and nm not in _SDV_SAID:
+        _SDV_SAID.add(nm)
+        log('  field %-6s -> %s (%s)' % (nm, n, how))
+    return n, how
 
 
 def hr_node_label(hr):
@@ -244,16 +259,23 @@ def write_curve(odb, outdir, V, tag=''):
     log('  wrote %s' % p)
 
     # ---- span 진단: 다른 온도의 덱을 같은 span 으로 맞출 때 필요하다 ----
-    #   드라이버는 스텝 안에서 선형 램프이므로 eps/StepTime 이 상수이고,
+    #   드라이버는 스텝 안에서 선형 램프이므로 eps/(진행분율) 이 상수이고,
     #   그 값이 곧 "스텝을 완주했을 때의 기계변형률 span" 이다.
     #   중단된 런에서도 맞는 값이 나온다 (0.77 에서 멈춰도 동일).
+    #   **스텝시간으로 나누면 안 된다** -- 이 덱들은 스텝 주기가 1.0 도
+    #   있고 2.0 도 있어서, 주기로 정규화해야 값이 맞는다.
+    period = getattr(step, 'timePeriod', None)
+    if not period or period <= 0:
+        period = 1.0
     tt = [(r[1], r[2]) for r in rows if r[1] and r[1] > 0.0]
     if tt:
-        span = tt[-1][1] / tt[-1][0]
+        frac = tt[-1][0] / period
+        span = tt[-1][1] / frac
         done = tt[-1][0]
-        log('  step time  %.4f / 1.0 %s'
-            % (done, '' if done > 0.999 else '  <-- 중단됨 (완주 아님)'))
-        log('  완주 기준 span = %.8f   (eps/StepTime, 선형 램프)' % span)
+        log('  step time  %.4f / %.4f  (진행 %.1f%%)%s'
+            % (done, period, 100.0 * frac,
+               '' if frac > 0.999 else '   <-- 중단됨 (완주 아님)'))
+        log('  완주 기준 span = %.8f   (eps / 진행분율, 선형 램프)' % span)
         log('  다른 span 으로 다시 돌리려면 덱의')
         log('    *Boundary  ConstraintsDriver0, 1, 1, <목표>')
         log('  를 이렇게 고친다:')
@@ -447,7 +469,7 @@ def write_damage(odb, outdir, V, stride, tag=''):
                 sl = MAT_SDV if isM else YRN_SDV
                 maps = {}
                 for idx, nm in sl:
-                    fn, _m = resolve_sdv(names, idx, nm)
+                    fn, _m = resolve_sdv_logged(names, idx, nm)
                     if fn is None:
                         maps[nm] = {}
                         continue

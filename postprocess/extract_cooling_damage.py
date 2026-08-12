@@ -256,6 +256,7 @@ def main():
         log('frames: %d (reading %d)' % (len(frames), len(idxs)))
 
         rows = []
+        said = [False]
         for c, fi in enumerate(idxs):
             fr = frames[fi]
             names = list(fr.fieldOutputs.keys())
@@ -264,6 +265,12 @@ def main():
             f_dyt = resolve_sdv(names, 2, 'DYTT')  # 번호는 V2_7P 배치
             if f_dmt is None or f_dyt is None:
                 continue
+            if not said[0]:
+                # 어느 필드를 잡았는지 남긴다. 이름 없는 덱(V2_7P)이면
+                # SDV1/SDV2 로, 이름 있는 덱이면 SDV_DMT 식으로 뜬다.
+                log('fields: 기지=%s  얀종=%s  얀횡=%s'
+                    % (f_dmt, f_dy1, f_dyt))
+                said[0] = True
             temp = TA + (TB - TA) * fr.frameValue
             row = {'Frame': fi, 'StepTime': fr.frameValue,
                    'Temp_degC': temp}
