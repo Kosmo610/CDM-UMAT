@@ -250,6 +250,69 @@ def main():
     check("Ch.5 declares the three pre-run checks",
           all(s in ch5 for s in ("열경계층", "온도 매핑", "사이클 점프")))
 
+    # ------------------------------------------------------------------ G
+    # 5.4.3-a rules that k(T)'s SHAPE is derived, not borrowed (a2-0027 (2)).
+    # The ruling lives in a module; the deck generator is expected to call it.
+    # These checks exist so that the day the deck changes -- in either
+    # direction -- the gate says so instead of the chapter quietly drifting.
+    print("\n G. the k(T) shape is the derived one, in the chapter AND the deck")
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    import conductivity_temperature as ct
+    lo, hi = ct.derived_bracket()
+    check("the derived ratio is what 5.4.3-a quotes",
+          "0.779" in ch5 and "0.840" in ch5,
+          "%.4f-%.4f" % (lo, hi))
+    check("the chapter's 900 C scale factor is the module's",
+          "0.8556" in ch5, "%.4f" % ct.k_scale(900.0))
+    k900 = ct.KBAR3_FE * ct.k_scale(900.0)
+    check("the chapter's 900 C conductivity is the module's",
+          "%.3f" % k900 in ch5, "%.3f" % k900)
+    # the 5.4.3 table re-solves h for each k (that is what quench_calibration
+    # does), so compare against the re-solved pair, not against a frozen h.
+    import quench_calibration as _qc
+    _spec = _qc.SPECIMENS["ZHANG2013"]
+    _mat = dict(_qc.MATERIALS["ours"]); _mat["k3"] = k900
+    _h, _ = _qc.solve_h(_spec, _mat)
+    _bi = _h * 0.5 * _spec["thickness"] / k900
+    check("the chapter's 900 C film coefficient is the re-solved one",
+          "%.1f" % _h in ch5, "%.1f W/(m2.K)" % _h)
+    check("the chapter's 900 C Biot is the re-solved one",
+          "%.4f" % _bi in ch5, "%.4f" % _bi)
+    check("the two Biot routes agree to within 1 %",
+          abs(_bi / ct.biot(900.0) - 1.0) < 0.01,
+          "re-solved %.4f vs fixed-h %.4f" % (_bi, ct.biot(900.0)))
+    check("the chapter still names the rejected borrowed ratio",
+          "0.5845" in ch5)
+    check("the chapter records the direction of the rejected shape",
+          "23.9" in ch5, "%+.1f %%"
+          % (100.0 * (ct.biot(900.0, model="ref20_linear_k")
+                      / ct.biot(900.0) - 1.0)))
+    check("the chapter no longer calls the borrowed hot row physically right",
+          "고온 행이 물리적으로 옳은" not in ch5
+          or "그 문장은 삭제한다" in ch5)
+    check("5.4.3 separates the shape rows from the magnitude rows",
+          "크기 하한 대용" in ch5 and "형상 행과 크기 행" in ch5)
+    # the deck generator: whichever way a2 wires it, the two must agree
+    import make_macro_thermalshock as _mac
+    src = open(_mac.__file__.replace(".pyc", ".py")).read()
+    wired = "conductivity_temperature" in src
+    if wired:
+        blk = _mac.homogenised_thermal()[1]
+        got = [r for r in blk["rows"] if abs(r["T_C"] - 1000.0) < 1.0]
+        ok = bool(got) and abs(got[0]["k3"] / _mac.KBAR_MEASURED[2]
+                               - ct.k_scale(1000.0)) < 1e-6
+        check("the deck's k(T) comes from the ruling module", ok,
+              "deck scale %.4f vs module %.4f"
+              % ((got[0]["k3"] / _mac.KBAR_MEASURED[2]) if got else -1,
+                 ct.k_scale(1000.0)))
+    else:
+        # not yet rewired: assert the chapter says so, so the gap is visible
+        check("the deck still carries the borrowed ratio, and the chapter "
+              "does not pretend otherwise",
+              "REF20_K_RATIO" in src and "5.4.3-a" in ch5,
+              "a1-0031 (1)) is outstanding with a2")
+
     # the generator's own list-checks must still name those three
     outc, rcc = run("python3 abaqus/make_macro_thermalshock.py --list-checks")
     check("--list-checks runs", rcc == 0)

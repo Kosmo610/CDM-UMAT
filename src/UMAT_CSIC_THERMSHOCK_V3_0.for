@@ -73,6 +73,36 @@ C      the CYCLE-JUMP scheme: supply it as field variable PREDEFN
 C      (*FIELD) to jump DeltaN cycles per step, or as the constant
 C      CYCRATE for explicitly resolved cycles.
 C
+C  (4) CONSISTENT (ALGORITHMIC) TANGENT -- Ge Eqs.(31)-(33).  The V1_0
+C      lineage returns the SECANT operator C(d) in DDSDDE.  Ge p.92
+C      derives the operator that is consistent with the stress update
+C      actually performed,
+C         C_t = S^-1(d^v) : [ I - M(d^v) ],
+C         M   = sum_I  dS/dd_I : sigma  *  Dt/(eta+Dt)  *  dd_I/deps ,
+C      and for the matrix additionally chains it through the elastic-
+C      plastic operator of Ge Eq.(32) with the equivalent stiffness of
+C      Ge Eq.(33).  Ge p.92: "To ensure the quadratic convergence rate
+C      of the Newton-Raphson method ...".  With the secant operator the
+C      softening branch converges only linearly, which is what the
+C      viscosity eta has been paying for (CALIBRATION_GUIDE.md 4:
+C      Ge asks for eta small compared to Dt, our eta=0.05 is 20-50x Dt).
+C
+C      SWITCHED OFF BY DEFAULT.  The operator is enabled only by an
+C      optional two-slot block appended at the very END of the card:
+C            <ITAN>  <CARD KEY = 33.0>
+C      ITAN = 0 (or the block absent) -> DDSDDE = C(d), bit-identical to
+C      the behaviour of every deck written before this block existed.
+C      ITAN = 1 -> the consistent tangent.  Nothing else in the routine
+C      is touched: STRESS and every STATEV are computed exactly as
+C      before, so the switch cannot move a converged answer -- only the
+C      path Newton takes to reach it.
+C
+C      The block is verified against a central-difference numerical
+C      Jacobian of the very stress update the UMAT performs
+C      (verification/cross_check_fortran.py, case "tangent").  It stays
+C      OFF in the shipped decks until the convergence study of Ch.3 is
+C      run on a real mesh.
+C
 C  MATERIAL ROUTING (by CMNAME, checked in this order)
 C  ---------------------------------------------------
 C    'MACRO'  -> KMACRO31  homogenised orthotropic CDM  (macro scale)
@@ -83,6 +113,7 @@ C  CARD LAYOUTS
 C  ------------
 C  YARN   NPROPS = 38                      -> V1_0 card, NT=0, HCLO=0
 C         NPROPS = 40 + 7*NT               -> V3_0 card
+C         NPROPS = 42 + 7*NT               -> V3_0 card + tangent block
 C     1..38  exactly the V1_0 yarn card (see V1_0 header)
 C     39     HCLO   crack-closure recovery fraction (0..1)
 C     40     NT     number of temperature points (0 = off)
@@ -90,6 +121,11 @@ C     41..   NT rows of 7:  T, fE1, fE2, fG, fX, fY, fS
 C            fE1 -> E1, fE2 -> E2,E3, fG -> G12,G13,G23
 C            fX  -> Xt,Xc (and X_PO; K1 scales with fE1)
 C            fY  -> Yt,Yc      fS -> S12,S13,S23
+C     -- optional consistent-tangent block, 2 slots --
+C     41+7*NT  ITAN  0 = secant (default), 1 = Ge Eqs.(31)/(33)
+C     42+7*NT  CARD KEY = 33.0 (guard for this block)
+C     NT is read from PROPS(40) BEFORE the length is checked, so
+C     40+7*NT and 42+7*NT can never be confused for one another.
 C
 C  MATRIX NPROPS = 22                      -> V1_0 card, NT=0
 C         NPROPS = 23 + 4*NT               -> V3_0 card
@@ -99,15 +135,21 @@ C     23     NT
 C     24..   NT rows of 4:  T, fE, fX, fSY
 C            fE -> E (and HISO), fX -> Xt,Xc, fSY -> SY0
 C     (no HCLO: the matrix already switches tensile/compressive damage
-C      on sign(I1) per Ge Eq.7, which is its unilateral effect.)
+C      on sign(I1) per Ge Eq.13, which is its unilateral effect.)
 C     -- optional I1-smoothing block, 2 slots, let J = 24+4*NT --
 C     J      HSMO   half-width of the tanh blend that replaces the hard
-C                   sign(I1) switch of Ge Eq.7, in units of Xt.
+C                   sign(I1) switch of Ge Eq.13, in units of Xt.
 C                   0 = published step (default, bit-identical to V1_0);
 C                   0.1 blends over roughly |I1| < 0.3*Xt.
 C     J+1    CARD KEY = 32.0 (guard for this block)
 C     The three lengths never collide: 22, 23+4*NT and 25+4*NT are
 C     2, 3 and 1 modulo 4, so NPROPS alone identifies the layout.
+C     -- optional consistent-tangent block, 2 slots.  It may only follow
+C        the I1-smoothing block, so the length is 27+4*NT --
+C     J+2    ITAN   0 = secant (default), 1 = Ge Eqs.(31)-(33)
+C     J+3    CARD KEY = 33.0 (guard for this block)
+C     NT is read from PROPS(23) BEFORE the length is checked, so 27+4*NT
+C     cannot be mistaken for 23+4*(NT+1): NT is on the card, not guessed.
 C
 C  MACRO  NPROPS = 47 + 8*NT            -> damage law only
 C         NPROPS = 47 + 8*NT + 9        -> plus the failure-criterion block
@@ -142,6 +184,13 @@ C     J0+5   DCT     critical transverse damage    D22,max
 C     J0+6   DCS     critical shear damage         D66,max
 C     J0+7   DI12    D-criterion 1-2 coupling I12 (0 = uncoupled, Eq.10a)
 C     J0+8   CARD KEY = 41.0 (guard for this block)
+C
+C  MACRO consistent-tangent block (optional, 2 slots) sits at the very
+C  end, with or without the criterion block:
+C     NPROPS = 49+8*NT  -> PROPS(48+8*NT)=ITAN, PROPS(49+8*NT)=33.0
+C     NPROPS = 58+8*NT  -> PROPS(57+8*NT)=ITAN, PROPS(58+8*NT)=33.0
+C  For a given NT the four legal lengths 47, 49, 56, 58 (+8*NT) are all
+C  distinct, and each optional block still carries its own key.
 C
 C  STATE VARIABLES
 C  ---------------
@@ -239,15 +288,25 @@ C
          END IF
          NT=NINT(PROPS(47))
          IF (NT.LT.0 .OR.
-     1       (NPROPS.NE.47+8*NT .AND. NPROPS.NE.56+8*NT)) THEN
+     1       (NPROPS.NE.47+8*NT .AND. NPROPS.NE.56+8*NT .AND.
+     2        NPROPS.NE.49+8*NT .AND. NPROPS.NE.58+8*NT)) THEN
             WRITE(7,*) 'V3_0 MACRO: NPROPS must be 47+8*NT, or'
-            WRITE(7,*) '56+8*NT with the failure-criterion block.'
+            WRITE(7,*) '56+8*NT with the failure-criterion block,'
+            WRITE(7,*) 'or +2 more with the tangent block.'
             WRITE(7,*) 'NT,NPROPS=',NT,NPROPS
             CALL XIT
          END IF
+C        The tangent block carries key 33.0 in its last slot.
+         IF (NPROPS.EQ.49+8*NT .OR. NPROPS.EQ.58+8*NT) THEN
+            IF (ABS(PROPS(NPROPS)-33.0D0).GT.1.0D-6) THEN
+               WRITE(7,*) 'V3_0 MACRO: tangent block must end with'
+               WRITE(7,*) 'PROPS(NPROPS)=33.0. Got',PROPS(NPROPS)
+               CALL XIT
+            END IF
+         END IF
 C        The criterion block carries its own key so a card that is the
 C        right LENGTH but the wrong CONTENT is still rejected.
-         IF (NPROPS.EQ.56+8*NT) THEN
+         IF (NPROPS.EQ.56+8*NT .OR. NPROPS.EQ.58+8*NT) THEN
             IF (ABS(PROPS(56+8*NT)-41.0D0).GT.1.0D-6) THEN
                WRITE(7,*) 'V3_0 MACRO: failure-criterion block must end'
                WRITE(7,*) 'with PROPS(56+8*NT)=41.0. Got',
@@ -273,10 +332,19 @@ C        Cycle rate from a *FIELD variable when PREDEFN>0.
             NT=0
          ELSE IF (NPROPS.GE.40) THEN
             NT=NINT(PROPS(40))
-            IF (NT.LT.0 .OR. NPROPS.NE.40+7*NT) THEN
-               WRITE(7,*) 'V3_0 YARN: NPROPS must be 38 or 40+7*NT.'
+            IF (NT.LT.0 .OR. (NPROPS.NE.40+7*NT .AND.
+     1          NPROPS.NE.42+7*NT)) THEN
+               WRITE(7,*) 'V3_0 YARN: NPROPS must be 38, 40+7*NT or'
+               WRITE(7,*) '42+7*NT (with the tangent block).'
                WRITE(7,*) 'NT,NPROPS=',NT,NPROPS
                CALL XIT
+            END IF
+            IF (NPROPS.EQ.42+7*NT) THEN
+               IF (ABS(PROPS(42+7*NT)-33.0D0).GT.1.0D-6) THEN
+                  WRITE(7,*) 'V3_0 YARN: tangent block must end with'
+                  WRITE(7,*) 'PROPS(42+7*NT)=33.0. Got',PROPS(42+7*NT)
+                  CALL XIT
+               END IF
             END IF
          ELSE
             WRITE(7,*) 'V3_0 YARN: NPROPS must be 38 or 40+7*NT. Got',
@@ -296,13 +364,21 @@ C        Cycle rate from a *FIELD variable when PREDEFN>0.
          ELSE IF (NPROPS.GE.23) THEN
             NT=NINT(PROPS(23))
             IF (NT.LT.0 .OR. (NPROPS.NE.23+4*NT .AND.
-     1          NPROPS.NE.25+4*NT)) THEN
+     1          NPROPS.NE.25+4*NT .AND. NPROPS.NE.27+4*NT)) THEN
                WRITE(7,*) 'V3_0 MATRIX: NPROPS must be 22, 23+4*NT,'
-               WRITE(7,*) 'or 25+4*NT (with the I1-smoothing block).'
+               WRITE(7,*) '25+4*NT (with the I1-smoothing block) or'
+               WRITE(7,*) '27+4*NT (plus the tangent block).'
                WRITE(7,*) 'NT,NPROPS=',NT,NPROPS
                CALL XIT
             END IF
-            IF (NPROPS.EQ.25+4*NT) THEN
+            IF (NPROPS.EQ.27+4*NT) THEN
+               IF (ABS(PROPS(27+4*NT)-33.0D0).GT.1.0D-6) THEN
+                  WRITE(7,*) 'V3_0 MATRIX: tangent block must end with'
+                  WRITE(7,*) 'PROPS(27+4*NT)=33.0. Got',PROPS(27+4*NT)
+                  CALL XIT
+               END IF
+            END IF
+            IF (NPROPS.EQ.25+4*NT .OR. NPROPS.EQ.27+4*NT) THEN
                IF (ABS(PROPS(25+4*NT)-32.0D0).GT.1.0D-6) THEN
                   WRITE(7,*) 'V3_0 MATRIX smoothing block needs its'
                   WRITE(7,*) 'guard PROPS(25+4*NT)=32.0. Got',
@@ -357,7 +433,16 @@ C     crack closure.  NT=0 and HCLO=0 reproduce KYARN30 exactly.
       DOUBLE PRECISION D1,DT,D1E,DT2E,DT3E
       DOUBLE PRECISION DS12,DS23,DS31,DJ,TEND,RFAC,REQ,CREQ
       DOUBLE PRECISION B1T,B1C,BTT,BTC
-      INTEGER I,J,KSTEP,MODE,NT,NPROPS,NSTATV,NCLO
+      DOUBLE PRECISION D1RAW,DTRAW,DTDR,DTAR
+      DOUBLE PRECISION GF1T(6),GF1C(6),GFTT(6),GFTC(6)
+      DOUBLE PRECISION GD1T(6),GD1C(6),GDTT(6),GDTC(6)
+      DOUBLE PRECISION G1(6),GT(6),GE1(6),GE2(6),GE3(6)
+      DOUBLE PRECISION GS12(6),GS23(6),GS31(6)
+      DOUBLE PRECISION V1(6),V2(6),V3(6)
+      DOUBLE PRECISION DDR1T,DDR1C,DDRTT,DDRTC
+      DOUBLE PRECISION U1,U2,U3,W1,W2,W3
+      DOUBLE PRECISION DTD2,DTD3,DTD4,DTD5,DTD6,DTDS
+      INTEGER I,J,KSTEP,MODE,NT,NPROPS,NSTATV,NCLO,ITAN
 C
       E1=P(2)
       E2=P(3)
@@ -487,6 +572,10 @@ C
 C
       D1=1.0D0-(1.0D0-D1T)*(1.0D0-D1C)
       DT=1.0D0-(1.0D0-DTT)*(1.0D0-DTC)
+C     Pre-clamp values kept for the consistent tangent: a clamped damage
+C     has zero derivative, and only the raw value knows it was clamped.
+      D1RAW=D1
+      DTRAW=DT
       D1=MIN(0.999D0,MAX(0.0D0,D1))
       DT=MIN(0.999D0,MAX(0.0D0,DT))
 C
@@ -514,6 +603,165 @@ C
          END DO
       END DO
       CALL KMATVEC6(CD,EPS,STRESS)
+C
+C     ------------------------------------------------------------------
+C     CONSISTENT (ALGORITHMIC) TANGENT -- Ge Eq.(31).
+C
+C       C_t = S^-1(d^v) : [ I - M ],
+C       M   = sum_I  dS/dd_I : sigma  *  Dt/(eta+Dt)  *  dd_I/deps
+C
+C     Written here in the equivalent stiffness form
+C       dsigma/deps = C(d) + sum_k (dC/dd_k : eps) (x) dd_k/deps ,
+C       dC/dd_k     = -C : (dS/dd_k) : C           (identical to Ge's
+C                                                   S^-1:[I-M]),
+C     because KORTHO builds C directly.  The saving grace is that the
+C     damaged compliance of Ge Eq.(2) carries the damage ONLY on its
+C     diagonal -- KORTHO is called with E_i(1-d_i) AND nu_ij(1-d_i), so
+C     S_ij = -nu_ij/E_i is damage-free and dS/dd_1 = diag(S_11/(1-d_1),
+C     0, 0, ...).  Each mode therefore contributes a single rank-one
+C     dyad, and no 6x6 inversion is needed.
+C
+C     ITAN = 0 (or no tangent block on the card) skips all of this and
+C     leaves CTAN = CD, bit for bit as before.
+      ITAN=0
+      IF (NPROPS.EQ.42+7*NT) ITAN=NINT(P(41+7*NT))
+      IF (ITAN.GT.0) THEN
+C        (a) d(failure index)/d(eps).  SE = C0:eps is the UNDAMAGED
+C            effective stress (Ge Eq.4), so dSE_i/deps_j = C0(i,j) and
+C            the criteria of Zhang Eqs.11-14 differentiate in closed
+C            form.  The gradients are kept unmasked here; the Kuhn-
+C            Tucker mask of Ge Eqs.(14)(15) is applied to the scalar
+C            dd/dr below, so a mode that is not loading contributes 0.
+         DO J=1,6
+            GF1T(J)=0.0D0
+            GF1C(J)=0.0D0
+            GFTT(J)=0.0D0
+            GFTC(J)=0.0D0
+         END DO
+         IF (SE(1).GE.0.0D0) THEN
+            IF (FI1T.GT.0.0D0) THEN
+               DO J=1,6
+                  GF1T(J)=(SE(1)/(XT*XT)*C0(1,J)
+     1                    +SE(4)/(S12*S12)*C0(4,J)
+     2                    +SE(5)/(S13*S13)*C0(5,J))/FI1T
+               END DO
+            END IF
+         ELSE
+            DO J=1,6
+               GF1C(J)=-C0(1,J)/XC
+            END DO
+         END IF
+         IF (SUMT.GE.0.0D0) THEN
+            IF (FITT.GT.0.0D0) THEN
+               DTD2=2.0D0*SUMT/(YT*YT)-SE(3)/(S23*S23)
+               DTD3=2.0D0*SUMT/(YT*YT)-SE(2)/(S23*S23)
+               DTD4=2.0D0*SE(4)/(S12*S12)
+               DTD5=2.0D0*SE(5)/(S13*S13)
+               DTD6=2.0D0*SE(6)/(S23*S23)
+               DO J=1,6
+                  GFTT(J)=(DTD2*C0(2,J)+DTD3*C0(3,J)+DTD4*C0(4,J)
+     1                    +DTD5*C0(5,J)+DTD6*C0(6,J))/(2.0D0*FITT)
+               END DO
+            END IF
+         ELSE
+            IF (FITC.GT.0.0D0) THEN
+               DTDS=((YC/(2.0D0*S23))**2-1.0D0)/YC
+     1              +SUMT/(2.0D0*S23*S23)
+               DTD2=DTDS-SE(3)/(S23*S23)
+               DTD3=DTDS-SE(2)/(S23*S23)
+               DTD4=2.0D0*SE(4)/(S12*S12)
+               DTD5=2.0D0*SE(5)/(S13*S13)
+               DTD6=2.0D0*SE(6)/(S23*S23)
+               DO J=1,6
+                  GFTC(J)=(DTD2*C0(2,J)+DTD3*C0(3,J)+DTD4*C0(4,J)
+     1                    +DTD5*C0(5,J)+DTD6*C0(6,J))/(2.0D0*FITC)
+               END DO
+            END IF
+         END IF
+C        (b) dd/dr, with the Duvaut-Lions factor GAM = Dt/(eta+Dt) that
+C            Ge Eq.(31) carries explicitly, and zero on every frozen or
+C            clamped branch.
+         DDR1T=0.0D0
+         DDR1C=0.0D0
+         DDRTT=0.0D0
+         DDRTC=0.0D0
+         IF (ENABLE.GT.0.5D0 .AND. DBLE(KSTEP).LE.FREEZE) THEN
+            IF (XPO.GT.0.0D0) THEN
+               CALL KMIX1T_D(R1T,B1T,E1,XT,XPO,RFT,XK1,DTAR,DTDR)
+            ELSE
+               CALL KDAMAGE_D(R1T,B1T,1.0D0,DTAR,DTDR)
+            END IF
+            IF (DTAR.GE.DMAX1) DTDR=0.0D0
+            DTAR=MIN(DMAX1,DTAR)
+            IF (FI1T.GT.SV(5) .AND. DTAR.GT.D1T0) DDR1T=GAM*DTDR
+            CALL KDAMAGE_D(R1C,B1C,DMAX1,DTAR,DTDR)
+            IF (FI1C.GT.SV(6) .AND. DTAR.GT.D1C0) DDR1C=GAM*DTDR
+            CALL KDAMAGE_D(RTT,BTT,DMAXT,DTAR,DTDR)
+            IF (FITT.GT.SV(7) .AND. DTAR.GT.DTT0) DDRTT=GAM*DTDR
+            CALL KDAMAGE_D(RTC,BTC,DMAXT,DTAR,DTDR)
+            IF (FITC.GT.SV(8) .AND. DTAR.GT.DTC0) DDRTC=GAM*DTDR
+         END IF
+         DO J=1,6
+            GD1T(J)=DDR1T*GF1T(J)
+            GD1C(J)=DDR1C*GF1C(J)
+            GDTT(J)=DDRTT*GFTT(J)
+            GDTC(J)=DDRTC*GFTC(J)
+         END DO
+C        (c) the tension/compression and shear couplings of Ge Eq.(3).
+         DO J=1,6
+            IF (D1RAW.GT.0.999D0 .OR. D1RAW.LT.0.0D0) THEN
+               G1(J)=0.0D0
+            ELSE
+               G1(J)=(1.0D0-D1C)*GD1T(J)+(1.0D0-D1T)*GD1C(J)
+            END IF
+            IF (DTRAW.GT.0.999D0 .OR. DTRAW.LT.0.0D0) THEN
+               GT(J)=0.0D0
+            ELSE
+               GT(J)=(1.0D0-DTC)*GDTT(J)+(1.0D0-DTT)*GDTC(J)
+            END IF
+         END DO
+C        (d) crack closure.  The step in sign(eps_n) is not
+C            differentiable AT the crossing; away from it the factor is
+C            a constant, which is what enters here.
+         U1=1.0D0
+         U2=1.0D0
+         U3=1.0D0
+         IF (EPS(1).LT.0.0D0) U1=1.0D0-HCLO
+         IF (EPS(2).LT.0.0D0) U2=1.0D0-HCLO
+         IF (EPS(3).LT.0.0D0) U3=1.0D0-HCLO
+         DO J=1,6
+            GE1(J)=U1*G1(J)
+            GE2(J)=U2*GT(J)
+            GE3(J)=U3*GT(J)
+            GS12(J)=(1.0D0-DT)*G1(J)+(1.0D0-D1)*GT(J)
+            GS31(J)=GS12(J)
+            GS23(J)=2.0D0*(1.0D0-DT)*GT(J)
+         END DO
+C        (e) assemble.  W_k = S_kk/(1-d_k) = 1/(E_k (1-d_k)^2) is the
+C            only non-zero entry of dS/dd_k, so
+C              (dC/dd_k : eps)_i = -W_k C(i,k) sigma_k .
+         W1=1.0D0/(E1*(1.0D0-D1E)**2)
+         W2=1.0D0/(E2*(1.0D0-DT2E)**2)
+         W3=1.0D0/(E3*(1.0D0-DT3E)**2)
+         DO I=1,6
+            V1(I)=-W1*CD(I,1)*STRESS(1)
+            V2(I)=-W2*CD(I,2)*STRESS(2)
+            V3(I)=-W3*CD(I,3)*STRESS(3)
+         END DO
+         DO I=1,6
+            DO J=1,6
+               CTAN(I,J)=CD(I,J)+V1(I)*GE1(J)+V2(I)*GE2(J)
+     1                          +V3(I)*GE3(J)
+            END DO
+         END DO
+C        The shear stiffnesses are diagonal, so their damage derivative
+C        is a single entry each: dC(4,4)/dDS12 = -G12, etc.
+         DO J=1,6
+            CTAN(4,J)=CTAN(4,J)-G12*EPS(4)*GS12(J)
+            CTAN(5,J)=CTAN(5,J)-G13*EPS(5)*GS31(J)
+            CTAN(6,J)=CTAN(6,J)-G23*EPS(6)*GS23(J)
+         END DO
+      END IF
 C
       MODE=1
       RFAC=R1T
@@ -569,7 +817,7 @@ C     V1_0 KMTRX30 + temperature-dependent multipliers + optional
 C     smoothing of the sign(I1) unilateral switch.  NT=0 and HSMO=0
 C     reproduce KMTRX30 exactly.
 C
-C     WHY THE SMOOTHING EXISTS.  Ge Eq.7 selects the active damage by the
+C     WHY THE SMOOTHING EXISTS.  Ge Eq.13 selects the active damage by the
 C     sign of the first effective-stress invariant:
 C         d_act = d_t  if I1 >= 0,   d_c  otherwise.
 C     A point that damaged in tension carries d_t > 0 while d_c is still
@@ -603,7 +851,12 @@ C     monotonic, so no damage is created or healed by the blend.
       DOUBLE PRECISION GMU,PBAR,QTR,SY,DLAM,PM,FAC
       DOUBLE PRECISION Q,AI1,FIT,FIC,RT,RC,DT0,DC0,DTN,DCN,TAR,GAM
       DOUBLE PRECISION BT,BC,DACT,DJ,TEND,RFAC
-      INTEGER I,J,KSTEP,MODE,NT
+      DOUBLE PRECISION CEP(6,6),S0(6,6),TMP(6,6),CMD(6,6)
+      DOUBLE PRECISION SDN(6),DQ(6),GQ(6),GAI1(6),GDT(6),GDC(6)
+      DOUBLE PRECISION GDACT(6),VM(6)
+      DOUBLE PRECISION BETA,CB,PMN,SUMK,WQ,DACTRW,DTDR,DTAR
+      DOUBLE PRECISION DDRT,DDRC,WD,SECH2
+      INTEGER I,J,K,KSTEP,MODE,NT,ITAN,IPLAS
 C
       E=P(2)
       NU=P(3)
@@ -645,11 +898,13 @@ C
       END DO
       CALL KMATVEC6(C0,EEL,STR)
 C
+      IPLAS=0
       IF (SY0.GT.0.0D0 .AND. ENABLE.GT.0.5D0 .AND.
      1    DBLE(KSTEP).LE.FREEZE) THEN
          CALL KMISES(STR,QTR)
          SY=SY0+HISO*PBAR
          IF (QTR.GT.SY) THEN
+            IPLAS=1
             DLAM=(QTR-SY)/(3.0D0*GMU+HISO)
             PBAR=PBAR+DLAM
             PM=(STR(1)+STR(2)+STR(3))/3.0D0
@@ -703,10 +958,14 @@ C
          DCN=MAX(DC0,DC0+GAM*(TAR-DC0))
       END IF
 C
-C     Ge Eq.7 selection, optionally smoothed.  See the header of this
+C     Ge Eq.13 selection, optionally smoothed.  See the header of this
 C     routine for why.  HSMO=0 is the published step, bit for bit.
       HSMO=0.0D0
-      IF (NPROPS.EQ.25+4*NT) HSMO=P(24+4*NT)
+C     The smoothing block sits at 24+4*NT whether or not the two-slot
+C     tangent block follows it, so BOTH lengths must be recognised --
+C     reading it only at 25+4*NT would silently switch the smoothing off
+C     the moment a deck asked for the consistent tangent.
+      IF (NPROPS.EQ.25+4*NT .OR. NPROPS.EQ.27+4*NT) HSMO=P(24+4*NT)
       IF (HSMO.GT.0.0D0 .AND. XT.GT.0.0D0) THEN
          ARG=AI1/(HSMO*XT)
          IF (ARG.GT.30.0D0) THEN
@@ -722,6 +981,7 @@ C     routine for why.  HSMO=0 is the published step, bit for bit.
       ELSE
          DACT=DCN
       END IF
+      DACTRW=DACT
       DACT=MIN(0.999D0,MAX(0.0D0,DACT))
       CALL KORTHO(E*(1.0D0-DACT),E*(1.0D0-DACT),E*(1.0D0-DACT),
      1     NU*(1.0D0-DACT),NU*(1.0D0-DACT),NU*(1.0D0-DACT),
@@ -732,6 +992,218 @@ C     routine for why.  HSMO=0 is the published step, bit for bit.
          END DO
       END DO
       CALL KMATVEC6(CD,EEL,STRESS)
+C
+C     ------------------------------------------------------------------
+C     CONSISTENT (ALGORITHMIC) TANGENT -- Ge Eqs.(32)-(33).
+C
+C       C_m,t = S_m^-1(d^v) : [I - M_m] : S_m0^-1 : dsigma~/deps ,
+C       dsigma~/deps = Cbar - (Cbar:dF/dsigma~)(x)(Cbar:dF/dsigma~)
+C                             / [ (dF/dsigma~):Cbar:(dF/dsigma~)
+C                                 + dsigma~_s/deps~^p ]           (32)
+C       Cbar = ( S_m0 + Dlambda d2F/dsigma~2 )^-1                 (33)
+C
+C     REDUCED FORM (see refs/GE2018_EXTRACTION.md D, rows for Ge
+C     Eqs.(25)-(28)).  Our matrix plasticity is von Mises with LINEAR
+C     isotropic hardening, solved by the exact one-step radial return
+C     instead of Ge's Newton loop of Eq.(27).  For that special case the
+C     implicit pair (32)+(33) collapses to the classical closed-form
+C     elastic-plastic operator of a radial return,
+C       dsigma~/deps = C0 - beta*dS_dev/deps - S_dev (x) dbeta/deps ,
+C       beta = 3 mu Dlambda / q_trial ,
+C     which is what is coded below.  The Cbar of Eq.(33) is exactly the
+C     algorithmic softening of the deviatoric moduli that the first term
+C     represents (2 mu -> 2 mu (1 - beta)); it is NOT dropped, only
+C     written in closed form.  With a general experimental hardening
+C     curve sigma~_s(eps~^p) -- which Ge Eq.(8) allows and we do not
+C     implement -- the closed form would no longer be exact and Eq.(27)
+C     would have to be differentiated instead.
+      ITAN=0
+      IF (NPROPS.EQ.27+4*NT) ITAN=NINT(P(26+4*NT))
+      IF (ITAN.GT.0) THEN
+C        (a) undamaged compliance S_m0 of Ge Eq.(32).  Engineering shear,
+C            so S(4,4)=1/mu to match C0(4,4)=mu.
+         DO I=1,6
+            DO J=1,6
+               S0(I,J)=0.0D0
+               CEP(I,J)=C0(I,J)
+            END DO
+         END DO
+         DO I=1,3
+            DO J=1,3
+               S0(I,J)=-NU/E
+            END DO
+            S0(I,I)=1.0D0/E
+         END DO
+         DO I=4,6
+            S0(I,I)=1.0D0/GMU
+         END DO
+C        (b) elastic-plastic operator of the return mapping actually
+C            performed.
+         IF (IPLAS.EQ.1) THEN
+            BETA=3.0D0*GMU*DLAM/QTR
+C           CMD = d(S_dev,trial)/d(eps):  2 mu (delta - 1/3) on the
+C           normal block, mu on the shear diagonal.
+            DO I=1,6
+               DO J=1,6
+                  CMD(I,J)=0.0D0
+               END DO
+            END DO
+            DO I=1,3
+               DO J=1,3
+                  CMD(I,J)=-2.0D0*GMU/3.0D0
+               END DO
+               CMD(I,I)=CMD(I,I)+2.0D0*GMU
+            END DO
+            DO I=4,6
+               CMD(I,I)=GMU
+            END DO
+C           dq_trial/deps.  dq/dS_dev is 3/(2q) on the normal entries
+C           and 3/q on the engineering-shear entries.
+            DO J=1,6
+               DQ(J)=0.0D0
+               DO I=1,3
+                  DQ(J)=DQ(J)+1.5D0*SD(I)/QTR*CMD(I,J)
+               END DO
+               DO I=4,6
+                  DQ(J)=DQ(J)+3.0D0*SD(I)/QTR*CMD(I,J)
+               END DO
+            END DO
+C           dbeta/deps.  Dlambda = (q_tr - sigma_y)/(3 mu + H) is the
+C           degenerate (single-step) form of Ge Eqs.(27)-(28).
+            CB=(3.0D0*GMU/(3.0D0*GMU+HISO)-BETA)/QTR
+            DO I=1,6
+               DO J=1,6
+                  CEP(I,J)=C0(I,J)-BETA*CMD(I,J)-SD(I)*CB*DQ(J)
+               END DO
+            END DO
+         END IF
+C        (c) chain the damaged secant through S_m0^-1 : dsigma~/deps.
+C            Elastic increments give S0:CEP = I exactly, so CTAN starts
+C            from CD with no round-off introduced.
+         IF (IPLAS.EQ.1) THEN
+            DO I=1,6
+               DO J=1,6
+                  TMP(I,J)=0.0D0
+                  DO K=1,6
+                     TMP(I,J)=TMP(I,J)+S0(I,K)*CEP(K,J)
+                  END DO
+               END DO
+            END DO
+            DO I=1,6
+               DO J=1,6
+                  CTAN(I,J)=0.0D0
+                  DO K=1,6
+                     CTAN(I,J)=CTAN(I,J)+CD(I,K)*TMP(K,J)
+                  END DO
+               END DO
+            END DO
+         ELSE
+            DO I=1,6
+               DO J=1,6
+                  CTAN(I,J)=CD(I,J)
+               END DO
+            END DO
+         END IF
+C        (d) damage gradient.  Both the failure index (Ge Eq.13) and the
+C            I1 blend are functions of the UPDATED effective stress, so
+C            they differentiate through CEP, not through C0.
+         PMN=(STR(1)+STR(2)+STR(3))/3.0D0
+         SDN(1)=STR(1)-PMN
+         SDN(2)=STR(2)-PMN
+         SDN(3)=STR(3)-PMN
+         SDN(4)=STR(4)
+         SDN(5)=STR(5)
+         SDN(6)=STR(6)
+         DO J=1,6
+            GQ(J)=0.0D0
+            GAI1(J)=0.0D0
+         END DO
+         IF (Q.GT.0.0D0) THEN
+            DO J=1,6
+               SUMK=0.0D0
+               DO I=1,3
+                  SUMK=SUMK+1.5D0*SDN(I)/Q*CEP(I,J)
+               END DO
+               DO I=4,6
+                  SUMK=SUMK+3.0D0*SDN(I)/Q*CEP(I,J)
+               END DO
+               GQ(J)=SUMK
+            END DO
+         END IF
+         DO J=1,6
+            GAI1(J)=CEP(1,J)+CEP(2,J)+CEP(3,J)
+         END DO
+         DDRT=0.0D0
+         DDRC=0.0D0
+         IF (ENABLE.GT.0.5D0 .AND. DBLE(KSTEP).LE.FREEZE) THEN
+            CALL KDAMAGE_D(RT,BT,DMAXT,DTAR,DTDR)
+            IF (FIT.GT.SV(3) .AND. DTAR.GT.DT0) DDRT=GAM*DTDR
+            CALL KDAMAGE_D(RC,BC,DMAXC,DTAR,DTDR)
+            IF (FIC.GT.SV(4) .AND. DTAR.GT.DC0) DDRC=GAM*DTDR
+         END IF
+C        Only one of FIT/FIC is live in a given increment (Ge Eq.13), so
+C        at most one of these gradients is non-zero -- the other index is
+C        frozen at zero and its threshold cannot move with eps.
+         DO J=1,6
+            GDT(J)=0.0D0
+            GDC(J)=0.0D0
+         END DO
+         IF (XT.GT.0.0D0 .AND. DDRT.NE.0.0D0) THEN
+            DO J=1,6
+               GDT(J)=DDRT*GQ(J)/XT
+            END DO
+         END IF
+         IF (XC.GT.0.0D0 .AND. DDRC.NE.0.0D0) THEN
+            DO J=1,6
+               GDC(J)=DDRC*GQ(J)/XC
+            END DO
+         END IF
+C        (e) the Ge Eq.13 selection.  With HSMO > 0 the blend weight is
+C            itself a function of I1 and contributes a term of its own --
+C            the smoothing is differentiable, the published step is not.
+         DO J=1,6
+            GDACT(J)=0.0D0
+         END DO
+         IF (DACTRW.LE.0.999D0 .AND. DACTRW.GE.0.0D0) THEN
+            IF (HSMO.GT.0.0D0 .AND. XT.GT.0.0D0) THEN
+               ARG=AI1/(HSMO*XT)
+               IF (ARG.GT.30.0D0 .OR. ARG.LT.-30.0D0) THEN
+                  SECH2=0.0D0
+               ELSE
+                  SECH2=1.0D0-TANH(ARG)**2
+               END IF
+               WD=0.5D0*SECH2/(HSMO*XT)
+               DO J=1,6
+                  GDACT(J)=WBLND*GDT(J)+(1.0D0-WBLND)*GDC(J)
+     1                    +(DTN-DCN)*WD*GAI1(J)
+               END DO
+            ELSE IF (AI1.GE.0.0D0) THEN
+               DO J=1,6
+                  GDACT(J)=GDT(J)
+               END DO
+            ELSE
+               DO J=1,6
+                  GDACT(J)=GDC(J)
+               END DO
+            END IF
+         END IF
+C        (f) assemble.  The matrix damage is isotropic, so all three
+C            normal compliances carry the SAME d and the three rank-one
+C            dyads of Ge Eq.(31) collapse into one.
+         WQ=1.0D0/(E*(1.0D0-DACT)**2)
+         DO I=1,6
+            VM(I)=-WQ*(CD(I,1)*STRESS(1)+CD(I,2)*STRESS(2)
+     1                +CD(I,3)*STRESS(3))
+         END DO
+         VM(4)=VM(4)-GMU*EEL(4)
+         VM(5)=VM(5)-GMU*EEL(5)
+         VM(6)=VM(6)-GMU*EEL(6)
+         DO I=1,6
+            DO J=1,6
+               CTAN(I,J)=CTAN(I,J)+VM(I)*GDACT(J)
+            END DO
+         END DO
+      END IF
 C
       MODE=1
       RFAC=RT
@@ -801,7 +1273,16 @@ C     d_cyc is what makes repeated thermal shock degrade the material.
       DOUBLE PRECISION DJ,RFAC,REQ,CREQ,B1T,B1C,BTT,BTC
       DOUBLE PRECISION FS12,FS23,DC1,DCT,DCS,DI12,FITW,FIDC,FIHA
       DOUBLE PRECISION NCUM,FLAG
-      INTEGER I,J,KSTEP,MODE,NT,IPF,NCLO,NPROPS,J0,ICRIT,IDMODE
+      DOUBLE PRECISION D1MRAW,DTMRAW,D1RAW,DTRAW,DTDR,DTAR
+      DOUBLE PRECISION GF1T(6),GF1C(6),GFTT(6),GFTC(6),GEXC(6)
+      DOUBLE PRECISION GD1T(6),GD1C(6),GDTT(6),GDTC(6),GDCY(6)
+      DOUBLE PRECISION G1M(6),GTM(6),G1(6),GT(6)
+      DOUBLE PRECISION GE1(6),GE2(6),GE3(6),GS12(6),GS23(6),GS31(6)
+      DOUBLE PRECISION V1(6),V2(6),V3(6)
+      DOUBLE PRECISION DDR1T,DDR1C,DDRTT,DDRTC,DCDE,FIMAX,DDCRAW
+      DOUBLE PRECISION U1,U2,U3,W1,W2,W3
+      DOUBLE PRECISION DTD2,DTD3,DTD4,DTD5,DTD6,DTDS
+      INTEGER I,J,KSTEP,MODE,NT,IPF,NCLO,NPROPS,J0,ICRIT,IDMODE,ITAN
 C
       E1=P(2)
       E2=P(3)
@@ -955,6 +1436,9 @@ C
 C
       D1M=1.0D0-(1.0D0-D1T)*(1.0D0-D1C)
       DTM=1.0D0-(1.0D0-DTT)*(1.0D0-DTC)
+C     Pre-clamp values for the consistent tangent (see KYARN31).
+      D1MRAW=D1M
+      DTMRAW=DTM
       D1M=MIN(0.999D0,MAX(0.0D0,D1M))
       DTM=MIN(0.999D0,MAX(0.0D0,DTM))
 C
@@ -978,6 +1462,9 @@ C     this increment (not the stored threshold), so a load reversal that
 C     never re-exceeds the historical maximum still accumulates damage.
       RATE=0.0D0
       DNINC=0.0D0
+      DCDE=0.0D0
+      EXC=0.0D0
+      DDCRAW=0.0D0
       IF (CYCON.GT.0.5D0 .AND. ENABLE.GT.0.5D0 .AND.
      1    DBLE(KSTEP).LE.FREEZE) THEN
          IF (IPF.GT.0) THEN
@@ -991,15 +1478,23 @@ C     never re-exceeds the historical maximum still accumulates damage.
             IF (EXC.GT.0.0D0 .AND. CCYC.GT.0.0D0) THEN
                DDCY=CCYC*(EXC**CNEXP)*
      1              ((1.0D0-DCY0)**(-CKEXP))*DNINC
+               DDCRAW=DDCY
+C              d(Delta d_cyc)/d(exc), for the consistent tangent only.
+               DCDE=CCYC*CNEXP*(EXC**(CNEXP-1.0D0))*
+     1              ((1.0D0-DCY0)**(-CKEXP))*DNINC
                DDCY=MAX(0.0D0,MIN(DDCY,DCYMAX))
                DCY=MIN(DCYMAX,DCY0+DDCY)
             END IF
          END IF
       END IF
+      IF (DDCRAW.GT.DCYMAX .OR. DDCRAW.LT.0.0D0) DCDE=0.0D0
+      IF (DCY0+DDCY.GT.DCYMAX) DCDE=0.0D0
 C
 C     Multiplicative coupling: 1-d = (1-d_mono)(1-w*d_cyc).
       D1=1.0D0-(1.0D0-D1M)*(1.0D0-W1CYC*DCY)
       DT=1.0D0-(1.0D0-DTM)*(1.0D0-DCY)
+      D1RAW=D1
+      DTRAW=DT
       D1=MIN(0.999D0,MAX(0.0D0,D1))
       DT=MIN(0.999D0,MAX(0.0D0,DT))
 C
@@ -1025,6 +1520,173 @@ C
       END DO
       CALL KMATVEC6(CD,EPS,STRESS)
 C
+C     ------------------------------------------------------------------
+C     CONSISTENT (ALGORITHMIC) TANGENT -- Ge Eq.(31), extended by the
+C     cycle-damage term of item (3) in the file header (that term is an
+C     addition of this work and has no counterpart in Ge).
+C     Structure and derivation as in KYARN31; see the banner there.
+      ITAN=0
+      IF (NPROPS.EQ.49+8*NT) ITAN=NINT(P(48+8*NT))
+      IF (NPROPS.EQ.58+8*NT) ITAN=NINT(P(57+8*NT))
+      IF (ITAN.GT.0) THEN
+         DO J=1,6
+            GF1T(J)=0.0D0
+            GF1C(J)=0.0D0
+            GFTT(J)=0.0D0
+            GFTC(J)=0.0D0
+         END DO
+         IF (SE(1).GE.0.0D0) THEN
+            IF (FI1T.GT.0.0D0) THEN
+               DO J=1,6
+                  GF1T(J)=(SE(1)/(XT*XT)*C0(1,J)
+     1                    +SE(4)/(S12*S12)*C0(4,J)
+     2                    +SE(5)/(S13*S13)*C0(5,J))/FI1T
+               END DO
+            END IF
+         ELSE
+            DO J=1,6
+               GF1C(J)=-C0(1,J)/XC
+            END DO
+         END IF
+         IF (SUMT.GE.0.0D0) THEN
+            IF (FITT.GT.0.0D0) THEN
+               DTD2=2.0D0*SUMT/(YT*YT)-SE(3)/(S23*S23)
+               DTD3=2.0D0*SUMT/(YT*YT)-SE(2)/(S23*S23)
+               DTD4=2.0D0*SE(4)/(S12*S12)
+               DTD5=2.0D0*SE(5)/(S13*S13)
+               DTD6=2.0D0*SE(6)/(S23*S23)
+               DO J=1,6
+                  GFTT(J)=(DTD2*C0(2,J)+DTD3*C0(3,J)+DTD4*C0(4,J)
+     1                    +DTD5*C0(5,J)+DTD6*C0(6,J))/(2.0D0*FITT)
+               END DO
+            END IF
+         ELSE
+            IF (FITC.GT.0.0D0) THEN
+               DTDS=((YC/(2.0D0*S23))**2-1.0D0)/YC
+     1              +SUMT/(2.0D0*S23*S23)
+               DTD2=DTDS-SE(3)/(S23*S23)
+               DTD3=DTDS-SE(2)/(S23*S23)
+               DTD4=2.0D0*SE(4)/(S12*S12)
+               DTD5=2.0D0*SE(5)/(S13*S13)
+               DTD6=2.0D0*SE(6)/(S23*S23)
+               DO J=1,6
+                  GFTC(J)=(DTD2*C0(2,J)+DTD3*C0(3,J)+DTD4*C0(4,J)
+     1                    +DTD5*C0(5,J)+DTD6*C0(6,J))/(2.0D0*FITC)
+               END DO
+            END IF
+         END IF
+         DDR1T=0.0D0
+         DDR1C=0.0D0
+         DDRTT=0.0D0
+         DDRTC=0.0D0
+         IF (ENABLE.GT.0.5D0 .AND. DBLE(KSTEP).LE.FREEZE) THEN
+            CALL KDAMAGE_D(R1T,B1T,DMAX1,DTAR,DTDR)
+            IF (FI1T.GT.SV(5) .AND. DTAR.GT.D1T0) DDR1T=GAM*DTDR
+            CALL KDAMAGE_D(R1C,B1C,DMAX1,DTAR,DTDR)
+            IF (FI1C.GT.SV(6) .AND. DTAR.GT.D1C0) DDR1C=GAM*DTDR
+            CALL KDAMAGE_D(RTT,BTT,DMAXT,DTAR,DTDR)
+            IF (FITT.GT.SV(7) .AND. DTAR.GT.DTT0) DDRTT=GAM*DTDR
+            CALL KDAMAGE_D(RTC,BTC,DMAXT,DTAR,DTDR)
+            IF (FITC.GT.SV(8) .AND. DTAR.GT.DTC0) DDRTC=GAM*DTDR
+         END IF
+         DO J=1,6
+            GD1T(J)=DDR1T*GF1T(J)
+            GD1C(J)=DDR1C*GF1C(J)
+            GDTT(J)=DDRTT*GFTT(J)
+            GDTC(J)=DDRTC*GFTC(J)
+         END DO
+C        Cycle damage.  It is driven by the CURRENT indices, not by the
+C        stored thresholds, so it contributes even where dr = 0 -- which
+C        is exactly the shakedown situation the term exists for.  The
+C        driving index is a max, so the gradient is that of whichever
+C        mode attains it.
+         DO J=1,6
+            GDCY(J)=0.0D0
+            GEXC(J)=0.0D0
+         END DO
+         IF (DCDE.NE.0.0D0) THEN
+            FIMAX=MAX(FI1T,FI1C,FITT,FITC)
+            IF (FIMAX.EQ.FI1T) THEN
+               DO J=1,6
+                  GEXC(J)=GF1T(J)
+               END DO
+            ELSE IF (FIMAX.EQ.FI1C) THEN
+               DO J=1,6
+                  GEXC(J)=GF1C(J)
+               END DO
+            ELSE IF (FIMAX.EQ.FITT) THEN
+               DO J=1,6
+                  GEXC(J)=GFTT(J)
+               END DO
+            ELSE
+               DO J=1,6
+                  GEXC(J)=GFTC(J)
+               END DO
+            END IF
+            DO J=1,6
+               GDCY(J)=DCDE*GEXC(J)
+            END DO
+         END IF
+         DO J=1,6
+            IF (D1MRAW.GT.0.999D0 .OR. D1MRAW.LT.0.0D0) THEN
+               G1M(J)=0.0D0
+            ELSE
+               G1M(J)=(1.0D0-D1C)*GD1T(J)+(1.0D0-D1T)*GD1C(J)
+            END IF
+            IF (DTMRAW.GT.0.999D0 .OR. DTMRAW.LT.0.0D0) THEN
+               GTM(J)=0.0D0
+            ELSE
+               GTM(J)=(1.0D0-DTC)*GDTT(J)+(1.0D0-DTT)*GDTC(J)
+            END IF
+         END DO
+         DO J=1,6
+            IF (D1RAW.GT.0.999D0 .OR. D1RAW.LT.0.0D0) THEN
+               G1(J)=0.0D0
+            ELSE
+               G1(J)=(1.0D0-W1CYC*DCY)*G1M(J)
+     1              +(1.0D0-D1M)*W1CYC*GDCY(J)
+            END IF
+            IF (DTRAW.GT.0.999D0 .OR. DTRAW.LT.0.0D0) THEN
+               GT(J)=0.0D0
+            ELSE
+               GT(J)=(1.0D0-DCY)*GTM(J)+(1.0D0-DTM)*GDCY(J)
+            END IF
+         END DO
+         U1=1.0D0
+         U2=1.0D0
+         U3=1.0D0
+         IF (EPS(1).LT.0.0D0) U1=1.0D0-HCLO
+         IF (EPS(2).LT.0.0D0) U2=1.0D0-HCLO
+         IF (EPS(3).LT.0.0D0) U3=1.0D0-HCLO
+         DO J=1,6
+            GE1(J)=U1*G1(J)
+            GE2(J)=U2*GT(J)
+            GE3(J)=U3*GT(J)
+            GS12(J)=(1.0D0-DT)*G1(J)+(1.0D0-D1)*GT(J)
+            GS31(J)=GS12(J)
+            GS23(J)=2.0D0*(1.0D0-DT)*GT(J)
+         END DO
+         W1=1.0D0/(E1*(1.0D0-D1E)**2)
+         W2=1.0D0/(E2*(1.0D0-DT2E)**2)
+         W3=1.0D0/(E3*(1.0D0-DT3E)**2)
+         DO I=1,6
+            V1(I)=-W1*CD(I,1)*STRESS(1)
+            V2(I)=-W2*CD(I,2)*STRESS(2)
+            V3(I)=-W3*CD(I,3)*STRESS(3)
+         END DO
+         DO I=1,6
+            DO J=1,6
+               CTAN(I,J)=CD(I,J)+V1(I)*GE1(J)+V2(I)*GE2(J)
+     1                          +V3(I)*GE3(J)
+            END DO
+         END DO
+         DO J=1,6
+            CTAN(4,J)=CTAN(4,J)-G12*EPS(4)*GS12(J)
+            CTAN(5,J)=CTAN(5,J)-G13*EPS(5)*GS31(J)
+            CTAN(6,J)=CTAN(6,J)-G23*EPS(6)*GS23(J)
+         END DO
+      END IF
+C
       IF (SV(12).EQ.0.0D0 .AND. RFAC.GE.1.0D0) SV(12)=TEND
       SV(1)=D1T
       SV(2)=D1C
@@ -1048,7 +1710,9 @@ C     Failure-criterion comparison.  Passive: nothing below feeds back
 C     into STRESS, CTAN or PNEWDT, so ICRIT only adds output.
       J0=48+8*NT
       ICRIT=0
-      IF (NPROPS.EQ.J0+8) ICRIT=NINT(P(J0))
+C     Same rule as the matrix smoothing block: the criterion block keeps
+C     its place when the two-slot tangent block is appended after it.
+      IF (NPROPS.EQ.J0+8 .OR. NPROPS.EQ.J0+10) ICRIT=NINT(P(J0))
       IF (ICRIT.GT.0) THEN
          FS12=P(J0+1)
          FS23=P(J0+2)
@@ -1274,6 +1938,56 @@ C     auxiliary variables of Ge Eqs.16-17).
       RE=MAX(1.0D0,(1.0D0-DF)*(XT/XPO)*R)
       D=1.0D0-(1.0D0-DL)/RE*EXP(A*(1.0D0-RE))
       D=MIN(0.999D0,MAX(0.0D0,D))
+      RETURN
+      END
+C=======================================================================
+      SUBROUTINE KMIX1T_D(R,A,E1,XT,XPO,RFT,XK1,D,DDDR)
+C     KMIX1T plus its derivative dd/dr, for the consistent tangent.
+C     The value branch is a line-for-line copy of KMIX1T so the two can
+C     never drift apart; only DDDR is new.  DDDR is returned as ZERO on
+C     every clamped branch (r<=1, either 0.999/0 clamp, and the frozen
+C     linear/exponential segments), because a clamped variable has no
+C     derivative with respect to strain.
+      IMPLICIT NONE
+      DOUBLE PRECISION R,A,E1,XT,XPO,RFT,XK1,D,DDDR
+      DOUBLE PRECISION RL,DL,DF,RE,C1,DRAW,GRE,DDLDR,DREDR
+      D=0.0D0
+      DDDR=0.0D0
+      IF (R.LE.1.0D0) RETURN
+      C1=1.0D0+XK1/E1
+      RL=MAX(1.0D0,MIN(R,RFT))
+      DL=C1*(1.0D0-1.0D0/RL)
+      DF=C1*(1.0D0-1.0D0/RFT)
+      RE=MAX(1.0D0,(1.0D0-DF)*(XT/XPO)*R)
+      GRE=EXP(A*(1.0D0-RE))/RE
+      DRAW=1.0D0-(1.0D0-DL)*GRE
+      D=MIN(0.999D0,MAX(0.0D0,DRAW))
+      IF (DRAW.GE.0.999D0 .OR. DRAW.LE.0.0D0) RETURN
+C     Linear branch: active only strictly inside 1 < r < r_F (Ge Eq.17).
+      DDLDR=0.0D0
+      IF (R.GT.1.0D0 .AND. R.LT.RFT) DDLDR=C1/(RL*RL)
+C     Exponential branch: r^F_1t is clamped from below at 1.
+      DREDR=0.0D0
+      IF ((1.0D0-DF)*(XT/XPO)*R.GT.1.0D0)
+     1    DREDR=(1.0D0-DF)*(XT/XPO)
+      DDDR=DDLDR*GRE
+     1    +(1.0D0-DL)*EXP(A*(1.0D0-RE))*(A*RE+1.0D0)/(RE*RE)*DREDR
+      RETURN
+      END
+C=======================================================================
+      SUBROUTINE KDAMAGE_D(R,A,DMAX,D,DDDR)
+C     KDAMAGE_TARGET plus its derivative dd/dr, for the consistent
+C     tangent.  d = 1 - exp[A(1-r)]/r  ->  dd/dr = exp[A(1-r)](A r+1)/r^2.
+C     DDDR = 0 wherever the value is clamped (r<=1, d>=DMAX, d<=0).
+      IMPLICIT NONE
+      DOUBLE PRECISION R,A,DMAX,D,DDDR,DRAW
+      D=0.0D0
+      DDDR=0.0D0
+      IF (R.LE.1.0D0) RETURN
+      DRAW=1.0D0-EXP(A*(1.0D0-R))/R
+      D=MIN(DMAX,MAX(0.0D0,DRAW))
+      IF (DRAW.GE.DMAX .OR. DRAW.LE.0.0D0) RETURN
+      DDDR=EXP(A*(1.0D0-R))*(A*R+1.0D0)/(R*R)
       RETURN
       END
 C=======================================================================

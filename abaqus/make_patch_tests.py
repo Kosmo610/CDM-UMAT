@@ -190,6 +190,9 @@ BAR_WEAK = 0.80                               # strength of the trigger slice
 #  size for this demonstration and is still far below the scatter of a real
 #  ceramic.
 
+HSMO_KEY = 32.0        # PROPS(25+4*NT) guard on the I1-smoothing block
+ITAN_KEY = 33.0        # PROPS(27+4*NT) guard on the tangent block
+
 MATRIX_CARD = [2.0, 350000.0, 0.20, 310.0, 310.0, 0.0, 0.0, 0.90,
                0.90, 0.05, 0.03, 3.0, 0.25, 1.0, 0.031, 0.031,
                250.0, 100000.0, 1.15, 0.75, 0.50, 30.0]
@@ -224,8 +227,18 @@ def _card(vals, per_line=8):
     return "\n".join(out)
 
 
-def bar_deck(nx, na):
-    """Structured bar of CUBIC C3D8 elements.  nx along the axis, na across."""
+def bar_deck(nx, na, itan=None):
+    """Structured bar of CUBIC C3D8 elements.  nx along the axis, na across.
+
+    `itan` appends the 2-slot consistent-tangent block to both matrix cards
+    (UMAT header, MATRIX layouts: it may only follow the I1-smoothing block,
+    so HSMO=0 and its guard 32.0 are written first and the card runs 22 ->
+    27 slots).  HSMO=0 is the published sign(I1) step, so the physics is
+    unchanged and the ONLY difference between an itan=0 and an itan=1 bar is
+    which DDSDDE the routine hands back -- which is exactly what a
+    convergence comparison needs.  itan=None writes no block at all and
+    leaves the deck byte-identical to what it was before.
+    """
     h = BAR_LENGTH / nx
     if abs(h - BAR_SECTION / na) > 1e-12:
         raise ValueError("elements would not be cubic: h_axial=%g, "
@@ -286,12 +299,18 @@ def bar_deck(nx, na):
     weak_card = list(MATRIX_CARD)
     weak_card[3] *= BAR_WEAK          # Xt
     weak_card[4] *= BAR_WEAK          # Xc
+    tail = []
+    if itan is not None:
+        if itan not in (0, 1):
+            raise ValueError("itan must be 0 or 1, got %r" % itan)
+        tail = [0.0, 0.0, HSMO_KEY, float(itan), ITAN_KEY]
     for name, card in (("SIC_MATRIX_BAR", MATRIX_CARD),
                        ("SIC_MATRIX_BAR_WEAK", weak_card)):
+        full = list(card) + tail
         L.append("*Material, Name=%s" % name)
         L.append(MATRIX_DEPVAR)
-        L.append("*User Material, constants=22")
-        L.append(_card(card))
+        L.append("*User Material, constants=%d" % len(full))
+        L.append(_card(full))
     L.append("*Solid Section, ElSet=BAR_STRONG, Material=SIC_MATRIX_BAR")
     L.append("1.0,")
     L.append("*Solid Section, ElSet=BAR_WEAK, Material=SIC_MATRIX_BAR_WEAK")
@@ -371,6 +390,30 @@ def check():
           txt.count("*ElSet, ElSet=BAR_WEAK") == 1)
         t("N=%-2d energy output requested" % nx, "ALLSD" in txt)
         t("N=%-2d SDV in the field output" % nx, "S, E, IVOL, SDV" in txt)
+
+        # --- the consistent-tangent pair (2026-08-11) -------------------
+        # The bar is the cheapest deck in the repository that actually
+        # SOFTENS, which is where the secant and the consistent tangent
+        # part company, so it is the convergence comparison job.
+        t("N=%-2d omitting --itan leaves the bar byte-identical" % nx,
+          bar_deck(nx, na, None)[0] == txt)
+        b0, b1 = bar_deck(nx, na, 0)[0], bar_deck(nx, na, 1)[0]
+        t("N=%-2d --itan writes 27 constants twice" % nx,
+          b1.count("*User Material, constants=27") == 2)
+        # THE TRAP THAT WAS SPRUNG ONCE ALREADY: a reader keyed on total
+        # NPROPS switches the block underneath it off.  Both guards have to
+        # survive on the lengthened card.
+        t("N=%-2d both card guards survive on the 27-slot card" % nx,
+          b1.count("0.5, 30, 0, 0\n32, 1, 33") == 2)
+        d = [(x, y) for x, y in zip(b0.split("\n"), b1.split("\n")) if x != y]
+        t("N=%-2d the 0/1 pair differs in exactly two lines" % nx,
+          len(d) == 2, "%d line(s)" % len(d))
+        for ibad in (2, -1):
+            try:
+                bar_deck(nx, na, ibad)
+                t("N=%-2d itan=%s rejected" % (nx, ibad), False)
+            except ValueError:
+                t("N=%-2d itan=%s rejected" % (nx, ibad), True)
         t("N=%-2d node numbering is contiguous" % nx,
           ("%d, " % ((nx + 1) * (na + 1) * (na + 1))) in txt)
 
@@ -597,6 +640,13 @@ def main():
     ap.add_argument("-o", "--outdir", default=".", help="output directory")
     ap.add_argument("--bar-only", action="store_true",
                     help="write only the crack-band bars")
+    ap.add_argument("--itan", type=int, default=None, choices=(0, 1),
+                    help="write the crack-band bars with the consistent-"
+                         "tangent block (Ge Eqs.31-33) on the matrix card, "
+                         "switched off (0) or on (1).  The job name gets an "
+                         "_ITAN0/_ITAN1 suffix so the pair cannot overwrite "
+                         "each other.  Omitting the flag writes no block and "
+                         "leaves the decks byte-identical to before.")
     ap.add_argument("--check", action="store_true", help="self-test and exit")
     a = ap.parse_args()
 
@@ -621,9 +671,10 @@ def main():
         print("wrote %s   (%d sections, 7 steps, no UMAT)"
               % (out, len(sections)))
 
+    sfx = "" if a.itan is None else "_ITAN%d" % a.itan
     for nx, na in BAR_CASES:
-        txt, ne, h = bar_deck(nx, na)
-        out = os.path.join(a.outdir, "CBAND_N%d.inp" % nx)
+        txt, ne, h = bar_deck(nx, na, a.itan)
+        out = os.path.join(a.outdir, "CBAND_N%d%s.inp" % (nx, sfx))
         with open(out, "w") as f:
             f.write(txt)
         print("wrote %s   %d C3D8 of h=%g mm" % (out, ne, h))

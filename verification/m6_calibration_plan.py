@@ -10,8 +10,9 @@ calibration is even aiming at:
 
   4.9-0   the stiffness diagnosis was rescaled, 3.36x -> 1.66x, once the
           published moduli were seen to fall in two clusters
-  4.9-8   the 14 GUESS card inputs were split into three kinds, only one of
-          which calibration should be moving
+  4.9-8   the GUESS card inputs were split into three kinds, only one of
+          which calibration should be moving (13 since 2026-08-11: rF is
+          DERIVED from X_PO and K1 by Ge refs/[24] Eq. (17), not a knob)
   4.9-16  Gf now hands the DISSIPATED part across the scale boundary, which
           moves the macro softening exponent by 2.2x
 
@@ -38,6 +39,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+sys.path.insert(0, HERE)
 
 _OK, _BAD = [], []
 
@@ -88,7 +90,10 @@ MATRIX = dict(Xt=310.0, Xc=310.0, E=350000.0, Gmt=0.031, Gmc=0.031)
 # 4.9-8's three kinds.  The counts are asserted against check_card_ranges.
 NUMERICAL = ("SY0", "HISO", "dmax_t matrix", "eta matrix")
 NO_TOW_TEST = ("Xc yarn", "Yt yarn", "Yc yarn", "S12 yarn", "S23 yarn")
-SHAPE = ("Gtt yarn", "Gtc yarn", "X_PO yarn", "rF yarn", "K1 yarn")
+# rF was dropped 2026-08-11: Ge refs/[24] Eq. (17) fixes the transition
+# threshold from X_PO and K1, so it is a derived quantity, not a free
+# calibration direction.  The shape group is 4-dimensional, not 5.
+SHAPE = ("Gtt yarn", "Gtc yarn", "X_PO yarn", "K1 yarn")
 
 
 def g0(X, E):
@@ -372,7 +377,28 @@ def part_plan():
 """)
     for k in SHAPE:
         print("     %s" % k)
-    print("""   Target: peak 199.15 MPa with a peak that actually occurs.
+    print("""
+   ** READ THE OBSERVABLES IN THIS ORDER: SHAPE FIRST, PEAK LAST. **
+   verification/knob_sensitivity.py measured the Jacobian of this same card
+   and found the three strength-proxy rows have effective rank 1: the only
+   direction they pin is 0.99*Yt - 0.16*S23, and the tensile peaks come out
+   EXACTLY at Xt (yarn) and X_m,t (matrix), so their sensitivity to every
+   class-3 and class-1 knob is a structural zero.  A peak that is 1.6x too
+   high therefore CANNOT be brought down by any knob in this stage -- the
+   overshoot lives in G1t and in RVE redistribution, which is why G1t is
+   tested first and why the peak is a diagnosis, not a dial.
+   The knobs in this stage move the curve AFTER the peak.  So judge them on
+   the shape observables, in this order:
+     1. the strain at which the linear-to-exponential transition occurs
+        (Ge Eq.17 rF; X_PO and K1 set it, and at the V2_0 card it sits at
+        eps ~ 28 %, i.e. off the end of the curve -- that is the first
+        thing to fix, and it is why X_PO's Jacobian column is exactly zero)
+     2. the post-peak slope and the dissipated area (Gtt, Gtc)
+     3. the failure strain and the residual stress level
+   Only then read the peak, and read it as a CHECK: if the shape observables
+   are right and the peak is still wrong, the finding is that the error is
+   upstream of the card (G1t provenance, or RVE redistribution), and that is
+   reported -- not absorbed by moving a knob that the SVD says cannot move it.
    Do NOT move Yt/Yc/S12/S23 here -- at 1000 C they barely load.
 
  STAGE 2 -- RT23, and only the cooldown assumptions.
@@ -386,6 +412,10 @@ def part_plan():
    Do not fit it.  If stages 1 and 2 are right, 179.42 should fall out of
    the interpolation.  If it does not, the temperature dependence is wrong
    and that is a finding, not a knob.
+   knob_sensitivity part 3a makes this stronger than a convention: with the
+   three strength rows pinning ONE direction, fitting all three targets would
+   consume the whole identifiable subspace and leave nothing held out.  T500
+   held out is what keeps the exercise a validation rather than a curve fit.
 
  STAGE 4 -- class-1 insensitivity, not fitting.
 """)
@@ -408,12 +438,36 @@ def part_plan():
  minicomposite literature (REFS_CANDIDATES 3.5, A22/A23) is in hand.
 """)
 
+    # 2026-08-11: Stage 1 was "target: peak 199.15" -- strength-first.  The
+    # measured Jacobian says the peak is a structural zero for every knob in
+    # the stage, so a strength-first reading invites tuning a dial that
+    # provably does not connect.  Stage 1 now reads shape first, peak last.
+    src = open(os.path.join(HERE, os.path.basename(__file__))).read()
+    check("Stage 1 orders the observables shape-first, peak-as-check",
+          "SHAPE FIRST, PEAK LAST" in src and
+          "read it as a CHECK" in src)
+    check("Stage 1 cites the measurement that forces that order",
+          "knob_sensitivity" in src and "structural zero" in src)
+    try:
+        from knob_sensitivity import STRENGTH_ROWS
+        ok_rows = len(STRENGTH_ROWS) == 3
+        detail = ", ".join(STRENGTH_ROWS)
+    except Exception as exc:            # pragma: no cover - import guard
+        ok_rows, detail = False, "import failed: %s" % exc
+    check("the three strength-proxy rows the SVD ranks still exist", ok_rows,
+          detail)
+    check("T500 is held out, not fitted (that is what rank 1 costs)",
+          "held out is what keeps the exercise a validation" in src)
+
     check("stages 1-4 between them cover classes 3 and 1 only",
-          len(SHAPE) == 5 and len(NUMERICAL) == 4)
+          len(SHAPE) == 4 and len(NUMERICAL) == 4)
     check("class 2 is not a calibration target in any stage",
           len(NO_TOW_TEST) == 5)
-    check("the three classes account for all 14 GUESS",
-          len(SHAPE) + len(NUMERICAL) + len(NO_TOW_TEST) == 14,
+    # 2026-08-11: 14 -> 13.  rF left the SHAPE group because Ge refs/[24]
+    # Eq. (17) derives it from X_PO and K1; check_card_ranges.py regraded it
+    # GUESS -> DERIVED on the same evidence, so both counts moved together.
+    check("the three classes account for all 13 GUESS",
+          len(SHAPE) + len(NUMERICAL) + len(NO_TOW_TEST) == 13,
           "%d + %d + %d" % (len(SHAPE), len(NUMERICAL), len(NO_TOW_TEST)))
 
 

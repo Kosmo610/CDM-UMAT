@@ -1,0 +1,10 @@
+quantity,value,basis,verdict,note
+k_matrix ratio 296->1473 K,0.7640,refs/[17] CVI SiC 25 W/(m.K) + Snead resistivity split,CARD,x = 0.9148 of resistance is T-independent
+kbar3 ratio 296->1473 K (derived),0.7792-0.8403,"same, through the RVE homogenisation, 4 estimators",CARD,spread 0.0611 -- robust to the estimator
+kbar3(296 K) analytic vs FE,5.5137 vs 5.4490,hs_lo estimator against LTH2_COND_P32,ROUTE VALIDATED,1.19 % -- the derivation reproduces the FE job
+kbar3 ratio if the matrix were refs/[13]'s 70 W/(m.K),0.5474-0.6119,"same derivation, denser CVI matrix",DIAGNOSIS,brackets the borrowed 0.5845 -- that shape assumes a matrix our card does not carry
+refs/[20] borrowed ratio,0.5845,"refs/[20] Table 1, a composite measurement, 8HSW laminate",REJECTED FOR THE CARD,keep as a sensitivity row in Ch.5 5.4.3 only
+"Biot at 900 C, derived",0.0520,h = 161.7 W/(m2.K) solved on our own card,REFERENCE,kbar3 = 4.662 W/(m.K)
+"Biot at 900 C, borrowed shape",0.0645,"same h, refs/[20] ratio",BIASED TOWARD C2,+23.9 % vs derived -- over-predicts the gradient
+"Biot at 900 C, constant k",0.0445,"same h, --no-kt","SMALLER ERROR, STILL AN ERROR",-14.4 % vs derived
+ratio if the T-independent split failed entirely,0.2162,all resistance treated as lattice (single crystal),ASSUMPTION SPAN,the far end of the one assumption this derivation makes

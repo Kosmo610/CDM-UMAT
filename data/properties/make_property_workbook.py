@@ -37,7 +37,8 @@ sys.path.insert(0, os.path.join(ROOT, "verification"))
 sys.path.insert(0, HERE)
 
 #: IN / DEV / GUESS -> the three words the thesis uses.
-STATUS = {"IN": "검증", "DEV": "미검증", "GUESS": "임시값"}
+STATUS = {"IN": "검증", "DEV": "미검증", "GUESS": "임시값",
+          "DERIVED": "도출값"}   # DERIVED: 2026-08-11, rF (Ge Eq.17이 결정)
 
 #: Matrix card, slot -> (name, role, unit).  NPROPS = 25.
 MATRIX_SLOTS = [
@@ -512,8 +513,8 @@ def selftest():
        abs(by["기지카드_25슬롯"][21][2] - 30.0) < 1e-9)
 
     print("\n C. the status words are the audit's verdicts, translated")
-    ck("only three status words are used",
-       set(r[5] for r in allrows) <= set(("검증", "미검증", "임시값")),
+    ck("only the audit's status words are used",
+       set(r[5] for r in allrows) <= set(("검증", "미검증", "임시값", "도출값")),
        ", ".join(sorted(set(r[5] for r in allrows))))
     ck("yarn Xt is 미검증, matching its DEV regrade",
        by["얀카드_38슬롯"][10][5] == "미검증",

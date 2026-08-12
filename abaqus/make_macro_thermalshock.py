@@ -678,9 +678,23 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
                          "NPROPS >= 47 (got %d)" % (tag, p[35] if n >= 36
                                                     else "n/a", n))
     nt = int(round(p[46]))
-    if nt < 0 or n not in (47 + 8 * nt, 56 + 8 * nt):
-        raise SystemExit("macro card%s: NT=%d needs NPROPS = %d or %d, got %d"
-                         % (tag, nt, 47 + 8 * nt, 56 + 8 * nt, n))
+    legal = (47 + 8 * nt, 49 + 8 * nt, 56 + 8 * nt, 58 + 8 * nt)
+    if nt < 0 or n not in legal:
+        raise SystemExit("macro card%s: NT=%d needs NPROPS in %s, got %d"
+                         % (tag, nt, ", ".join(str(v) for v in legal), n))
+    # The tangent block is the LAST thing on the card, so strip it before the
+    # criterion block is located -- otherwise 58+8*NT would be read as a card
+    # with no criterion block and the 41.0 guard would never be checked.
+    itan = None
+    if n in (49 + 8 * nt, 58 + 8 * nt):
+        if abs(p[n - 1] - 33.0) > 1e-9:
+            raise SystemExit("macro card%s: tangent block must end with 33.0, "
+                             "got %g" % (tag, p[n - 1]))
+        itan = int(round(p[n - 2]))
+        if itan not in (0, 1):
+            raise SystemExit("macro card%s: ITAN must be 0 or 1, got %d"
+                             % (tag, itan))
+        p, n = p[:n - 2], n - 2
     if n == 56 + 8 * nt:
         if abs(p[55 + 8 * nt] - 41.0) > 1e-9:
             raise SystemExit("macro card%s: failure-criterion block must end "
@@ -733,7 +747,10 @@ def check_macro_card(card_text, where="", le=None, allow_total_gf=False):
         msg.append("  pass allow_total_gf=True if this card really was "
                    "measured at le(macro).")
         raise SystemExit("\n".join(msg))
-    return dict(nprops=n, nt=nt, ndepvar=ndep, gf=gf, props=p,
+    # n and p are the card WITHOUT the tangent block (stripped above), so
+    # nprops is reported back at its true on-deck length.
+    return dict(nprops=n + (0 if itan is None else 2), nt=nt, ndepvar=ndep,
+                gf=gf, props=p, itan=itan,
                 criteria=(n == 56 + 8 * nt and
                           int(round(p[47 + 8 * nt])) > 0))
 
@@ -943,6 +960,54 @@ def selftest():
 
     bad = c.replace("constants=56", "constants=48")
     expect_reject("constants= disagrees with the values", bad)
+
+    # ---- the consistent-tangent block (2026-08-11) -----------------------
+    # The UMAT has carried Ge Eqs.(31)-(33) behind an ITAN switch since
+    # 2026-08-10, but no generator emitted the slots, so it could not be
+    # exercised at all.  The rules that matter are: omitting the flag must
+    # change NOTHING, the block must not hide the criterion block behind it,
+    # and a 0/1 pair must differ in exactly one number.
+    expect_true("omitting --itan leaves the card untouched",
+                append_tangent_block(c, None) == c)
+    for want in (0, 1):
+        t = append_tangent_block(c, want)
+        i = check_macro_card(t, "itan%d" % want)
+        expect_true("--itan %d gives NPROPS 58 and reads back ITAN=%d"
+                    % (want, want),
+                    i["nprops"] == 58 and i["itan"] == want,
+                    "NPROPS=%d ITAN=%s" % (i["nprops"], i["itan"]))
+        # THE TRAP THAT WAS ALREADY SPRUNG ONCE.  The HSMO and ICRIT readers
+        # keyed on total NPROPS, so appending any block silently switched
+        # them off.  Here the criterion block sits BEFORE the tangent block,
+        # so if the validator located it by raw length it would now miss it.
+        expect_true("--itan %d does not switch the criterion block off" % want,
+                    i["criteria"] is True)
+    t0, t1 = append_tangent_block(c, 0), append_tangent_block(c, 1)
+
+    def _data(txt):
+        return " ".join(ln for ln in txt.splitlines()
+                        if not ln.lstrip().startswith("**")).split()
+    d = [(a, b) for a, b in zip(_data(t0), _data(t1)) if a != b]
+    expect_true("the 0/1 pair differs in exactly one number",
+                len(d) == 1 and d[0] == ("0,", "1,"),
+                "%d difference(s): %s" % (len(d), d))
+    expect_true("the criterion guard 41.0 is still the second-to-last "
+                "of its own block",
+                check_macro_card(t1, "itan")["props"][-1] == 41.0)
+    expect_reject("tangent block with a broken guard",
+                  t1.replace("1, 33", "1, 34"))
+    expect_reject("tangent block with ITAN = 2",
+                  t1.replace("1, 33", "2, 33"))
+    try:
+        append_tangent_block(t1, 1)
+        fails.append("double --itan")
+        print("  [FAIL] appended the tangent block twice")
+    except SystemExit:
+        print("  [PASS] %-46s" % "refuses to append the block twice")
+    # A card with the tangent block but WITHOUT the criterion block is the
+    # 49+8*NT length, and it must still be legal.
+    expect_ok("tangent block on a criteria-off card (49 slots)",
+              append_tangent_block(_mangle(c, depvar=29, drop=9), 1))
 
     # ---- the Ch.4 4.9-16 convention -------------------------------------
     # These are the ones the UMAT will NOT catch.  A positive Gf runs, and
@@ -1281,14 +1346,35 @@ def selftest():
                 % (quench_dt0(a["alpha"], 3.0, 15.0), tau, 15.0 / 50.0))
     expect_true("  and the old rule did not, even at the published 15 s",
                 15.0 / 50.0 >= 0.5 * tau)
+    # The 3.0x threshold here belonged to the refs/[20] shape (ratio 0.5845),
+    # which a1-0031 rejected.  Our own constituents give 0.82, so k falls less
+    # and the drop is 2.79x, carried mostly by cp.  The DIRECTION is the claim;
+    # the factor is pinned loosely so a future shape change is caught.
     expect_true("k(T) falls and cp(T) rises, so alpha falls with temperature",
-                aud["rows"][0]["alpha3"] > aud["rows"][-1]["alpha3"] * 3.0,
-                "%.3f -> %.3f mm^2/s over 23-1000 C"
-                % (aud["rows"][0]["alpha3"], aud["rows"][-1]["alpha3"]))
+                aud["rows"][0]["alpha3"] > aud["rows"][-1]["alpha3"] * 2.5,
+                "%.3f -> %.3f mm^2/s over 23-1000 C (%.2fx)"
+                % (aud["rows"][0]["alpha3"], aud["rows"][-1]["alpha3"],
+                   aud["rows"][0]["alpha3"] / aud["rows"][-1]["alpha3"]))
+    expect_true("  and the rejected borrowing would have fallen further",
+                homogenised_thermal(kt_model="ref20_resistance")[1]["rows"][0]
+                ["alpha3"] / homogenised_thermal(
+                    kt_model="ref20_resistance")[1]["rows"][-1]["alpha3"]
+                > aud["rows"][0]["alpha3"] / aud["rows"][-1]["alpha3"])
     expect_true("--no-kt is a declared assumption, not a silent one",
                 "DISABLED: --no-kt" in homogenised_thermal(k_of_t=False)[0])
-    expect_true("the borrowed number is labelled BORROWED in the deck",
-                "BORROWED, ratio only" in blk and "OURS" in blk)
+    # a1-0031 rejected the refs/[20] borrowing; the card now derives the shape
+    # from our own constituents, so the deck must claim it as ours -- and must
+    # not silently keep the old label.
+    expect_true("the k(T) shape is labelled DERIVED, not BORROWED",
+                "DERIVED from refs/[17]" in blk and "not borrowed" in blk
+                and "BORROWED" not in blk)
+    expect_true("the derived ratio is our 0.82, not the rejected 0.5845",
+                abs(_ct_ratio() - 0.82) < 0.03
+                and abs(_ct_ratio() - REF20_K_RATIO_296_1473) > 0.15)
+    expect_true("the rejected shapes survive only as sensitivity switches",
+                homogenised_thermal(kt_model="ref20_resistance")[1]["kt_model"]
+                == "ref20_resistance"
+                and homogenised_thermal()[1]["kt_model"] == "derived")
 
     if fails:
         print("\nSELFTEST FAILED: %s" % ", ".join(fails))
@@ -1330,6 +1416,53 @@ def patch_card(card_text, slot, value):
     for k in range(0, len(vals), 8):
         body.append(", ".join(vals[k:k + 8]))
     return "\n".join(lines[:head + 1] + body + lines[tail:])
+
+
+ITAN_KEY = 33.0          # PROPS(NPROPS) guard on the consistent-tangent block
+
+
+def append_tangent_block(card_text, itan):
+    """Append the 2-slot consistent-tangent block to the MACRO card.
+
+    The block sits at the very end, with or without the failure-criterion
+    block, so the legal lengths become 49+8*NT and 58+8*NT (UMAT header
+    'MACRO consistent-tangent block').  `itan` is 0 or 1; 0 means the block
+    is present but the routine still returns the secant DDSDDE, which is
+    what makes an ITAN=0 vs ITAN=1 pair differ in exactly one number.
+
+    Passing itan=None returns the card untouched -- that is the default and
+    it keeps every shipped deck byte-identical to what it was before this
+    function existed.
+    """
+    if itan is None:
+        return card_text
+    if itan not in (0, 1):
+        raise SystemExit("--itan takes 0 or 1, got %r" % itan)
+    lines = card_text.splitlines()
+    for i, ln in enumerate(lines):
+        if ln.lstrip().lower().startswith("*user material"):
+            head = i
+            break
+    else:
+        raise SystemExit("no *User Material line in the macro card")
+    vals, tail = [], len(lines)
+    for j in range(head + 1, len(lines)):
+        if lines[j].lstrip().startswith("*"):
+            tail = j
+            break
+        vals.extend(v.strip() for v in lines[j].split(",") if v.strip())
+    else:
+        tail = len(lines)
+    if abs(float(vals[-1]) - ITAN_KEY) < 1e-9:
+        raise SystemExit("macro card already carries a tangent block; "
+                         "--itan must not be applied twice")
+    vals = vals + ["%.10g" % itan, "%.10g" % ITAN_KEY]
+    header = re.sub(r"constants\s*=\s*\d+", "constants=%d" % len(vals),
+                    lines[head], flags=re.I)
+    body = [", ".join(vals[k:k + 8]) for k in range(0, len(vals), 8)]
+    note = ("** consistent-tangent block appended: ITAN=%d, guard %.1f "
+            "(NPROPS %d -> %d)" % (itan, ITAN_KEY, len(vals) - 2, len(vals)))
+    return "\n".join(lines[:head] + [note, header] + body + lines[tail:])
 
 
 def read_block(path, default):
@@ -1422,11 +1555,31 @@ CARD_POROSITY = 0.324
 #: the same two numbers for its rule-of-mixtures inversion.
 RHO_FIBRE, RHO_SIC = 1.76e-9, 3.21e-9
 #: refs/[20] Table 1, YANG2024, fulltext: a 2D CMC laminate's OWN kbar at
-#: 296 K and 1473 K.  Only the RATIO is used -- 2.04/3.49 -- because the
-#: magnitude belongs to a different material (8HSW, rho 2.64, Vf 46.4 %).
-#: This is the one macro-card number that is not ours, and it is the shape of
-#: k(T), not a value.  a2-0027 asks a1 to adjudicate the source.
+#: 296 K and 1473 K, ratio 2.04/3.49 = 0.5845.  This USED to set the shape of
+#: k(T) on the card.  a1-0031 adjudicated a2-0027 and REJECTED the borrowing --
+#: not because the material differs, but because the borrowed shape is
+#: self-contradictory INSIDE our own card: 0.5845 is what the derivation gives
+#: for a DENSE CVI matrix (70 W/(m.K)), whereas our deck's matrix is refs/[17]
+#: CVI SiC at 25 W/(m.K).  With 91.5 % of that resistance temperature-
+#: independent, our own constituents give 0.82, not 0.5845.
+#:
+#: The borrowing also erred in the direction that flatters us: at 900 C it
+#: raises Bi by 23.9 % and the peak gradient from 21.9 K to 27.0 K, inflating
+#: contribution C2 in our favour.  That is worse than a conservative error.
+#:
+#: The shape now comes from data/properties/conductivity_temperature.py, which
+#: derives it from Snead's resistivity split plus refs/[17]'s matrix, and is
+#: corroborated by refs/[13] Katoh 2006 using the same linear-in-resistance
+#: form for a 2D CVI woven composite.  refs/[20] and constant k survive only
+#: as sensitivity switches (--kt-model).
 REF20_K_RATIO_296_1473 = 2.04 / 3.49
+
+
+def _ct_ratio():
+    """The derived k(T) ratio, from a1's module (single source of truth)."""
+    _properties_on_path()
+    import conductivity_temperature as ct
+    return ct.derived_ratio()
 #: The direction it moves is the point: conductivity FALLS with temperature
 #: while the fibre's rises, and quench_calibration.py shows the choice moves
 #: the predicted through-thickness gradient by a factor of 4.6.  Constant k
@@ -1457,7 +1610,8 @@ def _mass_fractions(porosity=CARD_POROSITY, vy=None, vf=None):
 
 
 def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
-                        porosity=CARD_POROSITY, k_of_t=True):
+                        porosity=CARD_POROSITY, k_of_t=True,
+                        kt_model="derived"):
     """(the *Conductivity/*Density/*Specific Heat block, audit dict).
 
     Three quantities, three different provenances, and the deck header says
@@ -1495,12 +1649,20 @@ def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
         K = T_C + 273.15
         return m_f * ec.fibre_cp(K) + m_m * ec.sic_cp(K)      # J/(kg.K)
 
+    import conductivity_temperature as ct
+
     def k_scale(T_C):
-        """k(T)/k(23 C), linear in T between the two refs/[20] anchors."""
+        """k(T)/k(23 C) from our own constituents (a1-0031).
+
+        Linear in RESISTANCE, not in k -- the two agree at the endpoints but
+        differ by 0.0553 at 500 C, and the resistance form is the one both
+        Snead Eq.12 and refs/[13] Katoh actually use.  --no-kt still pins the
+        card to a constant, and --kt-model exposes the rejected shapes for the
+        Ch.5 sensitivity table.
+        """
         if not k_of_t:
             return 1.0
-        f = (T_C - 23.0) / (1473.0 - 296.15)
-        return 1.0 + f * (REF20_K_RATIO_296_1473 - 1.0)
+        return ct.k_scale(T_C, model=kt_model)
 
     rows_k, rows_cp, audit_rows = [], [], []
     for T in temps:
@@ -1520,19 +1682,24 @@ def homogenised_thermal(temps=(23.0, 500.0, 1000.0), kbar=KBAR_MEASURED,
         % (rho_bar * 1.0e12 / 1000.0),
         "**                refs/[28] states 'about 2.0', refs/[03] 2.05.  A "
         "ROUND TRIP, not independent evidence:",
-        "**                the 32.4 %% was itself derived from a measured "
+        "**                the 32.4 % was itself derived from a measured "
         "density.  The porosity dispute stays open.",
         "**   cp_bar(T)  = %.1f -> %.1f J/(kg.K)   OURS, mass-weighted "
         "constituent Cp" % (cp_bar(min(temps)), cp_bar(max(temps))),
-        "**   k(T) shape = refs/[20] ratio %.4f over 296-1473 K   BORROWED, "
-        "ratio only%s" % (REF20_K_RATIO_296_1473,
-                          "" if k_of_t else "  [DISABLED: --no-kt]"),
+        "**   k(T) shape = DERIVED from refs/[17] CVI matrix (25 W/(m.K)) + "
+        "Snead resistivity split;",
+        "**                linear in RESISTANCE, ratio %.4f over 296-1473 K.  "
+        "OURS, not borrowed" % ct.derived_ratio(),
+        "**                model=%s%s" % (kt_model,
+                                          "" if k_of_t else
+                                          "  [DISABLED: --no-kt]"),
         "*Conductivity, type=ORTHO, dependencies=0"] + rows_k + [
         "*Density", "%.6g," % rho_bar,
         "*Specific Heat"] + rows_cp)
     return block, dict(rho_bar=rho_bar, rho_matrix=rho_m, rho_yarn=rho_y,
                        mass_fibre=m_f, mass_matrix=m_m, rows=audit_rows,
-                       porosity=porosity, k_of_t=k_of_t)
+                       porosity=porosity, k_of_t=k_of_t,
+                       kt_model=kt_model)
 
 
 def thermal_audit(block, lz, h, t_quench):
@@ -1592,6 +1759,14 @@ def main():
                          "other respect, so the difference between the two is "
                          "the closure model alone.  The value goes in the job "
                          "name so it cannot overwrite the job it controls.")
+    ap.add_argument("--itan", type=int, default=None, choices=(0, 1),
+                    help="append the 2-slot consistent-tangent block to the "
+                         "macro card (UMAT Ge Eqs.31-33).  Omitting the flag "
+                         "leaves the card and the whole deck byte-identical "
+                         "to before -- the block is not written at all.  "
+                         "--itan 0 writes the block with the switch OFF, "
+                         "--itan 1 with it ON, so a 0/1 pair differs in "
+                         "exactly one number and isolates the tangent.")
     ap.add_argument("--checkpoints", type=int, nargs="+",
                     default=None,
                     help="cycle counts at which to probe E and write a restart")
@@ -1616,13 +1791,25 @@ def main():
                          "macro element's own length -- homogenize.py never "
                          "produces such a card.  See Ch.4 4.9-16.")
     ap.add_argument("--no-kt", action="store_true",
-                    help="build the conductivity card at 23 C only.  The "
-                         "temperature dependence is the one BORROWED number "
-                         "in the thermal card (refs/[20], ratio only), so it "
-                         "gets a switch -- but constant k is a declared "
-                         "assumption, not a neutral default: quench_"
-                         "calibration.py puts a factor of 4.6 on the "
-                         "predicted gradient between the two ends.")
+                    help="build the conductivity card at 23 C only.  Constant "
+                         "k is a declared assumption, not a neutral default: "
+                         "quench_calibration.py puts a factor of 4.6 on the "
+                         "predicted gradient between the two ends, and "
+                         "a1-0031 measures it as the SMALLER of the two "
+                         "available errors (-14.4 %% on the 900 C gradient, "
+                         "against +23.9 %% for the rejected refs/[20] shape).")
+    ap.add_argument("--kt-model", default="derived",
+                    choices=("derived", "derived_dense_matrix",
+                             "ref20_linear_k", "ref20_resistance", "constant"),
+                    help="which k(T) SHAPE the card uses.  Default 'derived' "
+                         "is our own constituents (a1-0031).  The rest exist "
+                         "so the Ch.5 5.4.3-a sensitivity table is generated "
+                         "rather than typed: 'ref20_*' are the rejected "
+                         "borrowing in its two readings, 'derived_dense_"
+                         "matrix' is the same derivation on refs/[13]'s "
+                         "denser CVI matrix (which is what reproduces "
+                         "refs/[20]'s 0.5845, showing the borrowing assumes a "
+                         "matrix our deck does not use).")
     ap.add_argument("--placeholder-thermal", action="store_true",
                     help="write the old meaningless thermal card instead of "
                          "the derived one, and skip the Bi/Fo gate with it")
@@ -1688,7 +1875,8 @@ def main():
         therm, taud = PLACEHOLDER_THERMAL, None
         print("  !! using PLACEHOLDER thermal properties -- results meaningless")
     else:
-        therm, taud = homogenised_thermal(k_of_t=not args.no_kt)
+        therm, taud = homogenised_thermal(k_of_t=not args.no_kt,
+                                          kt_model=args.kt_model)
         print("  thermal card DERIVED: rho_bar = %.4f g/cm^3, "
               "cp_bar %.0f -> %.0f J/(kg.K), k(T) %s"
               % (taud["rho_bar"] * 1.0e9, taud["rows"][0]["cp"],
@@ -1719,6 +1907,10 @@ def main():
             "** --card-slot %d=%g applied by make_macro_thermalshock.py\n"
             "*Material, Name=CSIC_MACRO_CDM" % (k, v), 1)
         print("  card slot %d forced to %g" % (k, v))
+
+    if args.itan is not None:
+        card = append_tangent_block(card, args.itan)
+        print("  consistent-tangent block appended: ITAN=%d" % args.itan)
 
     info = check_macro_card(card, os.path.basename(args.card or "placeholder"),
                             le=le_range, allow_total_gf=args.allow_total_gf)

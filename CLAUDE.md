@@ -41,11 +41,79 @@
 
 ### 5) `### 다음 할 일 추천` — **맨 끝**
 
-**작업을 하나 끝낼 때마다 3가지 추천한다.**
+**모든 채팅 응답에서 5가지 추천한다** (사용자 지정, 2026-08-11 — 이전에는
+"작업을 끝낼 때마다 3가지"였다. 개수와 빈도가 둘 다 바뀌었다).
 
 - 각 항목에 **왜 지금인지**와 **대략의 비용**을 한 줄로 붙인다.
 - 해석 실행이 막혀 있는지와 무관하게 할 수 있는 일을 우선한다.
 - **억지로 3개를 만들지 않는다.** 정말 없으면 "지금은 없다"고 말하고 이유를 적는다.
+
+### 6) 본문은 `[챕터]` + 번호 한 줄 (사용자 지정, 2026-08-11)
+
+위 2)·3)·4)의 **속을 채우는 방식**이다. 줄글 문단으로 길게 쓰지 않는다.
+
+```
+[무엇에 대한 이야기인가]
+1. 한 문장.
+2. 한 문장.
+   2.1 길어지면 이렇게 쪼갠다.
+   2.2 한 항목이 두 줄을 넘지 않게 한다.
+
+[다음 이야기]
+1. ...
+```
+
+- `[ ]` = **내용 하나당 챕터 하나**. 제목은 짧게.
+- `1. 2. 3.` = **설명 한 줄씩**. 한 항목에 주장 하나만 담는다.
+- 내용이 많으면 `1.1`·`1.2` 로 내린다. 3단계(`1.1.1`)까지는 가지 않는다.
+- 표·코드블록은 이 규칙 밖이다 — 그대로 써도 된다.
+
+### 7) 쉬운 단어로 쓴다 (사용자 지정, 2026-08-11)
+
+**한자어 전문용어를 그대로 던지지 않는다.** 아래는 실제로 사용자가 막힌 말들이다.
+
+| 쓰지 말 것 | 대신 |
+|---|---|
+| 연화 | 힘이 떨어지는 구간 / 무르는 것 |
+| 소산 | 에너지가 빠져나가는 것 |
+| 오귀속 | 출처를 잘못 붙인 것 |
+| 일관접선 | (Abaqus가 요구하는) 강성 행렬, 수렴용 기울기 |
+| 할선 | 원점에서 그은 기울기 |
+| 접선 | 그 점에서의 기울기 |
+
+- **꼭 필요하면 영어를 써도 된다** (예: calculation verification). 한자어보다 영어가 나을 때가 있다.
+- 처음 나오는 용어는 **괄호로 한 번 풀어 준다**: "일관접선(수렴용 기울기 행렬)".
+- `## 쉬운 설명` 절에서는 전문용어를 아예 쓰지 않는 쪽으로 간다.
+
+### 8) 참고문헌은 **번호를 앞에 붙여** 부른다 (사용자 지정, 2026-08-11)
+
+같은 성(姓)의 저자가 너무 많아 이름만으로는 어느 논문인지 알 수 없다.
+
+```
+✅  [12] Skinner 2021 이 ~
+✅  [24] Ge 2018 Table 3 에 ~
+❌  Skinner 2021 이 ~
+```
+
+- `refs/` 에 있는 논문이면 **반드시 `[번호]` 를 앞에 붙인다.**
+- `refs/` 에 없으면 번호가 없으므로 그대로 쓰되, **"(refs 미보유)"** 를 한 번 적는다.
+- 번호는 `refs/README.md` 의 색인이 정본이다.
+
+### 9) 영어 덩어리는 접어 둔다 (사용자 지정, 2026-08-11)
+
+로그·에러 원문·영문 인용문처럼 **영어가 길게 나오는 것은 펼침으로 감춘다.**
+
+```markdown
+<details><summary>원문 (클릭)</summary>
+
+...영어 원문...
+
+</details>
+```
+
+- 요약·판정은 **한국어로 밖에** 적고, 영어 원문은 접힌 안쪽에 둔다.
+- **굳이 번역해 주지 않아도 된다** — 사용자가 필요하면 펼쳐서 읽는다.
+- 명령어·파일명·코드는 영어라도 접지 않는다 (바로 복사해야 하므로).
 
 ---
 
@@ -110,6 +178,46 @@ python3 sync/sync_check.py --ack a2-0001 # 반영 완료 기록 ("읽음"이 아
 **a1 소유는 `sync/outbox_a1.json`·`sync/state_a1.json` 둘뿐이다.**
 
 상세는 `docs/BRANCH_PROTOCOL.md`와 `sync/PROTOCOL.md`.
+
+### ★ 제출본은 `docs/CH1~CH7` 이다 (사용자 결정, 2026-08-11)
+
+같은 저장소에 논문 초안이 **두 계보** 있었다 — 이쪽 `docs/CH1~7`(7장, 참고문헌
+72건)과 a3 브랜치의 `paper/ch1·ch2·ch4`(3장, 25건). 사용자가 **`docs/`를 제출본**
+으로 확정했다. 따라서:
+
+- `paper/`는 **참고 자료**이며 제출본이 아니다. a3의 지적은 받되, 반영 대상은
+  `docs/`다.
+- `verification/check_manuscript_citations.py` 가 **제출본으로만 범위를 좁힌**
+  인용 감사를 돈다. `refs_audit.py`(도서관 감사)와 목적이 다르다 — 후자는
+  `docs/` 전체를 훑으므로 **작업 문서에만 등장하는 참고문헌도 통과시킨다.**
+  실제로 그 틈에서 [S10] Chaboche 1992가 표에만 있고 어느 장에서도 인용되지
+  않은 채 남아 있었다.
+
+### ★ 세 번째 브랜치 — 리뷰 오케스트레이션 a3 (사용자 지정, 2026-08-11)
+
+`claude/llm-task-decomposition-w41jpc` 에서 **4노드 리뷰 파이프라인**이 돈다
+(R1 참고문헌 · R2 물성 · R3 수식 · R4 논리 → S 종합). 사용자 지시:
+**a3가 보내는 것을 같이 받아서 상의하며 진행한다.**
+
+```bash
+python3 verification/review_inbox.py           # 수신·대조 보고
+python3 verification/review_inbox.py --check   # 게이트 항목
+```
+
+**받을 때 반드시 기억할 것 — a3는 오래된 스냅샷 위에서 돈다.**
+
+- a3에는 **`refs/` 디렉터리가 없다.** 루트에 PDF 3개뿐이고 이쪽은 72개다.
+- a3의 초안은 `paper/ch1·ch2·ch4`(Zhang 2022 RVE, 참고문헌 25건)이고
+  이쪽은 `docs/CH1~7`(72건)이다. **둘은 다른 문서다.**
+- 그래서 a3의 지적은 **둘로 갈라 받는다**: 원문을 봐야 판정되는 것(서지·귀속·
+  물성 출처)은 **이쪽이 원문으로 답한다**. 원문이 필요 없는 것(무인용 주장,
+  고아 참고문헌, 계산치 대 카드값 혼용, 약속-이행 규율)은 **그대로 유효하며
+  `docs/`에도 같은 잣대를 적용한다.**
+- **출처 없는 감사는 결함을 만들어내기도 한다.** 실제로 a3 Round 1이
+  $G_{f,1c}$의 "Ge Table 3" 귀속을 근거 없다며 "본 연구의 가정"으로 강등했는데,
+  Ge Table 3에는 그 값이 실려 있다. **없는 것을 못 찾은 것을 없다고 판정한 것**이며,
+  올바른 인용을 지운 쪽이 원래 결함보다 나쁘다. `review_inbox.py`가 이 사례를
+  검사로 고정한다.
 
 ---
 
@@ -399,6 +507,7 @@ python3 data/properties/eval_correlations.py --check
 python3 abaqus/build_temperature_tables.py --selftest
 python3 abaqus/make_macro_thermalshock.py --selftest   # 거시 카드 정적 검증
 python3 data/properties/conductivity_bounds.py --check # 열전도 경계·민감도
+python3 data/properties/conductivity_temperature.py --check # k(T) 형상 유도 (차용 기각)
 python3 data/properties/yarn_fracture_energy.py --check # 얀 횡방향 Gtt/Gtc 출처 + 균열대 적합성
 python3 data/properties/cte_sensitivity.py --check     # 구성재 CTE가 TRS 2.34배에 미치는 몫
 python3 data/properties/trs_configuration.py --check   # CONFIG_V / CONFIG_P 결정
@@ -433,11 +542,19 @@ python3 verification/check_ch7_numbers.py             # Ch.7 결론 경계 — �
 python3 verification/check_chapter_consistency.py     # 장 간 모순 (검증 2회차)
 python3 verification/check_chapter_claims.py          # 장이 부른 파일·명령 (검증 3회차, 느림)
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
+python3 verification/review_inbox.py --check           # 리뷰 브랜치 수신·원문 대조 (a3)
+python3 verification/check_manuscript_citations.py     # 제출본(CH1~7) 인용 전수 (고아·허공·무인용 주장)
+python3 verification/prerun_gate.py --check            # 최소 해석 계획·단계별 관문 (a1 몫)
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
+python3 verification/plastic_dissipation_audit.py      # Ge (23)(24) 소성분이 A_m에 들어가는가 (철회 기록)
+python3 verification/knob_sensitivity.py --check       # knob→관측량 정량 자코비안 + SVD 식별성 (rF 파생)
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
+python3 postprocess/compare_tangent.py --selftest      # ITAN 0/1 수렴 비용 대조 (.msg)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
+python3 postprocess/md_to_docx.py --selftest           # 논문 초안 워드(.docx) 합본 생성기
+python3 postprocess/make_thesis_figures.py --check      # 논문 그림 생성기 (문헌값 재유도 + 본문 삽입)
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 python3 postprocess/extract_kbar.py --selftest        # kbar 공극률 판정 산식
 python3 postprocess/extract_pls.py --selftest         # 비례한도(PLS) 추출 정의 4종
@@ -451,7 +568,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 59개를 전부 통과시킨다.**
+**커밋 전에 위 68개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

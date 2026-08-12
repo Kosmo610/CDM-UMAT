@@ -15,7 +15,7 @@
 
 | 자산 | 내용 | 논문에서의 역할 |
 |---|---|---|
-| `src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for` | 얀(`KYARN30`) + 매트릭스(`KMTRX30`) 3D CDM UMAT, Ge 2018 Eq.(1)–(33) 전량 구현 | **Ch.3 미시 구성모델** |
+| `src/UMAT_CSIC_RVE_ZHANG2022_V1_0.for` | 얀(`KYARN30`) + 매트릭스(`KMTRX30`) 3D CDM UMAT, Ge 2018 식 (1)–(21)·(29)–(30) 구현; (22)–(28)은 1축·선형경화 축약, (31)–(33) consistent tangent는 secant 대체 | **Ch.3 미시 구성모델** |
 | `verification/VERIFICATION_REPORT.md` | 물성 ≤0.14 % 일치, 전 수식 단위테스트 PASS, gfortran 컴파일 검증 | **Ch.3 코드 검증(Verification)** — 심사에서 반드시 요구됨 |
 | `abaqus/ZHANG2022_{RT23,T500,T1000}_V2_0.inp` | 1050 °C 무응력 → 냉각 → 승온 → 인장 3-스텝, Xia 주기경계조건 | **Ch.4 RVE 검증(Validation)** |
 | `verification/CALIBRATION_GUIDE.md` | 미공개 파라미터 보정 절차 | **Ch.4 파라미터 결정** |
