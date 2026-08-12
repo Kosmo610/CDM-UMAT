@@ -195,7 +195,7 @@ CASES = [
      count_plain, 33),
     ("plastic_dissipation_audit.py",
      "python3 verification/plastic_dissipation_audit.py",
-     count_plain, 10),
+     count_plain, 15),
     ("knob_sensitivity.py --check",
      "python3 verification/knob_sensitivity.py --check",
      count_bracketed, 47),
@@ -340,6 +340,32 @@ def main():
           "plastic_dissipation_audit.py" in sec)
     check("3.8-7 records the withdrawal rather than the old gap",
           "철회하였다" in sec and "과대추정" in sec)
+
+    # 3.8-5a: the bar's trigger slice was brittle by accident.  This is the
+    # kind of finding that quietly disappears, so the chapter's numbers are
+    # re-derived here rather than trusted.
+    print("\n section 3.8-5a -- the trigger slice's unintended brittleness")
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    import make_patch_tests as mpt
+    xt_w = mpt.MATRIX_CARD[3] * mpt.BAR_WEAK
+    sy0 = mpt.MATRIX_CARD[mpt.MATRIX_SY0_SLOT - 1]
+    sec5a = text.split("5-a. **트리거")[-1].split("\n6. ")[0]
+    check("the weak slice really is below sy0", xt_w < sy0,
+          "%.1f < %.1f" % (xt_w, sy0))
+    check("3.8-5a quotes that X_t", "**248 MPa**" in sec5a and
+          abs(xt_w - 248.0) < 1e-9)
+    check("3.8-5a quotes sy0", "**250 MPa**" in sec5a and abs(sy0 - 250.0) < 1e-9)
+    _gp_s = pda.g_plastic(mpt.MATRIX_CARD[3], pda.SY0, pda.HISO)[0]
+    _ge_s = pda.g_elastic(mpt.MATRIX_CARD[3], pda.E_M)
+    check("3.8-5a's 55.0 %% plastic share is re-derived",
+          abs(100.0 * _gp_s / (_ge_s + _gp_s) - 55.0) < 0.05
+          and "**55.0 %**" in sec5a)
+    check("and the trigger slice's zero is real",
+          pda.g_plastic(xt_w, pda.SY0, pda.HISO)[0] == 0.0
+          and "**0 %**" in sec5a)
+    check("3.8-5a points at --brittle as the fix", "--brittle" in sec5a)
+    check("3.8-5a routes the regularisation verdict to the _BR bars",
+          "_BR` 봉으로 한다" in sec5a)
 
     # the grand total the chapter states
     print("\n the grand total stated in Ch.3 section 3.1")

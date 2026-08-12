@@ -181,6 +181,11 @@ BAR_DISP = 2.0e-2                             # total end displacement, mm
 #  minimum at all while N=5 had already saturated and re-hardened, so the
 #  three bars were compared at completely different stages (see 0803 run).
 BAR_WEAK = 0.80                               # strength of the trigger slice
+
+#: SY0 for the --brittle variant.  Anything above the STRONG slice's X_t
+#: (310 MPa) removes yielding everywhere, so the bar dissipates by damage
+#: alone and the crack band is tested on its own.
+BAR_BRITTLE_SY0 = 400.0
 #  0.95 DID NOT LOCALISE.  cband_damage.py on the 2026-08-03 odbs found damage
 #  in 3 of 5 rows at N=5 but 10 of 10 and 20 of 20 at N=10 and N=20 -- the
 #  finer meshes damaged the ENTIRE bar, so there was no band and the energy
@@ -190,6 +195,7 @@ BAR_WEAK = 0.80                               # strength of the trigger slice
 #  size for this demonstration and is still far below the scatter of a real
 #  ceramic.
 
+MATRIX_SY0_SLOT = 17   # PROPS(17), initial yield stress on the matrix card
 HSMO_KEY = 32.0        # PROPS(25+4*NT) guard on the I1-smoothing block
 ITAN_KEY = 33.0        # PROPS(27+4*NT) guard on the tangent block
 
@@ -220,6 +226,20 @@ MATRIX_DEPVAR = """*Depvar
 20, EP23, Plastic strain 23"""
 
 
+def card_numbers(text_after_material):
+    """The *User Material constants of the FIRST card in the given text."""
+    lines = text_after_material.splitlines()
+    for i, ln in enumerate(lines):
+        if ln.lstrip().lower().startswith("*user material"):
+            vals = []
+            for j in range(i + 1, len(lines)):
+                if lines[j].lstrip().startswith("*"):
+                    break
+                vals.extend(v.strip() for v in lines[j].split(",") if v.strip())
+            return lines[i], [float(v) for v in vals]
+    raise ValueError("no *User Material block found")
+
+
 def _card(vals, per_line=8):
     out = []
     for i in range(0, len(vals), per_line):
@@ -227,7 +247,7 @@ def _card(vals, per_line=8):
     return "\n".join(out)
 
 
-def bar_deck(nx, na, itan=None):
+def bar_deck(nx, na, itan=None, brittle=False):
     """Structured bar of CUBIC C3D8 elements.  nx along the axis, na across.
 
     `itan` appends the 2-slot consistent-tangent block to both matrix cards
@@ -296,7 +316,23 @@ def bar_deck(nx, na, itan=None):
     nset("Z0", [nid(i, j, 0) for i in range(nx + 1) for j in range(na + 1)])
     nset("ALLN", list(range(1, (nx + 1) * (na + 1) * (na + 1) + 1)))
 
-    weak_card = list(MATRIX_CARD)
+    base_card = list(MATRIX_CARD)
+    if brittle:
+        # THE TRIGGER SLICE WAS ALREADY BRITTLE AND NOBODY MEANT IT.
+        # BAR_WEAK = 0.80 puts the weak slice's X_t at 248 MPa, which is
+        # BELOW sy0 = 250, so that slice never yields while every other
+        # slice does.  The imperfection was supposed to be "20 % weaker";
+        # it is really "20 % weaker AND no plastic dissipation at all",
+        # and the second half is invisible in the card.  With the plastic
+        # work at 55 % of the strong slices' stored energy, the trigger
+        # slice and its neighbours are not the same material in the way
+        # that matters to a localisation test.
+        # Raising sy0 above the STRONG X_t makes every slice brittle, so
+        # the bar dissipates by damage alone -- which is the only state in
+        # which the three meshes' energies test the crack band and nothing
+        # else.
+        base_card[MATRIX_SY0_SLOT - 1] = BAR_BRITTLE_SY0
+    weak_card = list(base_card)
     weak_card[3] *= BAR_WEAK          # Xt
     weak_card[4] *= BAR_WEAK          # Xc
     tail = []
@@ -304,7 +340,7 @@ def bar_deck(nx, na, itan=None):
         if itan not in (0, 1):
             raise ValueError("itan must be 0 or 1, got %r" % itan)
         tail = [0.0, 0.0, HSMO_KEY, float(itan), ITAN_KEY]
-    for name, card in (("SIC_MATRIX_BAR", MATRIX_CARD),
+    for name, card in (("SIC_MATRIX_BAR", base_card),
                        ("SIC_MATRIX_BAR_WEAK", weak_card)):
         full = list(card) + tail
         L.append("*Material, Name=%s" % name)
@@ -414,6 +450,36 @@ def check():
                 t("N=%-2d itan=%s rejected" % (nx, ibad), False)
             except ValueError:
                 t("N=%-2d itan=%s rejected" % (nx, ibad), True)
+
+        # --- the trigger slice was already brittle, unintentionally -----
+        # BAR_WEAK = 0.80 puts the weak slice at X_t = 248 MPa, BELOW
+        # sy0 = 250, so it never yields while every neighbour does.  The
+        # imperfection reads as "20 % weaker" but is really "20 % weaker
+        # AND no plastic dissipation".  This is recorded as a check so it
+        # cannot drift back out of view, and --brittle is the way to run
+        # the bar with that asymmetry removed.
+        t("N=%-2d the DEFAULT trigger slice does not yield (248 < 250)" % nx,
+          MATRIX_CARD[3] * BAR_WEAK < MATRIX_CARD[MATRIX_SY0_SLOT - 1],
+          "Xt_weak=%.1f  sy0=%.1f"
+          % (MATRIX_CARD[3] * BAR_WEAK, MATRIX_CARD[MATRIX_SY0_SLOT - 1]))
+        t("N=%-2d but its neighbours DO -- the two slices differ twice" % nx,
+          MATRIX_CARD[3] > MATRIX_CARD[MATRIX_SY0_SLOT - 1])
+        br = bar_deck(nx, na, None, True)[0]
+        t("N=%-2d --brittle leaves the deck otherwise unchanged" % nx,
+          len(br.split("\n")) == len(txt.split("\n")))
+        _, nbs = card_numbers(br.split("*Material, Name=SIC_MATRIX_BAR\n")[1])
+        t("N=%-2d --brittle raises sy0 above the STRONG Xt" % nx,
+          nbs[MATRIX_SY0_SLOT - 1] == BAR_BRITTLE_SY0
+          and BAR_BRITTLE_SY0 > MATRIX_CARD[3],
+          "sy0=%g > Xt=%g" % (nbs[MATRIX_SY0_SLOT - 1], MATRIX_CARD[3]))
+        _, nbw = card_numbers(
+            br.split("*Material, Name=SIC_MATRIX_BAR_WEAK\n")[1])
+        t("N=%-2d --brittle keeps the 20 %% strength imperfection" % nx,
+          abs(nbw[3] - MATRIX_CARD[3] * BAR_WEAK) < 1e-9,
+          "Xt_weak=%.1f" % nbw[3])
+        t("N=%-2d --brittle makes BOTH slices brittle, not just one" % nx,
+          nbw[3] < nbw[MATRIX_SY0_SLOT - 1]
+          and nbs[3] < nbs[MATRIX_SY0_SLOT - 1])
         t("N=%-2d node numbering is contiguous" % nx,
           ("%d, " % ((nx + 1) * (na + 1) * (na + 1))) in txt)
 
@@ -647,6 +713,15 @@ def main():
                          "_ITAN0/_ITAN1 suffix so the pair cannot overwrite "
                          "each other.  Omitting the flag writes no block and "
                          "leaves the decks byte-identical to before.")
+    ap.add_argument("--brittle", action="store_true",
+                    help="raise sy0 above the strong slice's X_t so NO slice "
+                         "yields.  The bar then dissipates by damage alone, "
+                         "which is the only state in which the three meshes' "
+                         "energies test the crack band and nothing else.  "
+                         "Without it the strong slices carry 55 %% of their "
+                         "stored energy as plastic work while the trigger "
+                         "slice (X_t = 248 < sy0 = 250) carries none.  Job "
+                         "names get a _BR suffix.")
     ap.add_argument("--check", action="store_true", help="self-test and exit")
     a = ap.parse_args()
 
@@ -671,9 +746,10 @@ def main():
         print("wrote %s   (%d sections, 7 steps, no UMAT)"
               % (out, len(sections)))
 
-    sfx = "" if a.itan is None else "_ITAN%d" % a.itan
+    sfx = ("_BR" if a.brittle else "")
+    sfx += "" if a.itan is None else "_ITAN%d" % a.itan
     for nx, na in BAR_CASES:
-        txt, ne, h = bar_deck(nx, na, a.itan)
+        txt, ne, h = bar_deck(nx, na, a.itan, a.brittle)
         out = os.path.join(a.outdir, "CBAND_N%d%s.inp" % (nx, sfx))
         with open(out, "w") as f:
             f.write(txt)
