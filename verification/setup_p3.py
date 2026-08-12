@@ -141,6 +141,44 @@ def xt_state(decks):
     return 'mixed', vals
 
 
+def _quiet_call(fn, *a):
+    """출력을 삼키고 (반환값, 출력) 을 돌려준다."""
+    buf = io.StringIO() if str is not bytes else io.BytesIO()
+    keep, sys.stdout = sys.stdout, buf
+    try:
+        rc = fn(*a)
+    finally:
+        sys.stdout = keep
+    return rc, buf.getvalue()
+
+
+def preflight():
+    """덱을 건드리기 전에 세 도구가 멀쩡한지 확인한다.
+
+    사용자가 자체시험 명령을 따로 치게 하면 오타가 끼어들 자리가
+    생긴다. 여기서 자동으로 돈다."""
+    tools = [('setup_p3', selftest),
+             ('patch_depvar_yarn', DEPVAR.selftest),
+             ('patch_material_prop', PROP.selftest)]
+    bad = []
+    for name, fn in tools:
+        rc, out = _quiet_call(fn)
+        if rc:
+            bad.append((name, out))
+    if bad:
+        print('[중단] 도구 자체시험 실패 — 덱은 건드리지 않았다.')
+        for name, out in bad:
+            print('')
+            print('--- %s ---' % name)
+            print(out[-2000:])
+        print('')
+        print('이 화면을 그대로 보내주십시오.')
+        return 1
+    print('도구 자체시험 통과 (setup_p3 / patch_depvar_yarn / '
+          'patch_material_prop)')
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='P3 배치 준비')
     ap.add_argument('--root', default='.', help='E:\\LTH (기본: 현재 폴더)')
@@ -149,10 +187,20 @@ def main(argv=None):
     ap.add_argument('--force', action='store_true',
                     help='이미 있는 P3 파일도 P2 에서 다시 복사')
     ap.add_argument('--selftest', action='store_true')
+    ap.add_argument('--skip-selftest', action='store_true',
+                    help='시작할 때 자동으로 도는 자체시험을 건너뛴다')
     args = ap.parse_args(argv)
 
     if args.selftest:
         return selftest()
+
+    # 세 도구의 자체시험을 시작할 때 자동으로 돌린다. 사용자가 따로
+    # 명령을 하나 더 치지 않아도 되고, 덱을 건드리기 전에 도구가
+    # 멀쩡한지 늘 확인된다. 1 초도 안 걸린다.
+    if not args.skip_selftest:
+        rc = preflight()
+        if rc:
+            return rc
 
     root = os.path.abspath(args.root)
     head('0) 있어야 할 것')
@@ -266,13 +314,9 @@ def selftest():
         fh.write('      SUBROUTINE UMAT\n')
 
     def quiet(argv):
-        buf = io.StringIO() if str is not bytes else io.BytesIO()
-        keep, sys.stdout = sys.stdout, buf
-        try:
-            rc = main(argv)
-        finally:
-            sys.stdout = keep
-        return rc, buf.getvalue()
+        # --skip-selftest 필수. 안 그러면 main() 이 preflight() 를
+        # 부르고 preflight() 가 다시 selftest() 를 불러 무한재귀가 된다.
+        return _quiet_call(main, argv + ['--skip-selftest'])
 
     def check(tag, cond, extra=''):
         print('  %-28s %s' % (tag, 'PASS' if cond else 'FAIL'))
