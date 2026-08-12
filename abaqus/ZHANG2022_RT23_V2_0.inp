@@ -219477,7 +219477,7 @@ TexGenOrientationVectors
 ** Transverse Yt=80,Yc=350 and shears S=120/120/100 are calibration knobs.
 *Material, Name=CSIC_YARN_DAMAGE
 *Depvar
-16,
+17,
 1, DY1T, Yarn longitudinal tensile damage
 2, DY1C, Yarn longitudinal compressive damage
 3, DYTT, Yarn transverse tensile damage
@@ -219494,6 +219494,7 @@ TexGenOrientationVectors
 14, YCUTREQ, Yarn minimum historical PNEWDT factor
 15, YTEND, Temperature at maximum yarn damage jump
 16, YRFAC, Criterion at maximum yarn damage jump
+17, YSHR1T, Shear share of longitudinal tensile criterion
 *User Material, constants=38
 1.0, 254967.228042, 44321.737572, 44321.737572, 0.247516386, 0.247516386, 0.395813581, 26431.515264
 26431.515264, 15876.667974, 2835.0, 1956.0, 80.0, 350.0, 120.0, 120.0
