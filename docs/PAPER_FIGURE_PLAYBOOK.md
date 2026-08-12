@@ -134,11 +134,20 @@ python make_fig_a1_histogram.py Try_P0 --out E:\LTH
   **판정은 항상 로그로 한다:**
 
   ```bat
-  type make_odb_images_log.txt
+  findstr /C:"argv  :" /C:"exit  :" /C:"wrote " make_odb_images_log.txt
   dir *.png
   ```
 
-  `exit : 0` 이면 성공. 로그가 짧으면 아직 렌더링 중일 수 있으니
+  한 줄 요약이 실행별로 이렇게 나온다 (로그가 이어쓰기라 그날 돌린
+  것이 전부 남는다):
+
+  ```
+  argv  : -- CSIC_t500_p2.odb --step Heating_500C --fig stress --temps ...
+  wrote 10 images in E:\LTH\Try_P2T500
+  exit  : 0
+  ```
+
+  `exit : 0` 이면 성공. 전체를 보려면 `type make_odb_images_log.txt`. 로그가 짧으면 아직 렌더링 중일 수 있으니
   잠시 뒤 다시 `type` 한다. 로그는 **이어쓰기**라 Fig.3 과 Fig.5 를
   연속으로 돌려도 두 실행이 다 남는다 (각 실행은 `argv :` 줄로
   시작한다).
