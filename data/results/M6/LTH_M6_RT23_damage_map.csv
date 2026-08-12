@@ -1,0 +1,201 @@
+kind,step,phase,item,value,x,y,z,basis,verdict
+meta,,,odb,,,,,E:\LTH\LTH_M6_0812_1411\LTH_M6_RT23.odb,input
+meta,,,elements,26452,,,,instance PART-1-1,input
+meta,,,depvar_named,1,,,,SDV_* fields present in the odb,input
+meta,,,profile_axis,0,,,,0=x 1=y 2=z,input
+meta,,,dmax_cap,0.99,,,,card D_DMAX in abaqus/retune_deck.py,input
+phase,Manufacturing_Cooling,MATRIX,volume_mm3,2.70449,,,,sum of IVOL over the phase,subcritical
+phase,Manufacturing_Cooling,MATRIX,damg_mean,0.041055,,,,max of DMT/DMC,subcritical
+phase,Manufacturing_Cooling,MATRIX,damg_p50,0.0209766,,,,max of DMT/DMC,subcritical
+phase,Manufacturing_Cooling,MATRIX,damg_p90,0.279237,,,,max of DMT/DMC,subcritical
+phase,Manufacturing_Cooling,MATRIX,damg_p99,0.315209,,,,max of DMT/DMC,subcritical
+phase,Manufacturing_Cooling,MATRIX,damg_max,0.344269,,,,max of DMT/DMC,subcritical
+phase,Manufacturing_Cooling,MATRIX,volfrac_damg_ge_0.01,0.316878,,,,"max of DMT/DMC, volume-weighted",subcritical
+phase,Manufacturing_Cooling,MATRIX,volfrac_damg_ge_0.10,0.153503,,,,"max of DMT/DMC, volume-weighted",subcritical
+phase,Manufacturing_Cooling,MATRIX,volfrac_damg_ge_0.50,0,,,,"max of DMT/DMC, volume-weighted",subcritical
+phase,Manufacturing_Cooling,MATRIX,volfrac_damg_ge_0.90,0,,,,"max of DMT/DMC, volume-weighted",subcritical
+phase,Manufacturing_Cooling,MATRIX,modefrac_11_matrix_tension,1,,,,"DMODE 11 = matrix_tension, volume-weighted",subcritical
+phase,Manufacturing_Cooling,YARN0,volume_mm3,0.670818,,,,sum of IVOL over the phase,intact
+phase,Manufacturing_Cooling,YARN0,damg_mean,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN0,damg_p50,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN0,damg_p90,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN0,damg_p99,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN0,damg_max,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN0,volfrac_damg_ge_0.01,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN0,volfrac_damg_ge_0.10,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN0,volfrac_damg_ge_0.50,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN0,volfrac_damg_ge_0.90,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN1,volume_mm3,0.671983,,,,sum of IVOL over the phase,intact
+phase,Manufacturing_Cooling,YARN1,damg_mean,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN1,damg_p50,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN1,damg_p90,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN1,damg_p99,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN1,damg_max,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN1,volfrac_damg_ge_0.01,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN1,volfrac_damg_ge_0.10,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN1,volfrac_damg_ge_0.50,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN1,volfrac_damg_ge_0.90,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN2,volume_mm3,0.671881,,,,sum of IVOL over the phase,intact
+phase,Manufacturing_Cooling,YARN2,damg_mean,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN2,damg_p50,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN2,damg_p90,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN2,damg_p99,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN2,damg_max,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN2,volfrac_damg_ge_0.01,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN2,volfrac_damg_ge_0.10,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN2,volfrac_damg_ge_0.50,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN2,volfrac_damg_ge_0.90,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN3,volume_mm3,0.670832,,,,sum of IVOL over the phase,intact
+phase,Manufacturing_Cooling,YARN3,damg_mean,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN3,damg_p50,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN3,damg_p90,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN3,damg_p99,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN3,damg_max,0,,,,max of DY1/DYT,intact
+phase,Manufacturing_Cooling,YARN3,volfrac_damg_ge_0.01,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN3,volfrac_damg_ge_0.10,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN3,volfrac_damg_ge_0.50,0,,,,"max of DY1/DYT, volume-weighted",intact
+phase,Manufacturing_Cooling,YARN3,volfrac_damg_ge_0.90,0,,,,"max of DY1/DYT, volume-weighted",intact
+hotspot,Manufacturing_Cooling,MATRIX,rank1_element22094,0.344269,0.228088,-0.123484,0.394958,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank2_element14378,0.341471,-0.0593507,1.47158,0.402833,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank3_element14366,0.338336,-0.0593507,1.47158,-0.0132609,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank4_element22084,0.337793,0.228088,-0.123484,-0.0131235,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank5_element17917,0.337058,0.20784,-0.0168423,-0.00737244,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank6_element17931,0.336937,0.20784,-0.0168423,0.41261,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank7_element10224,0.336475,-0.153613,1.7651,-0.00148257,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank8_element12528,0.336243,1.7569,2.06783,-0.00281042,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank9_element10977,0.335111,2.04377,1.60645,0.38958,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank10_element13093,0.334099,0.0264539,-0.0541582,0.409245,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank11_element13328,0.333131,0.0137123,1.50937,-0.00668832,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank12_element10699,0.333129,2.00841,-0.0784824,0.00386397,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank13_element20220,0.333086,1.94925,1.64531,0.398667,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank14_element14377,0.332294,-0.0479369,1.43495,0.392397,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank15_element15236,0.332045,2.01189,-0.0338714,0.00346345,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank16_element13264,0.331973,-0.00431806,1.46903,-0.0132609,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank17_element14604,0.331473,0.257994,-0.00303742,0.41261,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank18_element10233,0.330699,-0.153613,1.7651,0.402037,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank19_element13595,0.330678,2.04698,-0.00526472,0.00642208,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank20_element22366,0.330234,1.79035,-0.095961,0.408171,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank21_element10366,0.328904,-0.165502,1.82182,0.407894,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank22_element13341,0.328889,0.0137123,1.50937,0.405669,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank23_element20523,0.328834,1.8737,2.00581,-0.00394789,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank24_element14590,0.328105,0.257994,-0.00303742,-0.0131235,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank25_element10356,0.327907,-0.165502,1.82182,-0.000387576,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank26_element13278,0.32785,-0.00431806,1.46903,0.412746,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank27_element11758,0.32737,-0.271236,1.78495,-0.0126594,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank28_element12529,0.32732,1.73592,2.09696,0.0091742,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank29_element22354,0.32704,1.79035,-0.095961,-0.00325885,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,MATRIX,rank30_element22334,0.326989,1.83518,0.0115088,-0.0148383,DMODE 11 = matrix_tension,initiated
+hotspot,Manufacturing_Cooling,ALL,elements_at_cap,0,,,,"DAMG >= 0.9900, the card's DMAX",single_point
+profile,Manufacturing_Cooling,ALL,x_000_010pct,0.00701325,,,,"volume-weighted mean DAMG, x in [-0.8653, -0.5173] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_010_020pct,0.0261337,,,,"volume-weighted mean DAMG, x in [-0.5173, -0.1692] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_020_030pct,0.0377849,,,,"volume-weighted mean DAMG, x in [-0.1692, 0.1789] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_030_040pct,0.0263495,,,,"volume-weighted mean DAMG, x in [0.1789, 0.527] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_040_050pct,0.00646297,,,,"volume-weighted mean DAMG, x in [0.527, 0.8751] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_050_060pct,0.00674573,,,,"volume-weighted mean DAMG, x in [0.8751, 1.223] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_060_070pct,0.0249434,,,,"volume-weighted mean DAMG, x in [1.223, 1.571] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_070_080pct,0.0377107,,,,"volume-weighted mean DAMG, x in [1.571, 1.919] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_080_090pct,0.0264734,,,,"volume-weighted mean DAMG, x in [1.919, 2.267] mm",interior_dominant
+profile,Manufacturing_Cooling,ALL,x_090_100pct,0.00684992,,,,"volume-weighted mean DAMG, x in [2.267, 2.615] mm",interior_dominant
+phase,Tension_at_23C,MATRIX,volume_mm3,2.70449,,,,sum of IVOL over the phase,distributed
+phase,Tension_at_23C,MATRIX,damg_mean,0.48308,,,,max of DMT/DMC,distributed
+phase,Tension_at_23C,MATRIX,damg_p50,0.749671,,,,max of DMT/DMC,distributed
+phase,Tension_at_23C,MATRIX,damg_p90,0.899997,,,,max of DMT/DMC,distributed
+phase,Tension_at_23C,MATRIX,damg_p99,0.9,,,,max of DMT/DMC,distributed
+phase,Tension_at_23C,MATRIX,damg_max,0.9,,,,max of DMT/DMC,distributed
+phase,Tension_at_23C,MATRIX,volfrac_damg_ge_0.01,0.646632,,,,"max of DMT/DMC, volume-weighted",distributed
+phase,Tension_at_23C,MATRIX,volfrac_damg_ge_0.10,0.622299,,,,"max of DMT/DMC, volume-weighted",distributed
+phase,Tension_at_23C,MATRIX,volfrac_damg_ge_0.50,0.546996,,,,"max of DMT/DMC, volume-weighted",distributed
+phase,Tension_at_23C,MATRIX,volfrac_damg_ge_0.90,0,,,,"max of DMT/DMC, volume-weighted",distributed
+phase,Tension_at_23C,MATRIX,modefrac_11_matrix_tension,0.992031,,,,"DMODE 11 = matrix_tension, volume-weighted",distributed
+phase,Tension_at_23C,MATRIX,modefrac_12_matrix_compression,0.00796909,,,,"DMODE 12 = matrix_compression, volume-weighted",distributed
+phase,Tension_at_23C,YARN0,volume_mm3,0.670818,,,,sum of IVOL over the phase,distributed
+phase,Tension_at_23C,YARN0,damg_mean,0.447487,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN0,damg_p50,0.455206,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN0,damg_p90,0.894182,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN0,damg_p99,0.89981,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN0,damg_max,0.962123,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN0,volfrac_damg_ge_0.01,0.74151,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN0,volfrac_damg_ge_0.10,0.683414,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN0,volfrac_damg_ge_0.50,0.494645,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN0,volfrac_damg_ge_0.90,0.00349757,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN0,modefrac_23_yarn_trans_tension,0.881444,,,,"DMODE 23 = yarn_trans_tension, volume-weighted",distributed
+phase,Tension_at_23C,YARN0,modefrac_21_yarn_long_tension,0.113425,,,,"DMODE 21 = yarn_long_tension, volume-weighted",distributed
+phase,Tension_at_23C,YARN0,modefrac_24_yarn_trans_compression,0.00513099,,,,"DMODE 24 = yarn_trans_compression, volume-weighted",distributed
+phase,Tension_at_23C,YARN1,volume_mm3,0.671983,,,,sum of IVOL over the phase,distributed
+phase,Tension_at_23C,YARN1,damg_mean,0.433611,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN1,damg_p50,0.415057,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN1,damg_p90,0.892035,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN1,damg_p99,0.899698,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN1,damg_max,0.960579,,,,max of DY1/DYT,distributed
+phase,Tension_at_23C,YARN1,volfrac_damg_ge_0.01,0.738244,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN1,volfrac_damg_ge_0.10,0.67497,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN1,volfrac_damg_ge_0.50,0.466357,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN1,volfrac_damg_ge_0.90,0.00272545,,,,"max of DY1/DYT, volume-weighted",distributed
+phase,Tension_at_23C,YARN1,modefrac_23_yarn_trans_tension,0.834016,,,,"DMODE 23 = yarn_trans_tension, volume-weighted",distributed
+phase,Tension_at_23C,YARN1,modefrac_21_yarn_long_tension,0.16122,,,,"DMODE 21 = yarn_long_tension, volume-weighted",distributed
+phase,Tension_at_23C,YARN1,modefrac_24_yarn_trans_compression,0.00476378,,,,"DMODE 24 = yarn_trans_compression, volume-weighted",distributed
+phase,Tension_at_23C,YARN2,volume_mm3,0.671881,,,,sum of IVOL over the phase,saturated
+phase,Tension_at_23C,YARN2,damg_mean,0.68604,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN2,damg_p50,0.802556,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN2,damg_p90,0.899999,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN2,damg_p99,0.9,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN2,damg_max,0.976418,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN2,volfrac_damg_ge_0.01,0.90049,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN2,volfrac_damg_ge_0.10,0.89597,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN2,volfrac_damg_ge_0.50,0.801033,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN2,volfrac_damg_ge_0.90,0.00149409,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN2,modefrac_23_yarn_trans_tension,0.996513,,,,"DMODE 23 = yarn_trans_tension, volume-weighted",saturated
+phase,Tension_at_23C,YARN2,modefrac_24_yarn_trans_compression,0.00348708,,,,"DMODE 24 = yarn_trans_compression, volume-weighted",saturated
+phase,Tension_at_23C,YARN3,volume_mm3,0.670832,,,,sum of IVOL over the phase,saturated
+phase,Tension_at_23C,YARN3,damg_mean,0.667361,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN3,damg_p50,0.775947,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN3,damg_p90,0.899999,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN3,damg_p99,0.9,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN3,damg_max,0.963714,,,,max of DY1/DYT,saturated
+phase,Tension_at_23C,YARN3,volfrac_damg_ge_0.01,0.899802,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN3,volfrac_damg_ge_0.10,0.896083,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN3,volfrac_damg_ge_0.50,0.775708,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN3,volfrac_damg_ge_0.90,0.00179627,,,,"max of DY1/DYT, volume-weighted",saturated
+phase,Tension_at_23C,YARN3,modefrac_23_yarn_trans_tension,0.995896,,,,"DMODE 23 = yarn_trans_tension, volume-weighted",saturated
+phase,Tension_at_23C,YARN3,modefrac_24_yarn_trans_compression,0.00410407,,,,"DMODE 24 = yarn_trans_compression, volume-weighted",saturated
+hotspot,Tension_at_23C,YARN2,rank1_element18070,0.976418,0.37657,0.614829,0.155187,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN2,rank2_element11324,0.966642,-0.489404,0.530857,0.139652,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN3,rank3_element7497,0.963714,2.21813,-0.619167,0.207448,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank4_element7493,0.962123,2.2025,-0.598333,0.133217,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank5_element6265,0.96189,1.29752,-0.598333,0.133215,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN1,rank6_element396,0.960579,0.435425,2.34645,0.130883,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank7_element12861,0.960516,-0.546741,0.528343,0.251094,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN1,rank8_element11830,0.953739,-0.457761,1.16976,0.147808,DMODE 23 = yarn_trans_tension,softening
+hotspot,Tension_at_23C,YARN3,rank9_element23880,0.952231,1.32422,1.16059,0.14839,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN3,rank10_element24216,0.951202,1.28025,0.60384,0.241121,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank11_element18102,0.949965,0.461335,0.586277,0.265905,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN2,rank12_element18098,0.946909,0.451606,0.61313,0.186951,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN3,rank13_element6269,0.946779,1.2819,-0.619167,0.207448,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank14_element6424,0.944472,2.21183,0.588323,0.146173,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN1,rank15_element3614,0.944185,-0.550512,1.21863,0.115565,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank16_element578,0.942117,-0.457648,0.579999,0.252196,DMODE 23 = yarn_trans_tension,softening
+hotspot,Tension_at_23C,YARN1,rank17_element5721,0.940377,-0.517841,2.26453,0.138184,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN2,rank18_element11834,0.940296,-0.457761,1.16976,0.212157,DMODE 23 = yarn_trans_tension,softening
+hotspot,Tension_at_23C,YARN0,rank19_element10744,0.939329,2.32124,-0.508851,0.11738,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank20_element24211,0.939005,1.27986,0.567696,0.135157,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank21_element6423,0.936268,2.1899,0.583537,0.121044,DMODE 23 = yarn_trans_tension,softening
+hotspot,Tension_at_23C,YARN1,rank22_element10880,0.935228,1.29764,2.33512,0.267008,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN1,rank23_element4639,0.931223,-0.452484,2.33295,0.132958,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN1,rank24_element2494,0.9308,-0.327484,2.35899,0.118348,DMODE 23 = yarn_trans_tension,softening
+hotspot,Tension_at_23C,YARN1,rank25_element18961,0.929667,0.431251,1.15749,0.116488,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN3,rank26_element2689,0.928843,2.27691,2.25085,0.134362,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank27_element2237,0.926317,-0.452484,-0.598333,0.266819,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN0,rank28_element3607,0.923778,-0.558387,-0.572291,0.252106,DMODE 24 = yarn_trans_compression,softening
+hotspot,Tension_at_23C,YARN1,rank29_element11829,0.91786,-0.431788,1.18265,0.119953,DMODE 23 = yarn_trans_tension,softening
+hotspot,Tension_at_23C,YARN0,rank30_element21430,0.911542,1.38947,0.603455,0.122276,DMODE 23 = yarn_trans_tension,softening
+hotspot,Tension_at_23C,ALL,elements_at_cap,0,,,,"DAMG >= 0.9900, the card's DMAX",single_point
+profile,Tension_at_23C,ALL,x_000_010pct,0.400665,,,,"volume-weighted mean DAMG, x in [-0.8653, -0.5173] mm",uniform
+profile,Tension_at_23C,ALL,x_010_020pct,0.625241,,,,"volume-weighted mean DAMG, x in [-0.5173, -0.1692] mm",uniform
+profile,Tension_at_23C,ALL,x_020_030pct,0.623181,,,,"volume-weighted mean DAMG, x in [-0.1692, 0.1789] mm",uniform
+profile,Tension_at_23C,ALL,x_030_040pct,0.628062,,,,"volume-weighted mean DAMG, x in [0.1789, 0.527] mm",uniform
+profile,Tension_at_23C,ALL,x_040_050pct,0.373256,,,,"volume-weighted mean DAMG, x in [0.527, 0.8751] mm",uniform
+profile,Tension_at_23C,ALL,x_050_060pct,0.390065,,,,"volume-weighted mean DAMG, x in [0.8751, 1.223] mm",uniform
+profile,Tension_at_23C,ALL,x_060_070pct,0.613435,,,,"volume-weighted mean DAMG, x in [1.223, 1.571] mm",uniform
+profile,Tension_at_23C,ALL,x_070_080pct,0.58693,,,,"volume-weighted mean DAMG, x in [1.571, 1.919] mm",uniform
+profile,Tension_at_23C,ALL,x_080_090pct,0.582325,,,,"volume-weighted mean DAMG, x in [1.919, 2.267] mm",uniform
+profile,Tension_at_23C,ALL,x_090_100pct,0.388407,,,,"volume-weighted mean DAMG, x in [2.267, 2.615] mm",uniform
