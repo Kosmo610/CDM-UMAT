@@ -357,8 +357,24 @@ def check():
       "" if gap else "git fetch origin " + REVIEW_BRANCH)
     if gap:
         tp, op, td, od = gap
-        t("this branch holds far more of the library", op > 20 * max(tp, 1),
-          "%d vs %d PDFs" % (op, tp))
+        # 2026-08-12: a3 merged the analysis branch and now holds the library
+        # itself, so the old form -- op > 20*tp, "the auditor is a stale
+        # snapshot with no sources" -- asserts a premise that was deliberately
+        # removed.  Keeping it would make the gate red for the very change
+        # that fixes the problem it was written about.
+        #
+        # The INTENT survives intact and is the thing worth checking: an
+        # audit made without the sources can invent a defect, and this one
+        # did -- a3 Round 1 downgraded the Gf,1c attribution to "an
+        # assumption of this study" when Ge Table 3 carries the value.  What
+        # protects against a repeat is not a gap in the counts; it is the
+        # auditor having the papers.  So the check now asks that directly,
+        # and it is a STRONGER condition than the one it replaces: the old
+        # form passed happily while a3 had nothing.
+        t("the auditor holds the library, so a source-less audit cannot recur",
+          tp >= 20 and tp >= 0.9 * max(op, 1),
+          "%d PDFs on the review branch against %d here (%.0f %%)"
+          % (tp, op, 100.0 * tp / max(op, 1)))
         t("the two drafts are different documents",
           len(td) >= 3 and len(od) >= 7,
           "%d paper/ files vs %d docs/CH files" % (len(td), len(od)))
