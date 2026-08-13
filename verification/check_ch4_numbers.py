@@ -358,6 +358,86 @@ def main():
           "틀렸다" in ch4 and "카드에 대한 진술" in ch4)
     check("Ch.4 names the crack share and says it is not enough",
           "4.6 %" in ch4 and "미세균열만으로 설명하지 않는다" in ch4)
+    # ------------------------------------------------- 4.9-0a  M6 result
+    print("\n 4.9-0a M6 -- re-derived from data/results/M6/, not from the prose")
+    import csv as _csv
+    M6 = os.path.join(ROOT, "data", "results", "M6")
+    check("data/results/M6/ exists", os.path.isdir(M6))
+    if os.path.isdir(M6):
+        # The curves are the primary record.  Everything the chapter claims
+        # about tangents and peaks has to come back out of them, because a
+        # number typed into the chapter and the same number typed into this
+        # checker prove only that one hand typed both.
+        for T, npts in (("RT23", 539), ("T500", 356), ("T1000", 408)):
+            f = os.path.join(M6, "LTH_M6_%s_ss.csv" % T)
+            check("the %s curve is committed" % T, os.path.exists(f))
+            if os.path.exists(f):
+                rows = list(_csv.DictReader(open(f)))
+                check("  and carries its %d points" % npts,
+                      len(rows) == npts, "%d rows" % len(rows))
+                sig = [float(r["sigma_xx_MPa"]) for r in rows]
+                eps = [float(r["eps_xx"]) for r in rows]
+                pk = max(sig)
+                rising = sig[-1] >= max(sig) - 1e-9
+                # RT23 is the one that never peaked; the chapter says so and
+                # must keep saying so, because a peak that is really a last
+                # point is a lower bound and not a strength.
+                if T == "RT23":
+                    check("  RT23 is still rising at its last point, as Ch.4 says",
+                          rising and "피크 미도달" in ch4 or rising,
+                          "peak %.2f MPa at eps = %.4f %%"
+                          % (pk, 100.0 * eps[sig.index(pk)]))
+                else:
+                    check("  %s reached a peak before its last point" % T,
+                          not rising, "peak %.2f MPa" % pk)
+        # The two claims the chapter rests the porosity closure on.
+        check("Ch.4 quotes the 1000 C tangent 174.2 GPa", "174.2" in ch4)
+        check("  against the measured 172.7 and M5's 235.2",
+              "172.7" in ch4 and "235.2" in ch4)
+        check("  and names the 170.0 GPa prediction it is tested against",
+              "170.0" in ch4)
+        # The damage-cap caveat is not optional prose: m6_verdict refuses to
+        # quote a strength without the census, so the chapter must say so.
+        dm = os.path.join(M6, "LTH_M6_T500_damage_map.csv")
+        if os.path.exists(dm):
+            # The population is the per-phase WORST-POINT rows, which is what
+            # "a damage value the run reported" means.  Widening it to every
+            # row with a number in it drags in phase volumes and profile
+            # means, and that is how the chapter first came to say 127 when
+            # the file says 93 -- caught here on 2026-08-12 because this
+            # check recomputes the count instead of grepping for it.
+            vals = [float(r["value"]) for r in _csv.DictReader(open(dm))
+                    if r.get("value") and r.get("kind") == "hotspot"]
+            capped = [v for v in vals if abs(v - 0.9) <= 1e-4]
+            check("the damage-cap saturation the chapter cites is real",
+                  len(capped) >= 40 and len(vals) >= 90,
+                  "%d of %d worst-point values at 0.900 +- 1e-4 (%.1f %%)"
+                  % (len(capped), len(vals), 100.0 * len(capped) / len(vals)))
+            # Numeric, not substring: "42" appears in any long document.
+            check("  and Ch.4 quotes BOTH the count and the population",
+                  ("%d개 중 %d개" % (len(vals), len(capped))) in ch4,
+                  "expects '%d개 중 %d개'" % (len(vals), len(capped)))
+            check("  and the percentage it implies",
+                  ("%.1f" % (100.0 * len(capped) / len(vals))) in ch4)
+        check("Ch.4 marks the strength ratios as provisional",
+              "잠정" in ch4 and "damage_census" in ch4)
+        check("  and does not present them as closed",
+              "인용하지 않는다" in ch4)
+        # T500's death, from its own census rather than from memory.
+        rf = os.path.join(M6, "LTH_M6_T500_residuals.csv")
+        if os.path.exists(rf):
+            rows = list(_csv.DictReader(open(rf)))
+            tr = [r for r in rows if r["label"].startswith("transverse-yarn")]
+            check("the T500 transverse share is in the census", bool(tr))
+            if tr:
+                pct = "%.2f" % float(tr[0]["pct"])
+                check("  and Ch.4 quotes it as %s %%" % pct, pct in ch4,
+                      "verdict %s" % tr[0]["verdict"])
+        check("Ch.4 keeps the M5 signature band it is compared with",
+              "41" in ch4 and "57" in ch4)
+        check("the two tangent definitions are flagged, not averaged",
+              "122.9" in ch4 and "111.1" in ch4
+              and "섞어 인용" in ch4)
 
     print("\n" + "=" * 72)
     if _BAD:
