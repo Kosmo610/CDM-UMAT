@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 check_ch4_numbers.py   --  ROUND 1 of the chapter self-verification
-===================================================================
-Every number Ch.4 states must be re-derivable from a primary source.
+============================================================Every number Ch.4 states must be re-derivable from a primary source.
 
 Ch.4 is the most exposed chapter numerically: it quotes mesh statistics, phase
 volumes, driver displacements read off an ODB, and the outputs of two analysis
@@ -358,6 +357,60 @@ def main():
           "틀렸다" in ch4 and "카드에 대한 진술" in ch4)
     check("Ch.4 names the crack share and says it is not enough",
           "4.6 %" in ch4 and "미세균열만으로 설명하지 않는다" in ch4)
+
+    # ------------------------------------------- 4.9-8 the closed X_PO trail
+    # a3 R4-B-1.  The verdict "the origin does not publish these numbers" lived
+    # only in a sync message; the submission still called the shape parameters
+    # five and r_F a convention.  These pin the corrected statement to the
+    # module that owns the classification, so the two cannot drift apart.
+    print("\n 4.9-8 the X_PO / K_1 trail is closed, and r_F is not a knob")
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    import card_gap_triage as cgt
+    rows = {r[1]: r for r in cgt.CARD_GAPS} if hasattr(cgt, "CARD_GAPS") else {}
+    check("Ch.4 states four shape parameters, not five",
+          "구성식 형상 파라미터 — 4개" in ch4)
+    check("...and r_F is absent from that list",
+          "$G_{tt}$, $G_{tc}$, $X_{PO}$, $K_1$" in ch4)
+    check("Ch.4 says why r_F left the list, rather than silently dropping it",
+          "교점 위에 놓인 값" in ch4 and "유도량" in ch4)
+    check("the r_F = 3 'convention' wording is retracted in writing",
+          "관례로 고른 값이 아니라" in ch4)
+    check("Ch.4 calls X_PO / K_1 declared, not still-being-traced",
+          "확정적으로 선언된 knob" in ch4 and "추적이 종결" in ch4)
+    check("the triage module classifies X_PO as a knob, agreeing with the text",
+          not rows or rows.get("X_PO", (None, None, None, "KNOB"))[3] == "KNOB",
+          rows.get("X_PO", ("", "", "", "KNOB"))[3])
+    check("Ch.2 carries [73] so the closure has a reference to stand on",
+          "10.1016/j.compstruct.2015.03.030"
+          in open(os.path.join(ROOT, "docs", "CH2_LITERATURE_REVIEW.md")).read())
+
+    # ------------------------------------------- 4.9-6 the narrowed CTE band
+    # a3 R4-B-2.  The band the chapter quotes is the one the card is judged
+    # against, so it is a source statement, not a number -- but the arithmetic
+    # around it ("18 % under the floor") still has to be re-derived.
+    print("\n 4.9-6 the PAN-only transverse CTE band")
+    import cte_sensitivity as cs
+    lo, hi = cs.PAN_TRANSVERSE_BAND
+    check("Ch.4 quotes the narrowed band", "3.8–5.6e-6/K" in ch4,
+          "%.1f-%.1f" % (lo * 1e6, hi * 1e6))
+    under = 100.0 * (lo - 3.1e-6) / lo
+    check("Ch.4's '18 %% under the floor' is re-derived, not asserted",
+          ("%.0f %%" % under) in ch4 or ("%d %%" % round(under)) in ch4,
+          "%.1f %%" % under)
+    check("Ch.4 says the refs/[07] band is an inverse identification",
+          "역해석" in ch4 and "Inverse Problems" in ch4)
+    check("...and gives the method paper's own title as the evidence",
+          "Estimation** of the transverse" in ch4)
+    check("Ch.4 places the CONFIG_P value at the band's top, not beyond it",
+          abs(cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] - hi)
+          < 0.1e-6 and "위쪽 끝" in ch4,
+          "%.3f vs %.1f e-6/K"
+          % (cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] * 1e6,
+             hi * 1e6))
+    check("the band is marked search-verified in the chapter too",
+          "search-verified" in ch4 and "미보유" in ch4)
+    check("and the chapter states it changes no card value",
+          "카드값을 바꾸지 않고" in ch4)
     # ------------------------------------------------- 4.9-0a  M6 result
     print("\n 4.9-0a M6 -- re-derived from data/results/M6/, not from the prose")
     import csv as _csv
@@ -438,60 +491,6 @@ def main():
         check("the two tangent definitions are flagged, not averaged",
               "122.9" in ch4 and "111.1" in ch4
               and "섞어 인용" in ch4)
-
-    # ------------------------------------------- 4.9-8 the closed X_PO trail
-    # a3 R4-B-1.  The verdict "the origin does not publish these numbers" lived
-    # only in a sync message; the submission still called the shape parameters
-    # five and r_F a convention.  These pin the corrected statement to the
-    # module that owns the classification, so the two cannot drift apart.
-    print("\n 4.9-8 the X_PO / K_1 trail is closed, and r_F is not a knob")
-    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
-    import card_gap_triage as cgt
-    rows = {r[1]: r for r in cgt.CARD_GAPS} if hasattr(cgt, "CARD_GAPS") else {}
-    check("Ch.4 states four shape parameters, not five",
-          "구성식 형상 파라미터 — 4개" in ch4)
-    check("...and r_F is absent from that list",
-          "$G_{tt}$, $G_{tc}$, $X_{PO}$, $K_1$" in ch4)
-    check("Ch.4 says why r_F left the list, rather than silently dropping it",
-          "교점 위에 놓인 값" in ch4 and "유도량" in ch4)
-    check("the r_F = 3 'convention' wording is retracted in writing",
-          "관례로 고른 값이 아니라" in ch4)
-    check("Ch.4 calls X_PO / K_1 declared, not still-being-traced",
-          "확정적으로 선언된 knob" in ch4 and "추적이 종결" in ch4)
-    check("the triage module classifies X_PO as a knob, agreeing with the text",
-          not rows or rows.get("X_PO", (None, None, None, "KNOB"))[3] == "KNOB",
-          rows.get("X_PO", ("", "", "", "KNOB"))[3])
-    check("Ch.2 carries [73] so the closure has a reference to stand on",
-          "10.1016/j.compstruct.2015.03.030"
-          in open(os.path.join(ROOT, "docs", "CH2_LITERATURE_REVIEW.md")).read())
-
-    # ------------------------------------------- 4.9-6 the narrowed CTE band
-    # a3 R4-B-2.  The band the chapter quotes is the one the card is judged
-    # against, so it is a source statement, not a number -- but the arithmetic
-    # around it ("18 % under the floor") still has to be re-derived.
-    print("\n 4.9-6 the PAN-only transverse CTE band")
-    import cte_sensitivity as cs
-    lo, hi = cs.PAN_TRANSVERSE_BAND
-    check("Ch.4 quotes the narrowed band", "3.8–5.6e-6/K" in ch4,
-          "%.1f-%.1f" % (lo * 1e6, hi * 1e6))
-    under = 100.0 * (lo - 3.1e-6) / lo
-    check("Ch.4's '18 %% under the floor' is re-derived, not asserted",
-          ("%.0f %%" % under) in ch4 or ("%d %%" % round(under)) in ch4,
-          "%.1f %%" % under)
-    check("Ch.4 says the refs/[07] band is an inverse identification",
-          "역해석" in ch4 and "Inverse Problems" in ch4)
-    check("...and gives the method paper's own title as the evidence",
-          "Estimation** of the transverse" in ch4)
-    check("Ch.4 places the CONFIG_P value at the band's top, not beyond it",
-          abs(cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] - hi)
-          < 0.1e-6 and "위쪽 끝" in ch4,
-          "%.3f vs %.1f e-6/K"
-          % (cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] * 1e6,
-             hi * 1e6))
-    check("the band is marked search-verified in the chapter too",
-          "search-verified" in ch4 and "미보유" in ch4)
-    check("and the chapter states it changes no card value",
-          "카드값을 바꾸지 않고" in ch4)
 
     print("\n" + "=" * 72)
     if _BAD:

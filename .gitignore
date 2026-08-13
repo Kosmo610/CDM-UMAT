@@ -27,5 +27,11 @@ __pycache__/
 # than the workstation does -- and a check count that depends on the machine
 # is not a check.  It is a verification input, not an analysis leftover.
 !data/properties/M5_c26k_T1000_ss.csv
+# ...and the M6 curves, for exactly the same reason.  check_ch4_numbers 4.9-0a
+# (a2, R4-A-3) opens LTH_M6_*_ss.csv and re-derives the peaks and tangents from
+# them.  On the workstation those files exist untracked, so the gate is green
+# there and red on every clean checkout -- the same failure mode refs/[73] had.
+# Un-ignoring them here does not commit them; a2 still has to add the files.
+!data/results/M6/*_ss.csv
 ss_curves_by_temperature.png
 dist/*.pdf
