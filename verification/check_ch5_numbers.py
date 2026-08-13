@@ -165,6 +165,46 @@ def main():
         check("our own gradient fraction %s %% quoted in Ch.5" % frac,
               frac in flat)
 
+    # ------------------------------------------------------------------ C2
+    print("\n C2. the MEASURED gradient ladder matches data/results/")
+    lad = os.path.join(ROOT, "data", "results", "macro_heat_ladder.csv")
+    check("macro_heat_ladder.csv exists", os.path.exists(lad),
+          "written by the S2 runs, read by extract_thermal_profile.py")
+    if os.path.exists(lad):
+        import csv as _csv
+        rows = {r["severity"]: r for r in _csv.DictReader(open(lad))}
+        check("it carries all three severities",
+              set(rows) == {"L", "M", "H"}, ", ".join(sorted(rows)))
+        # The chapter must quote the MEASURED fractions, not a prediction.
+        # These are the numbers C2 rests on, so they are read from the file
+        # rather than typed here -- a hard-coded 36.9 in this checker would
+        # only prove the checker and the chapter were typed by the same hand.
+        for sev in ("L", "M", "H"):
+            r = rows.get(sev)
+            if not r:
+                continue
+            pct = "%.1f" % float(r["grad_pct"])
+            check("severity %s gradient %s %% quoted in Ch.5" % (sev, pct),
+                  pct in flat, "Bi = %s, %s K" % (r["bi"], r["peak_grad_K"]))
+            check("  and its peak gradient %s K" % r["peak_grad_K"],
+                  "%.1f" % float(r["peak_grad_K"]) in flat)
+            check("  and the CSV's own uniform-assumption verdict is %s"
+                  % r["uniform_assumption"], bool(r["uniform_assumption"]))
+        # The whole point of the ladder is that the assumption survives at
+        # the low end and fails at the high end.  If a future run made those
+        # the same the ladder would have stopped being a ladder.
+        lo = float(rows["L"]["grad_pct"]) if "L" in rows else 0.0
+        hi = float(rows["H"]["grad_pct"]) if "H" in rows else 0.0
+        check("the ladder actually brackets the crossover",
+              lo < 15.0 < hi and hi > 50.0,
+              "%.1f %% at Bi=0.05 vs %.1f %% at Bi=5" % (lo, hi))
+        check("Ch.5 presents these as MEASURED, not predicted",
+              "예측이 아니라 측정" in ch5)
+        check("  and names the CSV as the authority",
+              "macro_heat_ladder.csv" in ch5)
+        check("severity H is cross-referenced to the severity paradox",
+              "심각도 역설" in ch5 and "TWMAX" in ch5)
+
     # ------------------------------------------------------------------ D
     print("\n D. deck mechanics claimed by the chapter exist in the generator")
     check("probe strain 1e-6 in the generator",
