@@ -385,6 +385,34 @@ def main():
           "10.1016/j.compstruct.2015.03.030"
           in open(os.path.join(ROOT, "docs", "CH2_LITERATURE_REVIEW.md")).read())
 
+    # ------------------------------------------- 4.9-6 the narrowed CTE band
+    # a3 R4-B-2.  The band the chapter quotes is the one the card is judged
+    # against, so it is a source statement, not a number -- but the arithmetic
+    # around it ("18 % under the floor") still has to be re-derived.
+    print("\n 4.9-6 the PAN-only transverse CTE band")
+    import cte_sensitivity as cs
+    lo, hi = cs.PAN_TRANSVERSE_BAND
+    check("Ch.4 quotes the narrowed band", "3.8–5.6e-6/K" in ch4,
+          "%.1f-%.1f" % (lo * 1e6, hi * 1e6))
+    under = 100.0 * (lo - 3.1e-6) / lo
+    check("Ch.4's '18 %% under the floor' is re-derived, not asserted",
+          ("%.0f %%" % under) in ch4 or ("%d %%" % round(under)) in ch4,
+          "%.1f %%" % under)
+    check("Ch.4 says the refs/[07] band is an inverse identification",
+          "역해석" in ch4 and "Inverse Problems" in ch4)
+    check("...and gives the method paper's own title as the evidence",
+          "Estimation** of the transverse" in ch4)
+    check("Ch.4 places the CONFIG_P value at the band's top, not beyond it",
+          abs(cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] - hi)
+          < 0.1e-6 and "위쪽 끝" in ch4,
+          "%.3f vs %.1f e-6/K"
+          % (cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] * 1e6,
+             hi * 1e6))
+    check("the band is marked search-verified in the chapter too",
+          "search-verified" in ch4 and "미보유" in ch4)
+    check("and the chapter states it changes no card value",
+          "카드값을 바꾸지 않고" in ch4)
+
     print("\n" + "=" * 72)
     if _BAD:
         print("ROUND 1 FAIL -- %d of %d: %s"
