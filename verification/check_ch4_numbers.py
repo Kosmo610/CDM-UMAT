@@ -359,6 +359,32 @@ def main():
     check("Ch.4 names the crack share and says it is not enough",
           "4.6 %" in ch4 and "미세균열만으로 설명하지 않는다" in ch4)
 
+    # ------------------------------------------- 4.9-8 the closed X_PO trail
+    # a3 R4-B-1.  The verdict "the origin does not publish these numbers" lived
+    # only in a sync message; the submission still called the shape parameters
+    # five and r_F a convention.  These pin the corrected statement to the
+    # module that owns the classification, so the two cannot drift apart.
+    print("\n 4.9-8 the X_PO / K_1 trail is closed, and r_F is not a knob")
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    import card_gap_triage as cgt
+    rows = {r[1]: r for r in cgt.CARD_GAPS} if hasattr(cgt, "CARD_GAPS") else {}
+    check("Ch.4 states four shape parameters, not five",
+          "구성식 형상 파라미터 — 4개" in ch4)
+    check("...and r_F is absent from that list",
+          "$G_{tt}$, $G_{tc}$, $X_{PO}$, $K_1$" in ch4)
+    check("Ch.4 says why r_F left the list, rather than silently dropping it",
+          "교점 위에 놓인 값" in ch4 and "유도량" in ch4)
+    check("the r_F = 3 'convention' wording is retracted in writing",
+          "관례로 고른 값이 아니라" in ch4)
+    check("Ch.4 calls X_PO / K_1 declared, not still-being-traced",
+          "확정적으로 선언된 knob" in ch4 and "추적이 종결" in ch4)
+    check("the triage module classifies X_PO as a knob, agreeing with the text",
+          not rows or rows.get("X_PO", (None, None, None, "KNOB"))[3] == "KNOB",
+          rows.get("X_PO", ("", "", "", "KNOB"))[3])
+    check("Ch.2 carries [73] so the closure has a reference to stand on",
+          "10.1016/j.compstruct.2015.03.030"
+          in open(os.path.join(ROOT, "docs", "CH2_LITERATURE_REVIEW.md")).read())
+
     print("\n" + "=" * 72)
     if _BAD:
         print("ROUND 1 FAIL -- %d of %d: %s"
