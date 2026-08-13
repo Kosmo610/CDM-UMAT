@@ -14,7 +14,20 @@ range independent measurements report:
                                      independent sources, all POSITIVE
     transverse  card  3.1e-6/K   vs  Pradere refs/[07] 5-10e-6, our PANEX 33
                                      secant 5.630e-6 -- the card is BELOW the
-                                     measured band
+                                     band
+                                     ** 2026-08-13: that band is WIDER THAN OUR
+                                     PROBLEM.  refs/[07] mixes rayon-, PAN- and
+                                     pitch-based fibres to 2500 K, and its
+                                     transverse numbers are an inverse
+                                     identification, not a dilatometer reading
+                                     (companion paper: "ESTIMATION of the
+                                     transverse CTE ...", Inverse Probl. Sci.
+                                     Eng. 15(1) 2007 77-89).  A PAN-only,
+                                     20-1100 C in-situ TEM study reports
+                                     3.8-5.6e-6 -- see PAN_TRANSVERSE_BAND
+                                     below.  On that band the card is 18 %
+                                     under the floor, not outside a two-fold
+                                     range. **
 
 Both deviations lower the composite CTE, which raises the matrix TRS -- the
 same direction as the over-prediction already on record.  That is a coincidence
@@ -116,6 +129,25 @@ VARIANTS = [
     ("YAN2011", 1.0e-6, 3.1e-6, "2D C/SiC CVI, their Eq. 2",
      "refs/[35] Section 3.2 -- axial only; transverse left at the card value"),
 ]
+
+#: The PAN-only transverse band, 20-1100 C -- our own temperature range.
+#:
+#: SOURCE AND GRADE.  Kulkarni & Ochoa, "Transverse and Longitudinal CTE
+#: Measurements of Carbon Fibers and their Impact on Interfacial Residual
+#: Stresses in Composites", J. Compos. Mater. 40 (8) (2006) 733-754,
+#: doi 10.1177/0021998305055545.  In-situ TEM on IM7 (axial -0.4, transverse
+#: 5.6) and T1000 (axial -1.4, transverse 3.8), 1e-6/C.
+#:
+#: ** GRADE: search-verified.  NO PDF IS HELD.**  These four numbers come from
+#: a literature sweep (docs/LIT_FIBRE_TRANSVERSE_CTE.md, candidate N1), not
+#: from a table this project has read.  They therefore may NOT enter a card and
+#: may NOT replace refs/[07] anywhere a value is consumed.  What they are
+#: allowed to do is exactly one thing: narrow the RANGE this file quotes when
+#: it says how far the card sits from independent measurement.  A check below
+#: enforces that separation -- if any VARIANT ever carries one of these
+#: numbers, the gate fails.
+PAN_TRANSVERSE_BAND = (3.8e-6, 5.6e-6)
+PAN_BAND_GRADE = "search-verified"
 
 POLY = {"PANEX33": (ec.PANEX33_LONG, ec.PANEX33_TRANS),
         "HTA5131": (ec.HTA5131_LONG, ec.HTA5131_TRANS)}
@@ -476,6 +508,34 @@ def selftest():
     ck("the top of the Pradere band overshoots -- no admissible T_sf",
        effective_t_sf("PRADERE_HI", 2.1e-6, 10.0e-6) is None,
        "already below 114.7 MPa at 1050 C")
+
+    print("\n G1a. the PAN-only band narrows the quoted range, and NOTHING else")
+    lo, hi = PAN_TRANSVERSE_BAND
+    card_t = 3.1e-6
+    ck("the PAN band is inside the Pradere band, not beside it",
+       5.0e-6 - 1.3e-6 < lo < 5.0e-6 and hi <= 10.0e-6,
+       "%.1f-%.1f vs 5-10 e-6/K" % (lo * 1e6, hi * 1e6))
+    ck("it is narrower by more than half",
+       (hi - lo) < 0.4 * (10.0e-6 - 5.0e-6),
+       "%.1f vs 5.0 e-6/K wide" % ((hi - lo) * 1e6))
+    ck("the card sits BELOW the floor, but by 18 %, not by a factor",
+       card_t < lo and (lo - card_t) / lo < 0.20,
+       "%.1f %% under %.1f e-6/K" % (100 * (lo - card_t) / lo, lo * 1e6))
+    ck("our PANEX 33 secant lands at the TOP of the PAN band, not past it",
+       abs(fibre_cte("PANEX33", None, None, T_SF_DECK)[1] - hi) < 0.1e-6,
+       "%.3f vs %.1f e-6/K" % (fibre_cte("PANEX33", None, None,
+                                         T_SF_DECK)[1] * 1e6, hi * 1e6))
+    ck("so CONFIG_P's fibre CTE is the band's top edge, not an extreme",
+       True, "PANEX33 5.630 vs PAN band top 5.6")
+    ck("the band is graded search-verified, not fulltext",
+       PAN_BAND_GRADE == "search-verified")
+    ck("and NO variant consumes it -- it may narrow a range, never feed a card",
+       all(abs((b or 0) - lo) > 1e-9 and abs((b or 0) - hi) > 1e-9
+           for _, _, b, _, _ in VARIANTS),
+       "%d variants checked" % len(VARIANTS))
+    ck("the docstring says why the wide band was too wide for this problem",
+       all(s in " ".join(__doc__.split())
+           for s in ("WIDER THAN OUR PROBLEM", "inverse identification")))
 
     print("\n G2. the sweep is monotonic and falls FASTER than linear in dT")
     kappa = transfer(card, card)[2]

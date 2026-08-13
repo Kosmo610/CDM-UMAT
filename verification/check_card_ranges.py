@@ -231,8 +231,15 @@ CTE = [
      "parameter. It pushes TRS in the direction of the 2.34x over-prediction"),
     ("alpha yarn transverse [1/K]", 3.324908565604e-06, None, None, "DEV",
      "Pradere refs/[07] abstract: mean transverse CTE of carbon fibres is "
-     "5e-6 to 10e-6 /K. The card's fibre value 3.1e-6 is BELOW that band, "
-     "and our PANEX 33 secant gives 5.630e-6",
+     "5e-6 to 10e-6 /K -- but that band mixes rayon, PAN and pitch fibres to "
+     "2500 K, and refs/[07]'s transverse numbers are an inverse "
+     "identification (its method paper is titled ESTIMATION of the transverse "
+     "CTE, Inverse Probl. Sci. Eng. 15(1) 2007). Restricted to PAN over "
+     "20-1100 C, our own range, the reported band is 3.8-5.6e-6 (Kulkarni & "
+     "Ochoa 2006, in-situ TEM -- search-verified, no PDF held, see "
+     "docs/LIT_FIBRE_TRANSVERSE_CTE.md N1). On that band the card's fibre "
+     "value 3.1e-6 is 18 % under the floor rather than outside a two-fold "
+     "range, and our PANEX 33 secant 5.630e-6 sits at the band's top edge",
      "the yarn value 3.32e-6 follows from the fibre 3.1e-6, so it inherits "
      "the deviation. Flagged as a sensitivity parameter, not corrected, "
      "because the card is Zhang's own verified T300 set"),

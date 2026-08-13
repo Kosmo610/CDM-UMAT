@@ -42,7 +42,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `conductivity_bounds.py --check` | 열전도 경계식·민감도·공극률 모델·동일재료 환산 | 34 |
 | `conductivity_temperature.py --check` | $k(T)$ **형상** — Snead 저항선형 형태 회수·CVI 기지의 온도무관 몫·복합재 비율 유도·해석 경로가 RVE_COND를 재현하는지·refs/[20] 차용의 진단과 방향 | 37 |
 | `yarn_fracture_energy.py --check` | 얀 횡방향 $G_{tt}$·$G_{tc}$ 출처·균열대 적합성 | 31 |
-| `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 (평균장 대조는 무손상 RVE 기준) | 61 |
+| `cte_sensitivity.py --check` | 구성재 CTE가 TRS 2.34배 중 차지하는 몫 (평균장 대조는 무손상 RVE 기준, PAN 전용 횡방향 대역 분리) | 69 |
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
 | `trs_configuration.py --check` | CONFIG_V / CONFIG_P 결정과 두 관문 | 33 |
 | `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 (M5 T1000 곡선은 2026-08-06부터 저장소에 커밋되어 27이 어디서나 재현된다) | 27 |
@@ -71,19 +71,20 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 + **측정 구배 사다리를 `macro_heat_ladder.csv`에서 대조** | 119 |
 | `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 (T5 정정 + §6.2.3 확정표) | 54 |
-| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출·CTE 4단 사다리 포함) | 75 |
+| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출·CTE 4단 사다리·$X_{PO}$ 추적 종결 포함) | 89 |
 | `check_ch7_numbers.py` | 제7장 결론 경계 — 결과 없는 결론 6개의 근거·결과 의존 구역의 완료어 금지 + 한계 12개와 소성 몫 재유도 | 41 |
-| `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 214 |
+| `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 216 |
 | `review_inbox.py --check` | 리뷰 브랜치(a3) 수신 — 원문 PDF 보유 확인·저자 명단·Zhang의 내부 참고문헌 30·32·33번·Ge Table 3 파괴에너지·두 초안 계보 대조 | 29 |
 | `check_manuscript_citations.py` | **제출본 범위** 인용 감사 — 표 등재분의 본문 인용·본문 마커의 표 등재·무인용 동향 주장·[S*] 보유 진술 | 14 |
 | `prerun_gate.py --check` | 최소 해석 계획 — §5.7 매트릭스 파싱·단계별 관문/소유자/낭비조건·보정 의존성(자리표 대 미보정 구분)·산출물 부재와 잡 차단의 분리 | 40 |
+| `pending_slots.py --check` | `[결과 대기]` 슬롯 8개 — 단계·소유자·차단/부분 분류, 부분 채움에 「1차 결과」 표기 강제 | 27 |
 | `check_gf_scale_transfer.py` | $\bar G_f$의 소산분 분해·두 규약의 일치·덱 생성기 관문 | 81 |
 | `m6_calibration_plan.py` | M6 보정 대상·금지 대상과 그 근거 + 사이클 보정 울타리 4개 + T5 표적 정정 | 33 |
 | `plastic_dissipation_audit.py` | Ge 식 (23)(24) 소성 자유에너지가 $A_m$ 에 들어가는가 — **「누락」 지적 철회**와 그 자리에 들어갈 메시 의존 한계 + 균열대 봉 트리거 슬라이스의 의도치 않은 취성 | 15 |
 | `knob_sensitivity.py --check` | knob→관측량 정규화 민감도 자코비안(13×10)·SVD 식별성(3강도 행 유효계수 1)·rF의 Ge 식(17) 파생·구조적 영 민감도·CSV/스냅샷 재생성 | 47 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `md_to_docx.py --selftest` | 논문 초안 워드 합본 — 장 발견·표지 산수(전부 즉석 계산)·수식 막대 정규화 | 10 |
-| `make_thesis_figures.py --check` | 논문 그림 13장 — 한글 폰트·문헌값 재유도·덱값 대조·본문 삽입 여부 + **두 물성 계보의 Bi가 같은 냉각시간을 재현하는지·금지 조합 차단** + **그림 3.1의 SDV 번호를 UMAT 헤더에서 되읽어 대조**) | 40 |
+| `make_thesis_figures.py --check` | 논문 그림 15장 — 한글 폰트·문헌값 재유도·덱값 대조·본문 삽입 여부 + **두 물성 계보의 Bi가 같은 냉각시간을 재현하는지·금지 조합 차단** + **그림 3.1의 SDV 번호를 UMAT 헤더에서 되읽어 대조**) | 54 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식 + **Voigt 상한 가능성 검사**·CSV + 상한을 덱 카드에서 읽기·공극률을 파일 전체에서 읽기 + **덱의 단위 스탬프를 읽어 구·신 단위계를 모두 판독** | 33 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
 | `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 (발표 계열 대조 포함) | 35 |
