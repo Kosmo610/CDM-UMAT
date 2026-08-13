@@ -212,7 +212,7 @@ CASES = [
          r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 10),
     ("make_thesis_figures.py --check",
      "python3 postprocess/make_thesis_figures.py --check",
-     count_bracketed, 40),
+     count_bracketed, 54),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
      count_bracketed, 33),
