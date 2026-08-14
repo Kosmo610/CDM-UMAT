@@ -40,8 +40,33 @@ import glob
 import os
 import sys
 
-#: strain window over which the initial tangent is fitted
+#: strain window over which the initial tangent is fitted.
+#:
+#: THIS IS THE PROJECT'S ONE TANGENT DEFINITION.  m6_verdict.py imports the
+#: function below rather than carrying its own, because it used to carry its
+#: own and the two disagreed by 10.6 % on the same file (122.9 vs 111.1 GPa at
+#: RT23) with nothing in either output saying which was which.
+#:
+#: The window is ABSOLUTE (a fixed strain) and not a fraction of the curve's
+#: own span, and that is the whole point.  A fractional window makes the
+#: answer depend on HOW FAR THE JOB GOT: truncating the real RT23 curve to a
+#: quarter of its length moves the fractional-window answer 111.1 -> 121.2 GPa
+#: (+9.1 %) while this one does not move at all.  A modulus that rises when a
+#: job dies early is not a material property, it is a completion meter -- and
+#: T500 is exactly a job that died early, so the bias is not hypothetical.
+#:
+#: data/literature/modulus_definition.py settles what we are comparing against:
+#: refs/[10] Yang's 128.7 GPa is an INITIAL TANGENT on a curve whose own text
+#: says "nonlinearity starts almost from the onset of loading".  Like-for-like
+#: therefore means the narrowest window on which the fit is still straight --
+#: which is why R^2 is reported and floored rather than assumed.
 TANGENT_WINDOW = 1.0e-4
+#: below this the curve is not straight in the window and the slope is not a
+#: tangent; quote it and you are quoting a chord you did not mean to take.
+TANGENT_R2_FLOOR = 0.999
+#: fewer points than this and a "least squares fit" is a two-point slope
+#: wearing a hat, and R^2 near 1 means nothing.
+TANGENT_MIN_POINTS = 5
 #: Zhang Table 3 simulation targets, MPa (verification/CALIBRATION_GUIDE.md)
 TARGET = {"RT23": 128.45, "T500": 179.42, "T1000": 199.15}
 #: published as-received moduli, GPa -- the two clusters of Ch.4 4.9-0
@@ -87,6 +112,49 @@ def initial_tangent(eps, sig, window=TANGENT_WINDOW):
     sse = sum((s - k * e) ** 2 for e, s in xs)
     r2 = 1.0 - sse / sst if sst > 0 else float("nan")
     return k, r2, len(xs)
+
+
+def tangent_verdict(E, r2, npt):
+    """Is this slope quotable as an initial tangent?
+
+    Returns (quotable, reason).  The two ways it fails are opposite: too few
+    points means the fit is not a fit, and a low R^2 means the window has run
+    past the straight part and the number is a chord.  Both produce a slope
+    that looks perfectly reasonable printed to one decimal, which is why the
+    judgement has to be attached to the number rather than left to the reader.
+    """
+    if E is None:
+        return False, "no points inside the window"
+    if npt < TANGENT_MIN_POINTS:
+        return False, ("only %d points in the window (need %d)"
+                       % (npt, TANGENT_MIN_POINTS))
+    if r2 is None or r2 != r2 or r2 < TANGENT_R2_FLOOR:
+        return False, ("R^2 = %s is below %.3f -- not straight here"
+                       % ("nan" if r2 is None or r2 != r2 else "%.5f" % r2,
+                          TANGENT_R2_FLOOR))
+    return True, "R^2 = %.5f over %d points" % (r2, npt)
+
+
+def fractional_tangent(eps, sig, frac=0.10):
+    """The REJECTED definition, kept so the rejection stays testable.
+
+    Least squares over the first `frac` of the curve's own strain span, with
+    the first point shifted to the origin -- what m6_verdict.py used to do.
+    Nothing calls this except the selftest, which uses it to show that the
+    answer moves when the job is truncated.  Do not quote it.
+    """
+    pts = [(e, s) for e, s in zip(eps, sig)]
+    if len(pts) < 4:
+        return None
+    lim = pts[0][0] + frac * (pts[-1][0] - pts[0][0])
+    win = [p for p in pts if p[0] <= lim] or pts[:3]
+    if len(win) < 3:
+        win = pts[:3]
+    e0, s0 = win[0]
+    den = sum((e - e0) ** 2 for e, _ in win)
+    if den <= 0.0:
+        return None
+    return sum((e - e0) * (s - s0) for e, s in win) / den
 
 
 def peak(eps, sig):
@@ -244,6 +312,58 @@ def selftest():
       cluster_of(142.06) == CLUSTER_HI[0])
     t("case_of reads the job name", case_of("M6_RT23_g2p664") == "RT23"
       and case_of("M6_T1000_g8p0") == "T1000")
+
+    # ---- the tangent definition, and why the other one was rejected -------
+    print("\n  the one tangent definition (A-5)")
+    q, why = tangent_verdict(E0, 1.0, 10)
+    t("a straight fit over enough points is quotable", q, why)
+    q, why = tangent_verdict(E0, 1.0, TANGENT_MIN_POINTS - 1)
+    t("a 'fit' over too few points is NOT quotable", not q, why)
+    q, why = tangent_verdict(E0, 0.97, 20)
+    t("a slope from a bent window is NOT quotable", not q, why)
+    t("and the floor is stated, not implied",
+      TANGENT_R2_FLOOR >= 0.999 and TANGENT_MIN_POINTS >= 5,
+      "R^2 >= %.3f over >= %d points" % (TANGENT_R2_FLOOR, TANGENT_MIN_POINTS))
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    rt = os.path.join(os.path.dirname(here), "data", "results", "M6",
+                      "LTH_M6_RT23_ss.csv")
+    if os.path.exists(rt):
+        eR, sR = read_ss(rt)
+        full = initial_tangent(eR, sR)[0]
+        cut = [initial_tangent(eR[:k], sR[:k])[0]
+               for k in (len(eR), int(0.75 * len(eR)), int(0.5 * len(eR)),
+                         int(0.25 * len(eR)))]
+        t("the absolute window is blind to where the job stopped",
+          max(abs(c - full) for c in cut) < 1e-9,
+          "%.1f GPa at 100/75/50/25 %% of the run" % (full / 1e3))
+        fr = [fractional_tangent(eR[:k], sR[:k])
+              for k in (len(eR), int(0.25 * len(eR)))]
+        drift = abs(fr[1] - fr[0]) / fr[0]
+        t("the fractional window is NOT -- this is why it was rejected",
+          drift > 0.05, "%.1f -> %.1f GPa, %+.1f %% on truncation alone"
+          % (fr[0] / 1e3, fr[1] / 1e3, 100.0 * drift))
+        t("and it reads LOW on the full curve, being a chord not a tangent",
+          fr[0] < full, "%.1f < %.1f GPa" % (fr[0] / 1e3, full / 1e3))
+        q, why = tangent_verdict(*initial_tangent(eR, sR))
+        t("the real RT23 curve passes the straightness floor", q, why)
+    else:
+        t("the real RT23 curve is committed for this test",
+          False, "missing %s" % rt)
+
+    import m6_verdict as _v
+    # NOT `is`: run as __main__ this module is loaded twice under two names,
+    # so the two function objects differ while the definition does not.
+    # Attribution plus the import line is what actually pins it.
+    src = open(os.path.join(here, "m6_verdict.py")).read()
+    t("m6_verdict's tangent is attributed to this file",
+      _v.initial_tangent.__module__ in ("m6_report", "__main__")
+      and _v.initial_tangent.__name__ == "initial_tangent",
+      "%s.%s" % (_v.initial_tangent.__module__, _v.initial_tangent.__name__))
+    t("and it gets there by importing, not by copying",
+      "from m6_report import" in src and "initial_tangent" in
+      src.split("from m6_report import")[1].split(")")[0],
+      "one definition, imported once")
 
     print("\n%s" % ("ALL %d SELFTESTS PASS" % len(ok) if all(ok)
                     else "FAILED %d of %d" % (ok.count(False), len(ok))))

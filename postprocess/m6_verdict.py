@@ -80,27 +80,26 @@ def temperature_of(path):
     return None
 
 
-def initial_tangent(curve, frac=0.10):
-    """Secant over the first `frac` of the strain range.
+#: THE TANGENT DEFINITION LIVES IN m6_report.py AND IS IMPORTED, NOT COPIED.
+#:
+#: Until 2026-08-14 this file carried its own: a least-squares slope over the
+#: first 10 % of each curve's own strain span.  On the same RT23 file that
+#: gave 111.1 GPa while m6_report gave 122.9 -- a 10.6 % fork with nothing in
+#: either output to say which number a reader was holding.  Chapter 4 quoted
+#: the 111.1 lineage; this file's own conclusions were drawn from it.
+#:
+#: The fractional window lost on a fact, not a preference: truncate the real
+#: RT23 curve to a quarter of its length and it answers 121.2 instead of
+#: 111.1, because a shorter curve has a shorter tenth.  It rewards jobs that
+#: die early, and T500 died early.  m6_report.fractional_tangent keeps the
+#: rejected form alive so the selftest can keep proving that.
+from m6_report import (initial_tangent, tangent_verdict,      # noqa: E402
+                       TANGENT_WINDOW, TANGENT_R2_FLOOR)
 
-    Not a two-point slope: the first increment of a stabilised step carries
-    the stabilisation transient, and two points would sit on top of it.
-    Returns (E, n_points_used, eps_end) or None.
-    """
-    if len(curve) < 4:
-        return None
-    emax = curve[-1][0]
-    lim = curve[0][0] + frac * (emax - curve[0][0])
-    pts = [p for p in curve if p[0] <= lim]
-    if len(pts) < 3:
-        pts = curve[:3]
-    # least squares through the origin-shifted first points
-    e0, s0 = pts[0]
-    num = sum((e - e0) * (s - s0) for e, s in pts)
-    den = sum((e - e0) ** 2 for e, s in pts)
-    if den <= 0.0:
-        return None
-    return num / den, len(pts), pts[-1][0]
+
+def tangent_of(curve):
+    """(E, r2, npts) on a [(eps, sigma)] curve, via the one definition."""
+    return initial_tangent([e for e, _ in curve], [s for _, s in curve])
 
 
 def stress_at(curve, eps):
@@ -128,6 +127,7 @@ def report(paths):
     print("m6_verdict.py -- the three re-sourced card values, judged")
     print("=" * 78)
 
+    csv_rows = []
     rows = []
     for p in paths:
         if not os.path.exists(p):
@@ -162,24 +162,34 @@ def report(paths):
 
     print("\n 2. INITIAL TANGENT -- this tests the POROSITY correction")
     print("    Set before any damage, so yarn Xt cannot reach it.")
-    print("    %-8s %14s %14s %10s  %s"
-          % ("T [C]", "M6 [GPa]", "measured", "ratio", "source"))
+    print("    Fitted through the origin over eps <= %.1e; m6_report.py owns"
+          % TANGENT_WINDOW)
+    print("    the definition, and R^2 >= %.3f is what makes it a tangent."
+          % TANGENT_R2_FLOOR)
+    print("    %-8s %12s %14s %8s %10s  %s"
+          % ("T [C]", "M6 [GPa]", "measured", "ratio", "quotable", "source"))
     for T, p, c in rows:
-        it = initial_tangent(c)
-        if it is None:
-            print("    %-8d %14s" % (T, "too few points"))
-            continue
-        e0 = it[0]
+        E, r2, npt = tangent_of(c)
+        quotable, why = tangent_verdict(E, r2, npt)
         meas, src = YANG_E0.get(T), "refs/[10] Yang Table 1"
         if meas is None and T in YANG_E0_NEAR:
             near_T, meas = YANG_E0_NEAR[T]
             src = "refs/[10] at %d C (nearest measured)" % near_T
-        if meas:
-            print("    %-8d %14.1f %14.1f %9.2fx  %s"
-                  % (T, e0 / 1e3, meas / 1e3, e0 / meas, src))
-        else:
-            print("    %-8d %14.1f %14s %10s  %s"
-                  % (T, e0 / 1e3, "-", "-", "no measurement"))
+        if E is None:
+            print("    %-8d %12s   %s" % (T, "-", why))
+            csv_rows.append(("tangent", "%d C" % T, "", "",
+                             "not fitted", why, "NOT QUOTABLE"))
+            continue
+        ratio = ("%.2fx" % (E / meas)) if meas else "-"
+        print("    %-8d %12.1f %14s %8s %10s  %s"
+              % (T, E / 1e3, "%.1f" % (meas / 1e3) if meas else "-", ratio,
+                 "yes" if quotable else "NO", src))
+        print("             %s" % why)
+        csv_rows.append(("tangent", "%d C" % T, "%.1f" % (E / 1e3), "GPa",
+                         "%s | %s" % (src, why),
+                         "measured %s GPa, ratio %s"
+                         % ("%.1f" % (meas / 1e3) if meas else "-", ratio),
+                         "quotable" if quotable else "NOT QUOTABLE"))
     if 1000 in [r[0] for r in rows]:
         print("    For reference, M5 with the OLD card gave %.1f GPa at "
               "1000 C," % (M5[1000]["e0"] / 1e3))
@@ -196,11 +206,19 @@ def report(paths):
         if s is None:
             print("    %-8d %14s %14.2f %10s   (job stopped at %.4f %%)"
                   % (T, "not reached", ZHANG[T], "-", 100.0 * c[-1][0]))
+            csv_rows.append(("strength", "%d C" % T, "", "MPa",
+                             "job stopped at %.4f %% of strain"
+                             % (100.0 * c[-1][0]),
+                             "Zhang T3 %.2f MPa" % ZHANG[T], "NOT REACHED"))
             continue
         rel = abs(s - ZHANG[T]) / ZHANG[T]
         if rel > worst:
             worst, worst_at = rel, "%d C" % T
         print("    %-8d %14.2f %14.2f %9.2fx" % (T, s, ZHANG[T], s / ZHANG[T]))
+        csv_rows.append(("strength", "%d C" % T, "%.2f" % s, "MPa",
+                         "Zhang 2022 Table 3 = %.2f MPa (VALIDATION ONLY)"
+                         % ZHANG[T], "ratio %.2fx" % (s / ZHANG[T]),
+                         "PROVISIONAL until damage_census.py"))
     if worst >= 0.0:
         print("    worst deviation %.1f %% at %s" % (100.0 * worst, worst_at))
         print("    M5 with the old card was 1.64x at 1000 C and still rising.")
@@ -246,11 +264,118 @@ def report(paths):
     print("    Before quoting ANY strength, run damage_census.py and read the")
     print("    ATEFF clamped fraction.  Gtc = 0.107 is knowingly inadmissible")
     print("    for the largest elements, and a clamped element is brittle.")
+
+    out = write_csv(csv_rows, os.path.dirname(os.path.abspath(paths[0])))
+    print("\n    wrote %s -- upload THAT, not a screenshot of this." % out)
     print("=" * 78)
     return 0
 
 
+CSV_HEADER = "kind,case,value,unit,basis,comparison,verdict"
+
+
+def write_csv(rows, where, name="m6_verdict_summary.csv"):
+    """Value, basis and verdict on the same line -- CLAUDE.md section 3-2.
+
+    Written even when every row failed: which rows have to be thrown away is
+    exactly what the file is for, and a screenshot of a console crops at the
+    window edge, which has twice now been the line that mattered.
+    """
+    path = os.path.join(where or ".", name)
+    with open(path, "w") as f:
+        f.write(CSV_HEADER + "\n")
+        for r in rows:
+            f.write(",".join('"%s"' % str(x).replace('"', "'")
+                             if ("," in str(x) or '"' in str(x)) else str(x)
+                             for x in r) + "\n")
+    return path
+
+
+def selftest():
+    import m6_report as R
+    ok = []
+
+    def t(name, cond, detail=""):
+        ok.append(cond)
+        print("  %s  %-56s %s" % ("PASS" if cond else "FAIL", name, detail))
+
+    print("m6_verdict.py --selftest")
+
+    print("\n  A. one definition, imported not copied")
+    t("initial_tangent IS m6_report's", initial_tangent is R.initial_tangent)
+    t("tangent_verdict IS m6_report's", tangent_verdict is R.tangent_verdict)
+    # a source scan, so the fork cannot quietly grow back.  Matched at the
+    # start of a line: this very check mentions the name, and a substring
+    # test would find itself and pass for the wrong reason.
+    defs = [l.split("(")[0].strip() for l in open(__file__).read().splitlines()
+            if l.startswith("def ")]
+    t("this file defines no tangent of its own",
+      not [d for d in defs if "tangent" in d and d != "def tangent_of"],
+      "the 10 %%-of-span form is gone; defines %s" % ", ".join(defs))
+    t("and the rejected form is kept where it can be tested",
+      hasattr(R, "fractional_tangent"),
+      "m6_report.fractional_tangent, called only by selftests")
+
+    print("\n  B. tangent_of feeds the curve format this file uses")
+    E0 = 100000.0
+    curve = [(i * 1.0e-5, E0 * i * 1.0e-5) for i in range(0, 40)]
+    E, r2, npt = tangent_of(curve)
+    t("a straight curve returns its slope", abs(E - E0) < 1e-6, "%.1f" % E)
+    t("and it is judged quotable", tangent_verdict(E, r2, npt)[0],
+      "R^2 = %.5f over %d points" % (r2, npt))
+
+    print("\n  C. the real curves, and what changed by settling this")
+    here = os.path.dirname(os.path.abspath(__file__))
+    m6 = os.path.join(os.path.dirname(here), "data", "results", "M6")
+    was = {23: 111.1, 500: 167.5, 1000: 174.2}      # the fractional lineage
+    now = {}
+    for tag, T in (("RT23", 23), ("T500", 500), ("T1000", 1000)):
+        p = os.path.join(m6, "LTH_M6_%s_ss.csv" % tag)
+        if not os.path.exists(p):
+            t("curve %s is committed" % tag, False, "missing %s" % p)
+            continue
+        c = read_curve(p)
+        E, r2, npt = tangent_of(c)
+        now[T] = E / 1e3
+        q, why = tangent_verdict(E, r2, npt)
+        t("%s is quotable under the settled definition" % tag, q, why)
+        old = R.fractional_tangent([e for e, _ in c], [s for _, s in c]) / 1e3
+        t("  and %s's old number is reproduced, so the move is traced" % tag,
+          abs(old - was[T]) < 0.15, "%.1f (was quoted as %.1f)" % (old, was[T]))
+    if 23 in now and 1000 in now:
+        t("RT23 moves UP, toward refs/[10]'s 128.7", now[23] > was[23],
+          "%.1f -> %.1f GPa, ratio %.2fx -> %.2fx"
+          % (was[23], now[23], was[23] / 128.7, now[23] / 128.7))
+        t("T1000 moves up too, so 1.01x was NOT the right headline",
+          now[1000] > was[1000], "%.1f -> %.1f GPa, ratio %.2fx -> %.2fx"
+          % (was[1000], now[1000], was[1000] / 172.7, now[1000] / 172.7))
+        t("and it is still the best of the three against a measurement",
+          abs(now[1000] / 172.7 - 1.0) < abs(now[23] / 128.7 - 1.0),
+          "%.2fx vs %.2fx" % (now[1000] / 172.7, now[23] / 128.7))
+
+    print("\n  D. the CSV this file used to not write")
+    import tempfile
+    d = tempfile.mkdtemp()
+    p = write_csv([("tangent", "23 C", "122.9", "GPa", "refs/[10], R^2=0.99992",
+                    "measured 128.7 GPa, ratio 0.96x", "quotable")], d)
+    body = open(p).read()
+    t("it writes a file", os.path.exists(p), os.path.basename(p))
+    t("value, basis and verdict are on the same line",
+      "122.9" in body and "refs/[10]" in body and "quotable" in body)
+    t("the header names all three", all(k in CSV_HEADER
+                                        for k in ("value", "basis", "verdict")))
+    t("commas inside a field are quoted, not spilled",
+      body.splitlines()[1].count(",") - body.splitlines()[1].count('",') >= 0
+      and len(body.splitlines()) == 2, "one data row survived the round trip")
+
+    print("\n%s" % ("ALL %d SELFTESTS PASS" % len(ok) if all(ok)
+                    else "FAILED %d of %d" % (ok.count(False), len(ok))))
+    return 0 if all(ok) else 1
+
+
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     if not args:
         print(__doc__)

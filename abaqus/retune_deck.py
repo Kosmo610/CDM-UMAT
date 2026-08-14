@@ -150,6 +150,49 @@ D_FTOL = 0.02
 ABAQUS_DEFAULT_FTOL = 0.005            # what Abaqus uses if we say nothing
 
 # --------------------------------------------------------------------------
+# 2026-08-14, M7 preparation: FTOL IS EXHAUSTED.  DO NOT REACH FOR IT AGAIN.
+# --------------------------------------------------------------------------
+# The block above was written after M3, and it worked: relaxing Rn from 0.005
+# to 0.02 is in every M6 deck that shipped (abaqus/M6_CONTROLS.txt is the
+# verbatim excerpt).  M6's T500 died anyway, and the arithmetic says the M3
+# diagnosis does NOT transfer to it:
+#
+#   worst free-driver residual   0.0408 MPa of macro stress  (R/V_RVE)
+#   criterion at Rn = 0.02       5.6e-04 MPa                 -> 73x
+#   criterion at Rn = 0.05       1.4e-03 MPa                 -> 29x
+#   Rn that would admit it       1.47, i.e. 147 %
+#
+# An Rn above 1 is not a loose tolerance, it is no tolerance.  M3's residuals
+# sat a FEW multiples over the criterion; T500's sits two orders of magnitude
+# over.  Same symptom, different disease.  postprocess/msg_residual_census.py
+# now makes that call itself and prints EQUILIBRIUM rather than TOLERANCE, so
+# the next reader does not have to redo this.
+#
+# What is left, in order of how much it is justified:
+#
+# STABILIZE -- the free eps_yy driver's equation is "sigma_yy = 0", and its
+#   stiffness is supplied by the transverse yarns and matrix.  That phase
+#   holds 49.75 % of T500's residuals AND 42 of 93 of its worst-point damage
+#   values are pinned at the card ceiling dmax = 0.9.  A pinned element has
+#   stopped softening while its neighbours have not, which is how that DOF's
+#   tangent goes near-singular.  Viscous stabilisation is the lever that
+#   addresses a singular tangent; a tolerance is not.
+#
+#   THE GUARD IS NOT OPTIONAL.  allsdtol = 0.05 caps the damping energy at
+#   5 % of internal energy, and ALLSD/ALLIE must be output and read before
+#   any peak stress from a stabilised run is quoted -- otherwise the peak is
+#   inflated by artificial damping and nobody can tell by how much.
+#
+# CARD -- if the ceiling is what makes the tangent singular then raising
+#   dmax is the physical fix and stabilisation only masks it.  That question
+#   belongs to the damage-ceiling audit, not here.  This file records the
+#   dependency so the two are not decided separately.
+M7_LEVER = "stabilize"                 # NOT ftol -- see the block above
+M7_FTOL_EXHAUSTED_AT = 0.02            # what already shipped and still died
+#: the worst free-driver residual T500 died on, MPa of macro stress
+M7_T500_WORST_MPA = 4.081633e-02
+
+# --------------------------------------------------------------------------
 # 2026-08-03, M6: the three card values that stopped being guesses
 # --------------------------------------------------------------------------
 # These are NOT knobs and none of them was fitted.  Each replaces a card entry
@@ -1267,6 +1310,40 @@ def check():
           g.count("선언된 knob") >= 4)
     else:
         t("CALIBRATION_GUIDE.md present", False, guide)
+
+    # ---- M7: the lever, and the one that is spent (A-6) -------------------
+    print("\n  M7 preparation -- ftol is exhausted")
+    t("this file says so in its own defaults", M7_LEVER == "stabilize"
+      and "NOT ftol" in open(__file__).read(), "M7_LEVER = %r" % M7_LEVER)
+    t("what already shipped is recorded, not remembered",
+      abs(M7_FTOL_EXHAUSTED_AT - D_FTOL) < 1e-12,
+      "Rn = %g shipped in M6 and T500 still died" % M7_FTOL_EXHAUSTED_AT)
+
+    excerpt = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "M6_CONTROLS.txt")
+    t("and the shipped deck is committed to prove it", os.path.exists(excerpt),
+      os.path.relpath(excerpt, root) if os.path.exists(excerpt) else "missing")
+    if os.path.exists(excerpt):
+        exc = open(excerpt).read()
+        t("  it carries the relaxation verbatim", "%g, %g"
+          % (D_FTOL, D_DISPCTRL) in exc or " 0.02, 1" in exc)
+        t("  and the stabilisation guard that M7 will lean on",
+          "allsdtol=%g" % D_ALLSDTOL in exc,
+          "allsdtol=%g caps ALLSD/ALLIE at %.0f %%"
+          % (D_ALLSDTOL, 100.0 * D_ALLSDTOL))
+        t("  from a named source, not pasted from memory",
+          "dist/LTH_M6_0812_1411.zip" in exc and "sha256" in exc)
+
+    # the same arithmetic msg_residual_census makes, kept here so a change to
+    # either file has to face the other
+    for rn, expect in ((0.02, 73.0), (0.05, 29.0)):
+        mult = M7_T500_WORST_MPA / (rn * 0.15 / 5.390)
+        t("at Rn = %g the residual is %.0fx the criterion" % (rn, expect),
+          abs(mult - expect) < 1.0, "%.1fx" % mult)
+    need = M7_T500_WORST_MPA * 5.390 / 0.15
+    t("admitting it would need Rn > 1, which is not a tolerance", need > 1.0,
+      "Rn = %.2f" % need)
+    t("so the lever named here is NOT ftol", M7_LEVER != "ftol")
 
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
