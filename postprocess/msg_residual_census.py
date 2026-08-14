@@ -49,6 +49,87 @@ DRIVER_NAMES = {0: "eps_xx", 1: "eps_yy", 2: "eps_zz",
 RES_RE = re.compile(
     r"LARGEST RESIDUAL FORCE\s+([0-9.E+-]+)\s+AT NODE\s+(\d+)\s+DOF\s+(\d+)")
 
+#: Abaqus' own Rn^alpha when the deck says nothing.
+ABAQUS_DEFAULT_FTOL = 0.005
+#: `*Controls, parameters=field, field=displacement` -- Rn is the FIRST data
+#: value on the line after it, and a blank field means "keep the default".
+FTOL_RE = re.compile(
+    r"\*Controls,\s*parameters\s*=\s*field,\s*field\s*=\s*displacement\s*\n"
+    r"\s*([0-9.eE+-]*)\s*,", re.I)
+#: Abaqus prints the time-average force it is measuring the residual against.
+AVGF_RE = re.compile(r"AVERAGE FORCE\s+([0-9.E+-]+)", re.I)
+#: What M3's .msg showed for this RVE, used only when the .msg does not say.
+QBAR_M3 = 0.15                          # N.mm
+#: Beyond this multiple of the tolerance, loosening the tolerance is not the
+#: fix -- the equations genuinely are not in equilibrium there.  Five is
+#: generous: it is the difference between "one more relaxation step" and the
+#: 4x that took Abaqus' default to the deck's 0.02.
+TOL_MULTIPLE_ARGUABLE = 5.0
+
+
+def deck_ftol(deck_path):
+    """(Rn, where_it_came_from) for the deck's force-residual criterion."""
+    try:
+        text = open(deck_path, errors="replace").read() \
+            if sys.version_info[0] >= 3 else open(deck_path).read()
+    except (IOError, OSError):
+        return ABAQUS_DEFAULT_FTOL, "deck unreadable; assumed Abaqus default"
+    m = FTOL_RE.search(text)
+    if not m:
+        return ABAQUS_DEFAULT_FTOL, "no *Controls field block; Abaqus default"
+    raw = m.group(1).strip()
+    if not raw:
+        return ABAQUS_DEFAULT_FTOL, "*Controls present but Rn blank = default"
+    return float(raw), "*Controls, field=displacement -> Rn = %s" % raw
+
+
+def average_force(msg_path):
+    """(qbar, basis) -- the flux the residual is judged against."""
+    try:
+        text = open(msg_path, errors="replace").read() \
+            if sys.version_info[0] >= 3 else open(msg_path).read()
+    except (IOError, OSError):
+        text = ""
+    vals = [float(v) for v in AVGF_RE.findall(text)]
+    vals = [v for v in vals if v > 0.0]
+    if vals:
+        vals.sort()
+        return vals[len(vals) // 2], "median AVERAGE FORCE over %d reports" \
+            % len(vals)
+    return QBAR_M3, "no AVERAGE FORCE in the .msg; M3-observed %.2f N.mm" \
+        % QBAR_M3
+
+
+def tolerance_verdict(worst_mpa, ftol, qbar):
+    """Is the worst free-driver residual a tolerance problem, or not?
+
+    The distinction matters because the two have opposite fixes and the
+    project has already spent a round conflating them.  M3's failure WAS a
+    tolerance problem: the residual sat a few multiples above a criterion
+    that had been derived from a global average force, while the quantity of
+    interest was five orders larger.  A residual seventy times the criterion
+    is a different animal -- admitting it would need Rn > 1, which is not a
+    tolerance any more, it is switching the check off.
+
+    Returns (tol_mpa, multiple, ftol_needed, verdict, note).
+    """
+    tol_mpa = ftol * qbar / V_RVE
+    if tol_mpa <= 0.0:
+        return 0.0, float("inf"), float("inf"), "UNKNOWN", "no tolerance"
+    mult = worst_mpa / tol_mpa
+    need = worst_mpa * V_RVE / qbar
+    if mult <= 1.0:
+        return (tol_mpa, mult, need, "WITHIN TOLERANCE",
+                "this residual would not have stopped the job")
+    if mult <= TOL_MULTIPLE_ARGUABLE:
+        return (tol_mpa, mult, need, "TOLERANCE",
+                "%.1fx the criterion; Rn = %.3g admits it and stays a "
+                "tolerance" % (mult, need))
+    return (tol_mpa, mult, need, "EQUILIBRIUM",
+            "%.0fx the criterion; admitting it needs Rn = %.3g, which is not "
+            "a tolerance.  Look at the tangent stiffness, not the controls"
+            % (mult, need))
+
 
 def parse_deck(path):
     """(node -> [elset, ...], driver node -> label) from an assembled deck."""
@@ -204,6 +285,15 @@ def report(msg_path, deck_path, window=400):
             print("    %-38s %4d" % (k, v))
         print("    worst driver residual %.3e N.mm = %.2e MPa of macro stress"
               % (max(r["drv_mag"]), max(r["drv_mag"]) / V_RVE))
+        ftol, fwhy = deck_ftol(deck_path)
+        qbar, qwhy = average_force(msg_path)
+        tol, mult, need, verdict, note = tolerance_verdict(
+            max(r["drv_mag"]) / V_RVE, ftol, qbar)
+        print("\n  IS THAT A TOLERANCE PROBLEM?")
+        print("    Rn  = %-8g  (%s)" % (ftol, fwhy))
+        print("    q   = %-8.4g N.mm  (%s)" % (qbar, qwhy))
+        print("    tol = %.3e MPa  ->  the residual is %.0fx it" % (tol, mult))
+        print("    %-12s %s" % (verdict, note))
     else:
         print("\n  no driver ever carried the largest residual in this window")
 
@@ -211,13 +301,13 @@ def report(msg_path, deck_path, window=400):
         m = sorted(r["mesh_mag"])
         print("\n  MESH-NODE residuals [N.mm] -- R/V does NOT apply to these")
         print("    median %.3e   max %.3e" % (m[len(m) // 2], m[-1]))
-    out = write_csv(msg_path, r)
+    out = write_csv(msg_path, r, deck_path)
     print("\n  wrote %s -- UPLOAD THIS ONE" % os.path.basename(out))
     print("=" * 74)
     return 0
 
 
-def write_csv(msg_path, r):
+def write_csv(msg_path, r, deck_path=None):
     """<job>_residuals.csv -- value, basis and verdict in the same row.
 
     Added 2026-08-12.  This file printed its census to the console only, which
@@ -250,6 +340,31 @@ def write_csv(msg_path, r):
             pct="", value="%.6e" % (w / V_RVE),
             basis="MPa of macro stress = R/V_RVE, V=%.4f mm^3" % V_RVE,
             verdict="negligible" if w / V_RVE < 1.0e-2 else "significant"))
+        # A-6: the same number again, but judged against what the deck
+        # actually asked for.  Without this the row above says "significant"
+        # and stops, and "significant" reads like "loosen the tolerance" --
+        # which for T500 is the wrong instruction by two orders of magnitude.
+        ftol, fwhy = deck_ftol(deck_path) if deck_path else \
+            (ABAQUS_DEFAULT_FTOL, "no deck given; assumed Abaqus default")
+        qbar, qwhy = average_force(msg_path)
+        tol, mult, need, verdict, note = tolerance_verdict(w / V_RVE, ftol,
+                                                           qbar)
+        rows.append(dict(
+            kind="tolerance", label="force residual criterion Rn", count="",
+            pct="", value="%.6g" % ftol, basis=fwhy, verdict=""))
+        rows.append(dict(
+            kind="tolerance", label="average force q", count="", pct="",
+            value="%.6g" % qbar, basis="N.mm; " + qwhy, verdict=""))
+        rows.append(dict(
+            kind="tolerance", label="implied tolerance", count="", pct="",
+            value="%.6e" % tol,
+            basis="MPa = Rn*q/V_RVE; worst residual is %.1fx it" % mult,
+            verdict=verdict))
+        rows.append(dict(
+            kind="tolerance", label="Rn that would admit the worst residual",
+            count="", pct="", value="%.6g" % need,
+            basis="Rn > 1 is not a tolerance, it is switching the check off",
+            verdict=note))
     if r["mesh_mag"]:
         m = sorted(r["mesh_mag"])
         rows.append(dict(
@@ -317,7 +432,7 @@ def selftest():
     # The CSV is the deliverable (CLAUDE.md 3-2), so it is checked here and
     # not left to the first real run to discover.
     r = census(msg, deck)
-    out = write_csv(msg, r)
+    out = write_csv(msg, r, deck)
     import csv as _csv
     got = list(_csv.DictReader(open(out)))
     ck("the census writes a CSV, not just a console log", bool(got),
@@ -330,6 +445,69 @@ def selftest():
            for g in got))
     ck("  and a driver residual is reported in MPa, not in N.mm",
        any("MPa of macro stress" in g["basis"] for g in got))
+
+    # ---- A-6: a residual in MPa still does not say what to DO about it ----
+    print("\n  the tolerance judgement (A-6)")
+    ck("the CSV now also says what the deck ASKED for",
+       any(g["kind"] == "tolerance" for g in got),
+       "%d tolerance rows" % sum(1 for g in got if g["kind"] == "tolerance"))
+
+    ftol, why = deck_ftol(deck)
+    ck("a deck with no *Controls block reports the Abaqus default",
+       abs(ftol - ABAQUS_DEFAULT_FTOL) < 1e-12 and "default" in why, why)
+    blank = os.path.join(d, "blank.inp")
+    open(blank, "w").write(
+        "*Controls, parameters=field, field=displacement\n , 1\n")
+    fb, wb = deck_ftol(blank)
+    ck("a PRESENT block with a blank Rn also means the default",
+       abs(fb - ABAQUS_DEFAULT_FTOL) < 1e-12 and "blank" in wb, wb)
+    loose = os.path.join(d, "loose.inp")
+    open(loose, "w").write(
+        "*Controls, parameters=field, field=displacement\n 0.02, 1\n")
+    fl, wl = deck_ftol(loose)
+    ck("and a stated Rn is read back exactly", abs(fl - 0.02) < 1e-12, wl)
+
+    #: the two diagnoses have opposite fixes, so they must not share a verdict
+    tol, mult, need, v_small, _ = tolerance_verdict(2.0e-3, 0.02, 0.15)
+    ck("a residual a few times the criterion is a TOLERANCE problem",
+       v_small == "TOLERANCE", "%.1fx -> Rn %.3g" % (mult, need))
+    tol, mult, need, v_big, note = tolerance_verdict(4.081633e-02, 0.02, 0.15)
+    ck("T500's actual 0.0408 MPa is NOT one", v_big == "EQUILIBRIUM",
+       "%.0fx the criterion" % mult)
+    ck("  because admitting it would need Rn > 1", need > 1.0,
+       "Rn = %.2f, i.e. %.0f %%" % (need, 100.0 * need))
+    ck("  and the note sends the reader to the stiffness, not the controls",
+       "tangent stiffness" in note)
+    ck("  a residual under the criterion is not a failure at all",
+       tolerance_verdict(1.0e-5, 0.02, 0.15)[3] == "WITHIN TOLERANCE")
+
+    # The real M6 deck, because A-6's whole question was whether M3's
+    # relaxation had ever reached it.  It had.
+    here = os.path.dirname(os.path.abspath(__file__))
+    m6deck = os.path.join(os.path.dirname(here), "abaqus", "M6_CONTROLS.txt")
+    if os.path.exists(m6deck):
+        fm, wm = deck_ftol(m6deck)
+        ck("M3's relaxation IS already in the shipped M6 deck",
+           abs(fm - 0.02) < 1e-12,
+           "Rn = %g, 4x looser than Abaqus' %g" % (fm, ABAQUS_DEFAULT_FTOL))
+        ck("  so ftol is exhausted as a lever for T500",
+           tolerance_verdict(4.081633e-02, 0.05, 0.15)[3] == "EQUILIBRIUM",
+           "even at the defensible ceiling Rn = 0.05 it is %.0fx"
+           % tolerance_verdict(4.081633e-02, 0.05, 0.15)[1])
+    else:
+        ck("the M6 controls excerpt is committed for this check", False,
+           "missing %s" % m6deck)
+
+    qb, qw = average_force(msg)
+    ck("with no AVERAGE FORCE in the .msg the fallback is declared",
+       abs(qb - QBAR_M3) < 1e-12 and "M3-observed" in qw, qw)
+    withavg = os.path.join(d, "avg.msg")
+    open(withavg, "w").write("  AVERAGE FORCE  2.000E-01\n"
+                             "  AVERAGE FORCE  4.000E-01\n"
+                             "  AVERAGE FORCE  6.000E-01\n")
+    qa, qwa = average_force(withavg)
+    ck("but when the .msg states it, the .msg wins",
+       abs(qa - 0.4) < 1e-9 and "median" in qwa, "%.3g N.mm" % qa)
 
     n2s, drv, sets = parse_deck(deck)
     ck("element sets parsed, 'All' excluded as a phase",

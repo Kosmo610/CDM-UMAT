@@ -129,10 +129,31 @@ PHASES = {
     ),
 }
 
-#: The card's damage cap (D_DMAX in abaqus/retune_deck.py).  An element sitting
-#: on it has been taken as far as the card allows, so the "worst" element is a
-#: plateau rather than a point and the ranking below it is what matters.
-DMAX_CAP = 0.99
+#: The card's damage cap.  An element sitting on it has been taken as far as
+#: the card allows, so the "worst" element is a plateau rather than a point
+#: and the ranking below it is what matters.
+#:
+#: READ FROM abaqus/retune_deck.py, NOT RETYPED.  This constant said 0.99 and
+#: its own comment said it came from D_DMAX -- which has been 0.90 since the
+#: M1 retune.  The consequence was silent and total: every run reported
+#: `elements_at_cap = 0` while 42 of T500's 93 worst-point values sat exactly
+#: on 0.900.  The saturation that Ch.4 4.9-0a(4) rests on had to be found by
+#: reading the hotspot rows by hand, because the detector built to find it was
+#: looking 0.09 too high.  A comment naming a source is not a source.
+def _card_dmax(default=0.90):
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.join(
+        _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+        "abaqus"))
+    try:
+        import retune_deck as _rt
+        return float(_rt.D_DMAX)
+    except Exception:                       # abaqus python, or a partial tree
+        return default
+
+
+DMAX_CAP = _card_dmax()
 CAP_TOL = 1.0e-4
 
 #: Volume-fraction thresholds reported for every phase.
@@ -842,8 +863,16 @@ def selftest():
        hotspot_verdict(DMAX_CAP, 1) == "at_cap")
     ck("several at the cap are called a plateau, so the ranking is not "
        "over-read", hotspot_verdict(DMAX_CAP, 7) == "at_cap_plateau")
+    # Derived from the cap, not typed: this line said 0.90 while DMAX_CAP
+    # said 0.99, so it passed for as long as the cap was wrong and failed the
+    # moment the cap was corrected.  A test that hard-codes the number it is
+    # testing against agrees with whatever the bug happens to be.
     ck("just below the cap is ordinary softening",
-       hotspot_verdict(0.90, 7) == "softening")
+       hotspot_verdict(DMAX_CAP - 10.0 * CAP_TOL, 7) == "softening",
+       "%.4f against a cap of %.2f" % (DMAX_CAP - 10.0 * CAP_TOL, DMAX_CAP))
+    ck("and the cap is read from the deck generator, not retyped",
+       abs(DMAX_CAP - _card_dmax(default=-1.0)) < 1e-12 and DMAX_CAP > 0,
+       "DMAX_CAP = %.2f = retune_deck.D_DMAX" % DMAX_CAP)
 
     # ---- E. the profile answers surface vs interior
     n = N_PROFILE_BINS
