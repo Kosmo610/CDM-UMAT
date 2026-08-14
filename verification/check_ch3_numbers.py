@@ -123,7 +123,7 @@ CASES = [
      count_bracketed, 41),
     ("check_card_ranges.py",
      "python3 verification/check_card_ranges.py",
-     count_plain, 95),
+     count_plain, 114),
     ("card_gap_triage.py --check",
      "python3 data/properties/card_gap_triage.py --check",
      count_bracketed, 68),

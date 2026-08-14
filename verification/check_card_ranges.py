@@ -31,6 +31,14 @@ guesses, which is what this list is for.
 The audit table is asserted against the SHIPPED DECK, so it cannot go stale: if
 a card value changes and this table does not, the check fails.
 
+  2026-08-13: that sentence was WRONG as written, and section G is the repair.
+  The deck is PINNED to one July zip, so a card value changing in a LATER deck
+  moved nothing here.  M6 shipped four different slots on 2026-08-12 and this
+  file stayed green while auditing a card no run uses.  Section G reads the
+  deck that actually ran, computes which slots moved, and re-grades them.  The
+  July table is not retired -- M6 is a calibration attempt and whether its card
+  is adopted is the M6 verdict's business -- but both are now audited.
+
 Run:  python3 verification/check_card_ranges.py
 """
 from __future__ import print_function
@@ -154,7 +162,9 @@ YARN = [
      "The rule-of-mixtures composite bound it implies is 706 MPa against a "
      "measured 248-259 MPa, so this is the M6 calibration target, not a "
      "tolerable deviation. Left in the SHIPPED deck because that deck is the "
-     "audited artefact; M6 replaces it"),
+     "audited artefact; M6 replaces it -- and section G now CHECKS that it "
+     "did, instead of leaving the claim in this note. M6's own value is NOT "
+     "graded IN: it and the bracket floor are the same Sauder evaluation"),
     (12, "Xc yarn [MPa]", 1956.0, None, None, "GUESS",
      "no independent compressive strength for T300 filaments was found",
      "rule of mixtures Vf*2470 from Zhang 2022 Table 1"),
@@ -186,15 +196,16 @@ YARN = [
      "fibre-dominated and both materials use T300; same reasoning as G1t"),
     (34, "Gtt yarn [N/mm]", 0.0, None, None, "GUESS",
      "0 disables the crack band. A sourced value now exists -- Shi refs/[31] "
-     "0.107 N/mm on 2D plain weave C/SiC -- but the card has not been "
-     "regenerated",
-     "see data/properties/yarn_fracture_energy.py"),
+     "0.107 N/mm on 2D plain weave C/SiC -- and M6 PUT IT IN (section G). It "
+     "is admissible in tension on this mesh with a 17x margin",
+     "see data/properties/yarn_fracture_energy.py and section G"),
     (35, "Gtc yarn [N/mm]", 0.0, None, None, "GUESS",
      "0 disables the crack band; no transverse compressive fracture energy "
      "for C/SiC exists in the literature searched; Ge refs/[24] Table 3 does "
      "publish Gf,2(3)t = Gf,2(3)c = 1.0 N/mm for carbon/phenolic, so 0.0 is our "
-     "switch-off, not a missing source",
-     "see data/properties/yarn_fracture_energy.py"),
+     "switch-off, not a missing source. M6 set it to Shi's TENSILE 0.107 as "
+     "well, and at Yc that value is NOT admissible on this mesh -- section G",
+     "see data/properties/yarn_fracture_energy.py and section G"),
     (36, "X_PO yarn [MPa]", 700.0, None, None, "GUESS",
      "pull-out parameter of the mixed softening law.  NOT 'not yet found': "
      "a1-0035 read the lineage's primary source, refs/[73] Zhong 2015, and "
@@ -244,6 +255,142 @@ CTE = [
      "the deviation. Flagged as a sensitivity parameter, not corrected, "
      "because the card is Zhang's own verified T300 set"),
 ]
+
+
+# ==========================================================================
+# G.  THE DECK THAT ACTUALLY RAN.
+#
+# Sections A-F audit dist/M4_DRIVERFIX_0730_1623.zip, and the docstring above
+# promises that auditing the shipped deck is what keeps the table from going
+# stale.  It did not: the deck is PINNED, so when M6 shipped a different card
+# on 2026-08-12 the audit stayed green while describing a card no run uses.
+# Two rows had already noticed in words -- Xt says "M6 replaces it" and Gtt
+# says "the card has not been regenerated" -- and a promise in a note is not a
+# check.  This section reads the deck M6 actually ran and re-grades what moved.
+#
+# The M4 table is NOT retired.  M6 is a calibration attempt, and whether its
+# card becomes the accepted one is the M6 verdict's business, not this file's.
+# What this file owes is that BOTH cards are audited and neither is mistaken
+# for the other.
+# ==========================================================================
+RUN_ZIP = os.path.join(ROOT, "dist", "LTH_M6_0812_1411.zip")
+RUN_STEM = "LTH_M6_0812_1411/LTH_M6_%s.inp"
+RUN_TEMPS = (("RT23", 23.0), ("T500", 500.0), ("T1000", 1000.0))
+
+#: What M6 moved, as (card, slot).  Computed from the two decks and compared
+#: with this declaration -- so a fourth slot moving in a later deck fails here
+#: instead of passing silently.
+RUN_MOVED = {("matrix", 2), ("yarn", 11), ("yarn", 34), ("yarn", 35)}
+
+
+def run_deck_text(stem):
+    with zipfile.ZipFile(RUN_ZIP) as z:
+        return z.read(RUN_STEM % stem).decode("utf-8", "replace")
+
+
+def run_deck_audit():
+    print("\n G. the deck that ACTUALLY RAN -- dist/%s"
+          % os.path.basename(RUN_ZIP))
+    if not os.path.exists(RUN_ZIP):
+        check("the run deck is committed", False, RUN_ZIP)
+        return
+    check("the run deck is committed", True, os.path.basename(RUN_ZIP))
+
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    import porosity_stiffness as ps
+    import insitu_yarn_strength as iy
+    import yarn_fracture_energy as yf
+
+    base = deck_text()
+    bm, by = card(base, 25), card(base, 38)
+    moved = set()
+    per_T = {}
+    for stem, T in RUN_TEMPS:
+        txt = run_deck_text(stem)
+        rm, ry = card(txt, 25), card(txt, 38)
+        per_T[stem] = (rm, ry, expansions(txt))
+        for slot, _n, _v, _lo, _hi, _vd, _s, _w in MATRIX:
+            if abs(rm[slot - 1] - bm[slot - 1]) > 1e-9:
+                moved.add(("matrix", slot))
+        for slot, _n, _v, _lo, _hi, _vd, _s, _w in YARN:
+            if abs(ry[slot - 1] - by[slot - 1]) > 1e-9:
+                moved.add(("yarn", slot))
+    check("exactly the declared slots moved between the two decks",
+          moved == RUN_MOVED,
+          "moved %s" % sorted("%s%d" % (g, s) for g, s in moved))
+    # Everything else the M4 table grades is still the number being run, so
+    # sections A-F still describe those rows.  Said as a check, not assumed.
+    check("every other audited slot is unchanged, so A-F still apply",
+          len(moved) == 4)
+    check("the constituent CTEs did not move",
+          all(abs(per_T[s][2][1][1] - CTE[2][1]) < 1e-15
+              for s, _T in RUN_TEMPS))
+
+    # ---- matrix E: was IN, is now BELOW the independent floor -------------
+    vp = ps.porosity_from_density(2.0, 0.40, ps.RHO_T300)
+    em6 = ps.EM_CARD * ps.pocket_knockdown(vp)
+    got = per_T["RT23"][0][1]
+    check("M6's matrix E is the porosity knockdown, re-derived not typed",
+          abs(got - em6) < 1e-6, "%.4f vs %.4f MPa" % (got, em6))
+    lo_e = [r for r in MATRIX if r[0] == 2][0][3]
+    check("...and it falls BELOW the independent floor the M4 row is IN on",
+          got < lo_e, "%.0f < %.0f MPa" % (got, lo_e))
+    check("...so M6's E is DERIVED, not IN -- the drop is deliberate",
+          0.55 < got / ps.EM_CARD < 0.65, "knockdown %.4f" % (got / ps.EM_CARD))
+
+    # ---- yarn Xt: temperature dependent, and NOT independently corroborated
+    for stem, T in RUN_TEMPS:
+        want = iy.recommended(T)
+        got = per_T[stem][1][10]
+        check("M6 %s yarn Xt is insitu_yarn_strength's own value" % stem,
+              abs(got - want) < 1e-4, "%.4f vs %.4f MPa" % (got, want))
+    lo_x = [r for r in YARN if r[0] == 11][0][3]
+    x23 = per_T["RT23"][1][10]
+    # This is the trap.  The card value lands on the bracket floor to within
+    # 0.06 %, which LOOKS like independent corroboration and is not: both the
+    # value and that floor are the same Sauder refs/[08] Weibull evaluation at
+    # the same RVE volume.  Grading it IN would repeat the 2026-08-03 mistake
+    # exactly -- a strand figure agreeing with a strand figure.
+    check("M6's RT Xt sits on the bracket floor to within 0.1 %",
+          abs(x23 - lo_x) / lo_x < 1e-3,
+          "%.4f vs floor %.1f MPa" % (x23, lo_x))
+    check("...and that is NOT corroboration: same source on both sides",
+          "Weibull parameters" in [r for r in YARN if r[0] == 11][0][6])
+    check("...so slot 11 stays DEV, not regraded IN on a self-comparison",
+          [r for r in YARN if r[0] == 11][0][5] == "DEV")
+    check("the two hot values do sit inside the bracket",
+          all(lo_x <= per_T[s][1][10] <= [r for r in YARN if r[0] == 11][0][4]
+              for s in ("T500", "T1000")),
+          "%.1f / %.1f" % (per_T["T500"][1][10], per_T["T1000"][1][10]))
+
+    # ---- yarn Gtt / Gtc: sourced now, but only one of them is admissible ---
+    gtt = per_T["RT23"][1][33]
+    gtc = per_T["RT23"][1][34]
+    check("M6 turned the transverse crack band on with Shi refs/[31]'s value",
+          abs(gtt - yf.SHI2023["GIc"]) < 1e-9 and abs(gtc - gtt) < 1e-12,
+          "Gtt = Gtc = %.3f N/mm" % gtt)
+    yt = [r for r in YARN if r[0] == 13][0][2]
+    yc = [r for r in YARN if r[0] == 14][0][2]
+    Lt, _ = yf.le_max(gtt, yt, yf.E2)
+    Lc, _ = yf.le_max(gtc, yc, yf.E2)
+    check("in TENSION the crack band is admissible on this mesh",
+          Lt > yf.CELENT_MAX, "le_max %.4f > CELENT %.4f mm"
+          % (Lt, yf.CELENT_MAX))
+    # The finding.  Snapback needs le <= le_max, and in transverse COMPRESSION
+    # the same 0.107 N/mm gives a limit BELOW the largest element in the mesh,
+    # because le_max goes as 1/strength^2 and Yc is 4.375x Yt.  So M6 is
+    # running a compressive crack band the mesh cannot resolve.  Whether that
+    # is what killed T500 is the analysis chat's call; that the card is
+    # inadmissible on this mesh is a card judgement, which is this file's.
+    check("in COMPRESSION it is NOT -- le_max is under the largest element",
+          Lc < yf.CELENT_MAX, "le_max %.4f < CELENT %.4f mm"
+          % (Lc, yf.CELENT_MAX))
+    check("...and the gap is the strength ratio squared, so it is structural",
+          abs((Lt / Lc) - (yc / yt) ** 2) < 1e-6,
+          "%.2fx = (%.3f)^2" % (Lt / Lc, yc / yt))
+    check("the M4 rows still say the shipped card has this slot at zero",
+          [r for r in YARN if r[0] == 34][0][2] == 0.0
+          and [r for r in YARN if r[0] == 35][0][2] == 0.0)
 
 
 def main():
@@ -348,6 +495,9 @@ def main():
     # transverse compressive/tensile strength ratio
     check("Yc/Yt ratio is what the crack-band audit used",
           abs(350.0 / 80.0 - 4.375) < 1e-9)
+
+    # ---------------------------------------------------------------- G
+    run_deck_audit()
 
     # ---------------------------------------------------------------- F
     print("\n F. summary")

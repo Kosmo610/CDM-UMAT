@@ -229,6 +229,17 @@ def outstanding():
     if not thermal_card_magnitude_fixed():
         out.append(("S2", "거시 열카드의 크기가 확정되지 않았다 -- KBAR3_FE가 "
                     "conductivity_temperature 에 배선되어 있지 않다", "a1"))
+    # M6 turned the transverse crack band on with Shi's TENSILE Gf in BOTH
+    # slots.  le_max goes as 1/X^2, so the same 0.107 N/mm that clears the
+    # mesh by 17x in tension falls UNDER the largest element in compression.
+    # A re-run that does not touch slot 35 repeats a mesh-inadmissible card,
+    # so this is a pre-run item and not a post-mortem.  Card admissibility is
+    # a1's call; what to put there instead is a2's.
+    if not gtc_admissible_on_this_mesh():
+        out.append(("S1", "M6 카드의 얀 $G_{tc}$가 이 메시에서 적법하지 않다 — "
+                    "인장값 0.107 N/mm를 압축에도 그대로 써 스냅백 한계가 "
+                    "최대요소보다 작다. M7 덱에서 슬롯 35를 정하기 전에는 "
+                    "재실행이 같은 결함을 반복한다", "a2"))
     kbar = os.path.join(ROOT, "postprocess", "kbar_summary.csv")
     if not os.path.exists(kbar):
         out.append(("S1", "LTH_RUN2의 kbar 요약 CSV **파일**이 없다 -> 그림 4.5와 "
@@ -236,6 +247,30 @@ def outstanding():
                     "새 해석은 필요 없다 -- 이미 돌린 잡의 산출물 회수다",
                     "사용자 회수"))
     return out
+
+
+def gtc_admissible_on_this_mesh():
+    """Is the yarn transverse COMPRESSIVE crack band resolvable by the mesh?
+
+    Snapback needs le <= le_max = 2*E2*Gf/X^2.  Recomputed here rather than
+    remembered, because the answer changes the moment either the card or the
+    mesh changes.  Returns True when the deck that ran has no Gtc, or when the
+    Gtc it has clears the largest element.
+    """
+    sys.path.insert(0, os.path.join(ROOT, "verification"))
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    try:
+        import check_card_ranges as ccr
+        import yarn_fracture_energy as yf
+        run = ccr.card(ccr.run_deck_text("RT23"), 38)
+    except Exception:
+        return True
+    gtc = run[34]
+    if gtc <= 0.0:
+        return True
+    yc = [r for r in ccr.YARN if r[0] == 14][0][2]
+    L, _ = yf.le_max(gtc, yc, yf.E2)
+    return L > yf.CELENT_MAX
 
 
 def report():
@@ -387,12 +422,29 @@ def check():
       "KBAR3_FE = 5.4490, conductivity_temperature")
     t("...so no S2 item is raised on account of the kbar CSV",
       not any(x[0] == "S2" and "kbar" in x[1] for x in o))
-    s1 = [x for x in o if x[0] == "S1"]
+    # S1 can now raise more than one item, so select the kbar one by its own
+    # text instead of taking whatever happens to be first -- indexing [0] made
+    # this pair fail the moment a second S1 item appeared.
+    s1 = [x for x in o if x[0] == "S1" and "kbar" in x[1]]
     t("the kbar CSV item, if raised, blocks the FIGURE and the record only",
       not s1 or ("그림 4.5" in s1[0][1] and "새 해석은 필요 없다" in s1[0][1]),
       s1[0][1][:44] + "..." if s1 else "CSV present")
     t("and its owner is artefact recovery, not a run",
       not s1 or s1[0][2] == "사용자 회수")
+    # The Gtc item is the opposite kind: it DOES block a run, and saying so is
+    # the whole point of separating "an artefact is missing" from "the card is
+    # not admissible".
+    gtc = [x for x in o if x[0] == "S1" and "G_{tc}" in x[1]]
+    t("the Gtc item is raised while the run deck carries a compressive Gf",
+      bool(gtc) != gtc_admissible_on_this_mesh(),
+      "raised" if gtc else "admissible")
+    t("...and it blocks a RUN, unlike the kbar item",
+      not gtc or ("재실행" in gtc[0][1] and gtc[0][2] == "a2"))
+    t("...and it names the slot a2 has to decide, not the fix",
+      not gtc or "슬롯 35" in gtc[0][1])
+    t("the admissibility is recomputed, never remembered",
+      "recomputed here rather than remembered"
+      in " ".join(gtc_admissible_on_this_mesh.__doc__.split()).lower())
     t("the reason this distinction exists is written down",
       "could have run" in thermal_card_magnitude_fixed.__doc__)
     t("and it is credited to the agent who caught it",
