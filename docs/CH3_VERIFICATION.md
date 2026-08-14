@@ -49,7 +49,9 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `insitu_yarn_strength.py --check` | 얀 $X_t$의 in-situ 출처·Weibull 구간·온도형상 | 51 |
 | `porosity_stiffness.py --check` | 공극률 결정(CVI 하한)·강성 정합·공정 귀속 | 56 |
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
-| `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 + **판정 CSV**(값·근거·판정 동행) | 16 |
+| `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 + **판정 CSV**(값·근거·판정 동행) + **허용치 대조**(잔차가 허용치의 몇 배인가 → TOLERANCE / EQUILIBRIUM) | 29 |
+| `m6_report.py --selftest` | M6 결과 판독기 — 피크 도달 여부, **접선 정의의 정본**(절대 창·원점 통과·$R^2$ 하한)과 기각된 상대 창의 절단 표류 재실측 | 20 |
+| `m6_verdict.py --selftest` | M6 판정기 — 접선 함수를 **import 로만** 쓰는지 원본 대조, 세 곡선 재적합, 값·근거·판정 CSV | 19 |
 | `compare_tangent.py --selftest` | ITAN 0/1 수렴 비용 대조 — 답이 같은지를 먼저 판정하고, 다르면 비용행을 읽지 못하게 막는다 | 21 |
 | `make_rve_conductivity.py --check` | 열전도 덱 — 면집합 재생성·DC3D4·드라이버 제거·**스텝 경계조건 `op=NEW`** + 단위 스탬프·열확산율 | 41 |
 | `check_card_ranges.py` | 카드 입력 vs **독립** 문헌 범위 (정본 덱 + **실제로 돌아간 덱**의 이동 슬롯 재판정) | 114 |
@@ -66,12 +68,12 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `thermal_cycling_dataset.py --check` | 반복 열충격 전 데이터·심각도 역설·임계온도 공백 + [68] 전문 정정·논문 수 | 51 |
 | `cycle_jump_provenance.py --check` | cycle jump 기준의 출처 — refs/[57] 손상증분 대 refs/[58] 변화율 + 1 %/3 % 앵커 | 40 |
 | `quench_calibration.py --check` | 급랭 h 역산 + Biot 수 | 12 |
-| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부·ITAN 블록 슬롯과 미지정 시 바이트 동일성) | 156 |
+| `retune_deck.py --check` | 덱 재튜닝(카드 슬롯·스텝·M6 카드·균열대 허용성·보정가이드 전사 대조·κ 항등식과 거부·ITAN 블록 슬롯과 미지정 시 바이트 동일성·**M7 지렛대 = stabilize, ftol 소진 확인**) | 166 |
 | `check_ch1_numbers.py` | 제1장 인용·기여·전방참조 | 53 |
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 + **측정 구배 사다리를 `macro_heat_ladder.csv`에서 대조** | 119 |
 | `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 (T5 정정 + §6.2.3 확정표) | 54 |
-| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출·CTE 4단 사다리·$X_{PO}$ 추적 종결·M6 1차 결과 재유도·M6 카드 적법성 포함) | 119 |
+| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출·CTE 4단 사다리·$X_{PO}$ 추적 종결·M6 1차 결과 재유도·M6 카드 적법성·접선 정의 확정 포함) | 160 |
 | `check_ch7_numbers.py` | 제7장 결론 경계 — 결과 없는 결론 6개의 근거·결과 의존 구역의 완료어 금지 + 한계 12개와 소성 몫 재유도 | 41 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 216 |
 | `review_inbox.py --check` | 리뷰 브랜치(a3) 수신 — 원문 PDF 보유 확인·저자 명단·Zhang의 내부 참고문헌 30·32·33번·Ge Table 3 파괴에너지·두 초안 계보 대조 | 29 |
@@ -84,18 +86,18 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `knob_sensitivity.py --check` | knob→관측량 정규화 민감도 자코비안(13×10)·SVD 식별성(3강도 행 유효계수 1)·rF의 Ge 식(17) 파생·구조적 영 민감도·CSV/스냅샷 재생성 | 47 |
 | `md_to_pdf.py --selftest` | 문서 PDF 변환 — 수식 치환·파일명 규칙 | 11 |
 | `md_to_docx.py --selftest` | 논문 초안 워드 합본 — 장 발견·표지 산수(전부 즉석 계산)·수식 막대 정규화 | 10 |
-| `make_thesis_figures.py --check` | 논문 그림 15장 — 한글 폰트·문헌값 재유도·덱값 대조·본문 삽입 여부 + **두 물성 계보의 Bi가 같은 냉각시간을 재현하는지·금지 조합 차단** + **그림 3.1의 SDV 번호를 UMAT 헤더에서 되읽어 대조**) | 54 |
+| `make_thesis_figures.py --check` | 논문 그림 15장 — 한글 폰트·문헌값 재유도·덱값 대조·본문 삽입 여부 + **두 물성 계보의 Bi가 같은 냉각시간을 재현하는지·금지 조합 차단** + **그림 3.1의 SDV 번호를 UMAT 헤더에서 되읽어 대조** + **M6 표를 열 이름으로 읽는지**) | 55 |
 | `extract_kbar.py --selftest` | $\bar k$ 공극률 판정 산식 + **Voigt 상한 가능성 검사**·CSV + 상한을 덱 카드에서 읽기·공극률을 파일 전체에서 읽기 + **덱의 단위 스탬프를 읽어 구·신 단위계를 모두 판독** | 33 |
 | `sync_check.py --selftest` | 두 에이전트 우편함 — 소유권·형식·반영·영역 | 46 |
 | `celent_census.py` | 균열대 폭 `le`=CELENT가 파괴에너지를 얼마나 어긋나게 하는가 (발표 계열 대조 포함) | 35 |
 | `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종·산포·선형분율 | 30 |
 | `extract_probe.py --selftest` | E(N) 프로브 판독 — **Δ기반**(절대반력은 차단 열응력을 읽는다) + `*Depvar` 양쪽 조회 + 스텝 진단 | 13 |
 | `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 + refs/[57]·[58] 역할 분리와 10배 격차 | 11 |
-| `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis | 40 |
+| `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis·**손상 상한을 덱 생성기에서 읽어옴** | 41 |
 | `damage_census.py --check` | 손상 census — 부피가중 분율·ATEFF 클램프 임계·**강도 인용 가부 판정 CSV** | 10 |
 | `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) · **저Bi 고유값·욕조온도·alpha(T) 창** | 31 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **3055** |
+| **합계** | | **3160** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

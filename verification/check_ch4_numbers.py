@@ -492,12 +492,43 @@ def main():
                 else:
                     check("  %s reached a peak before its last point" % T,
                           not rising, "peak %.2f MPa" % pk)
-        # The two claims the chapter rests the porosity closure on.
-        check("Ch.4 quotes the 1000 C tangent 174.2 GPa", "174.2" in ch4)
-        check("  against the measured 172.7 and M5's 235.2",
-              "172.7" in ch4 and "235.2" in ch4)
-        check("  and names the 170.0 GPa prediction it is tested against",
-              "170.0" in ch4)
+        # The tangent table is REFITTED here, under the settled definition,
+        # rather than compared against typed numbers.  It has to be: the
+        # chapter's first version quoted the fractional-window lineage
+        # (111.1 / 167.5 / 174.2) and nothing said so.
+        sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+        import m6_report as _m6
+        meas = {"RT23": 128.7, "T500": 152.3, "T1000": 172.7}
+        fitted = {}
+        for T in ("RT23", "T500", "T1000"):
+            f = os.path.join(M6, "LTH_M6_%s_ss.csv" % T)
+            if not os.path.exists(f):
+                continue
+            e, s = _m6.read_ss(f)
+            E, r2, npt = _m6.initial_tangent(e, s)
+            fitted[T] = E / 1e3
+            quotable, why = _m6.tangent_verdict(E, r2, npt)
+            check("  the %s tangent is quotable at all" % T, quotable, why)
+            check("  and Ch.4 quotes it as %.1f GPa" % (E / 1e3),
+                  ("%.1f" % (E / 1e3)) in ch4,
+                  "ratio %.2fx against refs/[10] %.1f"
+                  % (E / 1e3 / meas[T], meas[T]))
+            check("    with the R^2 that makes it a tangent",
+                  ("%.5f" % r2) in ch4, "R^2 = %.5f" % r2)
+        if "T1000" in fitted:
+            check("  against the measured 172.7 and M5's 235.2",
+                  "172.7" in ch4 and "235.2" in ch4)
+            check("  and names the 170.0 GPa prediction it is tested against",
+                  "170.0" in ch4)
+            check("  the 1000 C ratio is the closest of the three",
+                  all(abs(fitted["T1000"] / meas["T1000"] - 1.0)
+                      <= abs(fitted[k] / meas[k] - 1.0) for k in fitted),
+                  "%.2fx" % (fitted["T1000"] / meas["T1000"]))
+            # The retired lineage must not survive anywhere in the chapter.
+            for stale in ("174.2", "167.5"):
+                check("  the fractional-window number %s is gone" % stale,
+                      stale not in ch4.split("0b.")[0],
+                      "it was the pre-2026-08-14 lineage")
         # The damage-cap caveat is not optional prose: m6_verdict refuses to
         # quote a strength without the census, so the chapter must say so.
         dm = os.path.join(M6, "LTH_M6_T500_damage_map.csv")
@@ -537,9 +568,112 @@ def main():
                       "verdict %s" % tr[0]["verdict"])
         check("Ch.4 keeps the M5 signature band it is compared with",
               "41" in ch4 and "57" in ch4)
-        check("the two tangent definitions are flagged, not averaged",
-              "122.9" in ch4 and "111.1" in ch4
-              and "섞어 인용" in ch4)
+
+    # ------------------------------------------------- 4.9-0b  one tangent
+    print("\n 4.9-0b the tangent definition, settled and re-measured here")
+    check("Ch.4 opens the fork instead of leaving two numbers loose",
+          "122.9" in ch4 and "111.1" in ch4 and "10.6" in ch4)
+    check("  and names which one it keeps",
+          "채택" in ch4 and "기각" in ch4)
+    if os.path.isdir(M6):
+        rt = os.path.join(M6, "LTH_M6_RT23_ss.csv")
+        if os.path.exists(rt):
+            e, s = _m6.read_ss(rt)
+            full = _m6.initial_tangent(e, s)[0] / 1e3
+            q = int(0.25 * len(e))
+            fr_full = _m6.fractional_tangent(e, s) / 1e3
+            fr_cut = _m6.fractional_tangent(e[:q], s[:q]) / 1e3
+            cut = _m6.initial_tangent(e[:q], s[:q])[0] / 1e3
+            drift = 100.0 * (fr_cut - fr_full) / fr_full
+            check("the rejected window really drifts on truncation",
+                  drift > 5.0, "%.1f -> %.1f GPa, %+.1f %%"
+                  % (fr_full, fr_cut, drift))
+            check("  and Ch.4 quotes that drift, both ends",
+                  ("%.1f" % fr_cut) in ch4 and ("%+.1f" % drift).lstrip("+")
+                  in ch4, "expects %.1f GPa and %.1f %%" % (fr_cut, drift))
+            check("the kept window does not move at all",
+                  abs(cut - full) < 1e-9, "%.1f GPa at 100 %% and at 25 %%"
+                  % full)
+    check("  the reason is attributed to modulus_definition.py",
+          "modulus_definition" in ch4)
+    check("  and the straightness floor is stated as a condition",
+          "0.999" in ch4 and "R^2" in ch4.replace("$R^2$", "R^2"))
+    check("Ch.4 says the headline moved, rather than quietly moving it",
+          "1.01" in ch4 and "1.04" in ch4 and "인용하지 않는다" in ch4)
+
+    # ------------------------------------------------- 4.9-0c  T500 is not M3
+    print("\n 4.9-0c T500 -- the tolerance hypothesis, tested and rejected")
+    exc = os.path.join(ROOT, "abaqus", "M6_CONTROLS.txt")
+    check("the shipped M6 controls are committed", os.path.exists(exc))
+    if os.path.exists(exc):
+        import msg_residual_census as _mrc
+        ftol, why = _mrc.deck_ftol(exc)
+        check("  M3's relaxation is in them", abs(ftol - 0.02) < 1e-12, why)
+        check("  and Ch.4 says so rather than assuming it",
+              "이미 M6 덱에 들어 있다" in ch4)
+        # read the residual out of the census file, not out of this line
+        worst = None
+        rf = os.path.join(M6, "LTH_M6_T500_residuals.csv")
+        if os.path.exists(rf):
+            for r in _csv.DictReader(open(rf)):
+                if r["label"] == "worst driver residual" and r["value"]:
+                    worst = float(r["value"])
+        check("  the residual comes from the census, not from prose",
+              worst is not None, "%.4e MPa" % worst if worst else "missing")
+        tol, mult, need, verdict, _ = _mrc.tolerance_verdict(
+            worst or 0.0, ftol, 0.15)
+        check("  the residual is two orders over the criterion, not a few",
+              verdict == "EQUILIBRIUM", "%.0fx" % mult)
+        check("  and Ch.4 quotes that multiple", ("%.0f" % mult)[:2] in ch4,
+              "%.0fx" % mult)
+        check("  with the Rn it would take, which is not a tolerance",
+              need > 1.0 and ("%.2f" % need) in ch4, "Rn = %.2f" % need)
+        check("  so the chapter names stabilize, not ftol, as the M7 lever",
+              "stabilize" in ch4 and "ALLSD" in ch4)
+        check("  and keeps the 5 % damping guard attached to it",
+              "allsdtol" in ch4 and "5 %" in ch4)
+
+    # a1-0040: the Gtc slot.  The verdict is that the mode is never used, so
+    # it has to be READ, not asserted -- if a later run does open compression
+    # this check turns red and the slot must be decided again.
+    dm = os.path.join(M6, "LTH_M6_T500_damage_map.csv")
+    if os.path.exists(dm):
+        modes = [r for r in _csv.DictReader(open(dm))
+                 if r["item"].startswith("modefrac_")]
+        comp = [r for r in modes if "yarn_trans_compression" in r["item"]
+                and float(r["value"]) > 0.0]
+        check("the inadmissible Gtc slot is on a mode that never fired",
+              not comp, "no modefrac_24 row among %d mode rows" % len(modes))
+        trans = [r for r in modes
+                 if r["item"] == "modefrac_23_yarn_trans_tension"
+                 and abs(float(r["value"]) - 1.0) < 1e-6]
+        check("  while the transverse yarns are 100 % tensile",
+              len(trans) >= 2, "%d phases fully in trans_tension" % len(trans))
+        check("  and Ch.4 records the snap-back limits it was judged on",
+              "0.0759" in ch4 and "1.4529" in ch4 and "19.14" in ch4)
+        check("  and states the slot-35 decision as a2's, with its cost",
+              "M7 슬롯 35 = 0" in ch4 and "0.119" in ch4)
+        check("  and says when the decision has to be reopened",
+              "다시 판정한다" in ch4)
+
+    # the saturation detector that was looking at the wrong cap
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    import damage_map as _dmp
+    import retune_deck as _rt
+    check("damage_map's cap is the deck generator's, not a copy of it",
+          abs(_dmp.DMAX_CAP - _rt.D_DMAX) < 1e-12,
+          "DMAX_CAP = %.2f = D_DMAX" % _dmp.DMAX_CAP)
+    if os.path.exists(dm):
+        vals = [float(r["value"]) for r in _csv.DictReader(open(dm))
+                if r.get("value") and r.get("kind") == "hotspot"]
+        capped = [v for v in vals
+                  if abs(v - _dmp.DMAX_CAP) <= _dmp.CAP_TOL]
+        check("  and it now sees the saturation it used to miss",
+              len(capped) > 0,
+              "%d of %d hotspots at %.2f, which the old 0.99 scored as 0"
+              % (len(capped), len(vals), _dmp.DMAX_CAP))
+    check("  Ch.4 records that miss rather than quietly fixing it",
+          "눈을 감고 있었다" in ch4 and "0.99" in ch4)
 
     print("\n" + "=" * 72)
     if _BAD:

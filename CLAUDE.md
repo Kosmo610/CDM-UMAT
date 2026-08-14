@@ -567,6 +567,7 @@ python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직�
 python3 verification/plastic_dissipation_audit.py      # Ge (23)(24) 소성분이 A_m에 들어가는가 (철회 기록)
 python3 verification/knob_sensitivity.py --check       # knob→관측량 정량 자코비안 + SVD 식별성 (rF 파생)
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
+python3 postprocess/m6_verdict.py --selftest          # M6 판정기 (접선 정의 단일화 + CSV)
 python3 postprocess/compare_tangent.py --selftest      # ITAN 0/1 수렴 비용 대조 (.msg)
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 postprocess/md_to_docx.py --selftest           # 논문 초안 워드(.docx) 합본 생성기

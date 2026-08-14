@@ -624,7 +624,7 @@ def heat_ladder():
         return list(_csv.DictReader(fh))
 
 
-def m6_table(header):
+def m6_table(header, keep_header=False):
     """Rows of one markdown table in data/results/M6/README.md.
 
     Returns a list of cell-lists, header row dropped.  Parsing the README
@@ -646,7 +646,26 @@ def m6_table(header):
         if set("".join(cells)) <= set("-: "):
             continue
         rows.append(cells)
-    return rows[1:]
+    return rows if keep_header else rows[1:]
+
+
+def m6_pick(header, colname):
+    """Values of ONE NAMED column of that table.
+
+    Indexing by position is what broke on 2026-08-14: a2 inserted an R^2
+    column between "M6 [GPa]" and the measured value, and every r[3] in this
+    file silently started reading a different quantity.  The figure would
+    still have drawn, with the wrong numbers on it.  So the column is chosen
+    by its heading, and a missing heading raises instead of shifting.
+    """
+    rows = m6_table(header, keep_header=True)
+    if not rows:
+        return []
+    head = rows[0]
+    if colname not in head:
+        raise KeyError("%r not in %r" % (colname, head))
+    j = head.index(colname)
+    return [r[j] for r in rows[1:]]
 
 
 def _num(cell):
@@ -760,7 +779,7 @@ def fig_4_6():
 
     # (a) initial tangent ratio -- the one quantity X_t cannot touch, which
     # is why it is the honest test of the porosity correction.
-    r_tan = [_num(r[3]) for r in tan]
+    r_tan = [_num(v) for v in m6_pick("| $T$ [°C] | M6 [GPa]", "비")]
     a1.axhline(1.0, color=C_GREY, lw=1.0, ls="--")
     a1.plot(T, r_tan, "o-", color=C_ACC, lw=1.7, ms=6, label="M6")
     a1.plot([1000.0], [1.36], "s", color=C_GREY, ms=7, label="M5 (옛 카드)")
@@ -774,7 +793,7 @@ def fig_4_6():
 
     # (b) stress at the measured fracture strain -- the sign SPLITS, and the
     # split is the finding, so it gets its own zero line and no trend curve.
-    r_eps = [_num(r[3]) for r in eps]
+    r_eps = [_num(v) for v in m6_pick("| $T$ [°C] | M6 [MPa]", "비")]
     a2.axhline(1.0, color=C_GREY, lw=1.0, ls="--")
     a2.bar([str(int(x)) for x in T], r_eps,
            color=[C_AUX if v < 1 else C_ACC for v in r_eps])
@@ -785,7 +804,8 @@ def fig_4_6():
     a2.set_title("(b) 파단변형률 응력\n부호가 갈린다", fontsize=8.6)
 
     # (c) did the curve peak at all.  M5: none.  M6: two of three.
-    reached = [1.0 if "예" in r[3] else 0.0 for r in pk]
+    reached = [1.0 if "예" in v else 0.0
+               for v in m6_pick("| $T$ [°C] | 피크 [MPa]", "피크 도달?")]
     a3_.bar([str(int(_num(r[0]))) for r in pk], reached,
             color=[C_ACC if v else C_GREY for v in reached])
     for i, (r, v) in enumerate(zip(pk, reached)):
@@ -878,10 +898,19 @@ def check():
     t("fig 4.6 parses the M6 tangent table out of the results README",
       [_num(r[0]) for r in tan] == [23.0, 500.0, 1000.0],
       "%d rows" % len(tan))
-    t("...and the 1.01x at 1000 C is read, not asserted",
-      abs(_num(tan[-1][3]) - 1.01) < 1e-9, tan[-1][3])
+    ratios = [_num(v) for v in m6_pick("| $T$ [°C] | M6 [GPa]", "비")]
+    t("...and the 1000 C ratio is read by COLUMN NAME, not by position",
+      len(ratios) == 3 and 0.5 < ratios[-1] < 2.0, "%.2fx" % ratios[-1])
+    # 2026-08-14: a2 settled the tangent definition and every ratio moved.
+    # The retired ones must not survive anywhere -- this file used to assert
+    # 1.01 as if it were a fact about the material.
+    t("...and the retired fractional-window ratio is gone",
+      abs(ratios[-1] - 1.01) > 1e-9
+      and not any(x in inspect.getsource(fig_4_6)
+                  for x in ("1.01", "111.1", "174.2")))
     t("fig 4.6 counts the peaks reached rather than stating 2/3",
-      sum(1 for r in pk if "예" in r[3]) == 2
+      sum(1 for v in m6_pick("| $T$ [°C] | 피크 [MPa]", "피크 도달?")
+          if "예" in v) == 2
       and "sum(reached)" in inspect.getsource(fig_4_6))
     t("fig 4.6 does not hard-code the M6 stresses",
       not any(s in inspect.getsource(fig_4_6)
