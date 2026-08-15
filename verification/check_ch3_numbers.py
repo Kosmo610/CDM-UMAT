@@ -112,6 +112,9 @@ CASES = [
     ("msg_residual_census.py --check",
      "python3 postprocess/msg_residual_census.py --check",
      count_bracketed, 29),
+    ("damage_ceiling.py --selftest",
+     "python3 postprocess/damage_ceiling.py --selftest",
+     count_plain, 22),
     ("m6_report.py --selftest",
      "python3 postprocess/m6_report.py --selftest",
      count_plain, 20),
@@ -147,10 +150,10 @@ CASES = [
      count_plain, 54),
     ("check_ch4_numbers.py",
      "python3 verification/check_ch4_numbers.py",
-     count_plain, 160),
+     count_plain, 174),
     ("check_ch7_numbers.py",
      "python3 verification/check_ch7_numbers.py",
-     count_plain, 41),
+     count_plain, 45),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
      count_plain, 216),
@@ -242,7 +245,7 @@ CASES = [
      count_bracketed, 30),
     ("damage_map.py --selftest",
      "python3 postprocess/damage_map.py --selftest",
-     count_bracketed, 41),
+     count_bracketed, 48),
     ("damage_census.py --check",
      "python3 postprocess/damage_census.py --check",
      count_bracketed, 10),
@@ -258,7 +261,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 64
+EXPECTED_CASES = 65  # 2026-08-15: +damage_ceiling (a2, R4-A-4) -- a conscious raise, as designed
 
 
 def main():
