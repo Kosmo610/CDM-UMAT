@@ -157,7 +157,15 @@ DMAX_CAP = _card_dmax()
 CAP_TOL = 1.0e-4
 
 #: Volume-fraction thresholds reported for every phase.
-D_BINS = (0.01, 0.10, 0.50, 0.90)
+#:
+#: The top bin used to be the cap itself, 0.90, and `>=` against a value the
+#: softening law only ever APPROACHES.  Every run therefore reported
+#: volfrac_damg_ge_0.90 = 0 for every phase in every step -- including steps
+#: whose damg_max printed as 0.9 (that is %.6g rounding 0.8999995).  The one
+#: number that says how much of the cell is stuck at the ceiling was
+#: structurally incapable of being non-zero.  The bin is now placed just
+#: below the cap, and a dedicated at-cap fraction is reported beside it.
+D_BINS = (0.01, 0.10, 0.50)
 
 #: A phase is called "localised" rather than "distributed" when less than this
 #: fraction of its volume is past d = 0.5.  Below it the softening lives in a
@@ -392,7 +400,7 @@ def build_rows(step_name, per_phase, axis_name, axis, top_n):
     allitems = []
 
     for phase in sorted(per_phase.keys()):
-        kind, pts = per_phase[phase]
+        kind, pts, caps = per_phase[phase]
         pairs = [(d, w) for d, _m, _u, w, _c, _l in pts]
         st = stats(pairs)
         f50 = volfrac(pairs, 0.50)
@@ -414,6 +422,32 @@ def build_rows(step_name, per_phase, axis_name, axis, top_n):
             rows.append(row("phase", step_name, phase,
                             "volfrac_damg_ge_%.2f" % b, volfrac(pairs, b),
                             basis + ", volume-weighted", vd))
+        # The at-cap fraction, which is what bounds how much the ceiling can
+        # be inflating a peak stress: an element here keeps (1 - DMAX_CAP) of
+        # its stiffness for ever instead of shedding to zero.  Counted with
+        # the same CAP_TOL the hotspot verdict uses, so the ranked list and
+        # this fraction cannot disagree about what "at the cap" means.
+        fcap = volfrac(caps, DMAX_CAP - CAP_TOL)
+        ncap = sum(1 for v, _w in caps if v >= DMAX_CAP - CAP_TOL)
+        rows.append(row("phase", step_name, phase, "volfrac_at_cap", fcap,
+                        "max COMPONENT >= %.4f (cap %.2f - tol %.0e), "
+                        "volume-weighted; not DAMG, which for a yarn merges "
+                        "two components and can exceed the cap without "
+                        "either reaching it"
+                        % (DMAX_CAP - CAP_TOL, DMAX_CAP, CAP_TOL),
+                        "AT THE CARD CEILING" if fcap > 0 else vd))
+        rows.append(row("phase", step_name, phase, "elements_at_cap_phase",
+                        ncap, "count, not volume; the ranked list below is "
+                        "truncated and this one is not",
+                        "AT THE CARD CEILING" if ncap else vd))
+        # Voigt bound on how much that ceiling can be holding up: the capped
+        # volume still carries (1 - DMAX_CAP) of its undamaged stiffness, and
+        # a parallel arrangement is the most generous way to count it.
+        rows.append(row("phase", step_name, phase, "peak_inflation_bound",
+                        fcap * (1.0 - DMAX_CAP),
+                        "Voigt upper bound = volfrac_at_cap * (1 - dmax); "
+                        "phase-local, not the composite figure",
+                        "upper bound"))
         # which mechanism owns the damaged volume
         tally = {}
         for d, m, _u, w, _c, _l in pts:
@@ -431,7 +465,7 @@ def build_rows(step_name, per_phase, axis_name, axis, top_n):
     # ---- worst elements, ranked, across every phase at once
     flat = []
     for phase in per_phase:
-        kind, pts = per_phase[phase]
+        kind, pts, caps = per_phase[phase]
         for d, m, u, w, c, lab in pts:
             flat.append((d, phase, kind, m, u, c, lab))
     flat.sort(key=lambda t: -t[0])
@@ -572,6 +606,7 @@ def gather(frame, phase, region, cent):
             vol[v.elementLabel] = vol.get(v.elementLabel, 0.0) + v.data
 
     pts = []
+    caps = []
     nmag = len(spec["mag"])
     ncmp = len(spec["comp"])
     for lab, e in acc.items():
@@ -580,8 +615,16 @@ def gather(frame, phase, region, cent):
         d, m = unify(phase, mag, cmp_)
         pts.append((d, m, e.get("u"), vol.get(lab, 1.0),
                     cent.get(lab, (0.0, 0.0, 0.0)), lab))
+        # dmax caps the COMPONENTS, not the unified magnitude.  For the
+        # matrix the two coincide, but a yarn's DY1 already merges DY1T and
+        # DY1C, so a yarn point can read 0.976 with neither component at the
+        # 0.90 ceiling -- and a yarn point reading exactly 0.900 is one
+        # component at the ceiling with the other at zero.  Counting the cap
+        # on the unified value therefore both over- and under-counts,
+        # depending on the phase.  Carried separately for that reason.
+        caps.append((max(cmp_) if cmp_ else 0.0, vol.get(lab, 1.0)))
     missing = [n for (s, n), v in fields.items() if v is None]
-    return pts, sorted(missing)
+    return pts, sorted(missing), caps
 
 
 def inject(frame, inst, labels, damg, dmode, dadd, suffix,
@@ -694,7 +737,7 @@ def main(argv):
     if ref_step and ref_step in odb.steps and len(odb.steps[ref_step].frames):
         rf = odb.steps[ref_step].frames[-1]
         for _name, phase, es in regions:
-            pts, _ = gather(rf, phase, es, cent)
+            pts, _, _caps = gather(rf, phase, es, cent)
             for d, _m, _u, _w, _c, lab in pts:
                 refmap[lab] = d
         print("  DADD reference: last frame of step '%s'" % ref_step)
@@ -726,13 +769,13 @@ def main(argv):
         per_phase = {}
         labels, dv, mv, av = [], [], [], []
         for name, phase, es in regions:
-            pts, missing = gather(fr, phase, es, cent)
+            pts, missing, caps = gather(fr, phase, es, cent)
             if missing:
                 print("  %-10s SDV not in this odb: %s"
                       % (name, ", ".join(missing)))
             if not pts:
                 continue
-            per_phase[name] = (phase, pts)
+            per_phase[name] = (phase, pts, caps)
             for d, m, _u, _w, _c, lab in pts:
                 labels.append(lab)
                 dv.append(d)
@@ -907,9 +950,34 @@ def selftest():
     # -- a point that changed mode partway through.  The second agrees.
     pts_y = [(0.40, 23, 1.0, 2.0, (0.5, 0.5, 0.5), 200),
              (0.20, 21, 1.0, 2.0, (0.6, 0.5, 0.5), 201)]
-    rows = build_rows("TENSION", {"Matrix": ("Matrix", pts_m),
-                                  "Yarn0": ("Yarn", pts_y)},
+    # component maxima, which is what dmax actually caps.  The matrix point
+    # at 0.99 is a UNIFIED value; its component is 0.90, i.e. exactly at the
+    # ceiling.  Feeding the unified number here is the mistake this argument
+    # exists to prevent.
+    caps_m = [(0.0, 1.0)] * 9 + [(DMAX_CAP, 1.0)]
+    caps_y = [(0.40, 2.0), (0.20, 2.0)]
+    rows = build_rows("TENSION", {"Matrix": ("Matrix", pts_m, caps_m),
+                                  "Yarn0": ("Yarn", pts_y, caps_y)},
                       "z", 2, 5)
+    at_cap = [r for r in rows if r[3] == "volfrac_at_cap"]
+    ck("the at-cap fraction is reported per phase", len(at_cap) == 2,
+       "%s" % [(r[2], r[4]) for r in at_cap])
+    ck("  and it is non-zero where a COMPONENT is on the ceiling",
+       any(float(r[4]) > 0 for r in at_cap if r[2] == "Matrix"),
+       "matrix 1 of 10 points at %.2f" % DMAX_CAP)
+    ck("  and zero where none is, even at DAMG 0.40",
+       all(float(r[4]) == 0 for r in at_cap if r[2] == "Yarn0"))
+    ck("  its basis says it is the component, not DAMG",
+       all("not DAMG" in r[8] for r in at_cap))
+    bound = [r for r in rows if r[3] == "peak_inflation_bound"]
+    ck("the Voigt inflation bound comes with it", len(bound) == 2)
+    ck("  and equals volfrac_at_cap * (1 - dmax)",
+       abs(float([r for r in bound if r[2] == "Matrix"][0][4])
+           - 0.1 * (1.0 - DMAX_CAP)) < 1e-9,
+       "0.1 * %.2f = %.3f" % (1.0 - DMAX_CAP, 0.1 * (1.0 - DMAX_CAP)))
+    ck("no volume bin sits on the cap, where it could never fire",
+       all(b < DMAX_CAP for b in D_BINS), "bins %s under cap %.2f"
+       % (list(D_BINS), DMAX_CAP))
     kinds = set(r[0] for r in rows)
     ck("the report carries all three sections",
        kinds == set(("phase", "hotspot", "profile")), "%s" % sorted(kinds))
@@ -937,7 +1005,8 @@ def selftest():
        any(r[2] == "Yarn0" and "DY1/DYT" in r[8] for r in rows))
     rows_all = build_rows("Q1", {"ALL": ("Macro",
                                          [(4.3e-7, 35, 5.0, 1.0,
-                                           (0.5, 0.5, 0.5), 7)])}, "z", 2, 3)
+                                           (0.5, 0.5, 0.5), 7)],
+                                         [(4.3e-7, 1.0)])}, "z", 2, 3)
     ck("a macro set named ALL still gets its D1/DT basis (not blank)",
        any(r[2] == "ALL" and "D1/DT" in r[8] for r in rows_all),
        "the first run shipped 'max of ,' here")

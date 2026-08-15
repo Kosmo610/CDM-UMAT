@@ -112,6 +112,9 @@ CASES = [
     ("msg_residual_census.py --check",
      "python3 postprocess/msg_residual_census.py --check",
      count_bracketed, 29),
+    ("damage_ceiling.py --selftest",
+     "python3 postprocess/damage_ceiling.py --selftest",
+     count_plain, 22),
     ("m6_report.py --selftest",
      "python3 postprocess/m6_report.py --selftest",
      count_plain, 20),
@@ -147,7 +150,7 @@ CASES = [
      count_plain, 54),
     ("check_ch4_numbers.py",
      "python3 verification/check_ch4_numbers.py",
-     count_plain, 160),
+     count_plain, 174),
     ("check_ch7_numbers.py",
      "python3 verification/check_ch7_numbers.py",
      count_plain, 41),
@@ -242,7 +245,7 @@ CASES = [
      count_bracketed, 30),
     ("damage_map.py --selftest",
      "python3 postprocess/damage_map.py --selftest",
-     count_bracketed, 41),
+     count_bracketed, 48),
     ("damage_census.py --check",
      "python3 postprocess/damage_census.py --check",
      count_bracketed, 10),
@@ -258,7 +261,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 64
+EXPECTED_CASES = 65
 
 
 def main():
@@ -274,8 +277,8 @@ def main():
     # ------------------------------------------------------------------
     # The ledger's own integrity, BEFORE any of it is counted.
     #
-    # 2026-08-14: a3 reported the merged-tree total as 3160 against a1's
-    # 3160, and the 65 was not a counting disagreement -- their resolution of
+    # 2026-08-14: a3 reported the merged-tree total as 3203 against a1's
+    # 3203, and the 65 was not a counting disagreement -- their resolution of
     # a merge conflict had DROPPED two rows outright, cte_rve_verdict (38)
     # and pending_slots (27).  38 + 27 = 65 exactly.  Nothing failed: a
     # shorter list still sums, and the chapter was then edited to agree with
