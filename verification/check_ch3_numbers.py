@@ -163,6 +163,9 @@ CASES = [
     ("prerun_gate.py --check",
      "python3 verification/prerun_gate.py --check",
      count_bracketed, 44),
+    ("pending_slots.py --check",
+     "python3 verification/pending_slots.py --check",
+     count_bracketed, 27),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
      count_bracketed, 5),
@@ -181,6 +184,9 @@ CASES = [
     ("cte_composite_targets.py --check",
      "python3 data/literature/cte_composite_targets.py --check",
      count_bracketed, 32),
+    ("cte_rve_verdict.py --check",
+     "python3 data/literature/cte_rve_verdict.py --check",
+     count_bracketed, 38),
     ("modulus_definition.py --check",
      "python3 data/literature/modulus_definition.py --check",
      count_bracketed, 25),
@@ -268,7 +274,7 @@ def main():
     # ------------------------------------------------------------------
     # The ledger's own integrity, BEFORE any of it is counted.
     #
-    # 2026-08-14: a3 reported the merged-tree total as 3095 against a1's
+    # 2026-08-14: a3 reported the merged-tree total as 3160 against a1's
     # 3160, and the 65 was not a counting disagreement -- their resolution of
     # a merge conflict had DROPPED two rows outright, cte_rve_verdict (38)
     # and pending_slots (27).  38 + 27 = 65 exactly.  Nothing failed: a

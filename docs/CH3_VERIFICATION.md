@@ -62,6 +62,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 | 30 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도·정의 취약성·선형구간 비 | 43 |
 | `cte_composite_targets.py --check` | refs/[61]의 복합재 CTE 4점과 그 한계 | 32 |
+| `cte_rve_verdict.py --check` | RVE 실물 $\bar\alpha$ 대 절대 표적 — 4단 사다리·상별 상하한·남은 세 어긋남 | 38 |
 | `modulus_definition.py --check` | 대조 모듈러스 — 한 곡선이 3.13배를 걸친다 | 25 |
 | `crack_band_simplex.py --check` | refs/[47]의 2D $\sqrt2$와 a2의 3D $6^{1/3}$ 대조 + refs/[69] published 공식 + 부등부피 일반형 + refs/[46] w_c 대입(범위·거시한정) | 56 |
 | `thermal_cycling_dataset.py --check` | 반복 열충격 전 데이터·심각도 역설·임계온도 공백 + [68] 전문 정정·논문 수 | 51 |
@@ -96,7 +97,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `damage_census.py --check` | 손상 census — 부피가중 분율·ATEFF 클램프 임계·**강도 인용 가부 판정 CSV** | 10 |
 | `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) · **저Bi 고유값·욕조온도·alpha(T) 창** | 31 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **3095** |
+| **합계** | | **3160** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
