@@ -50,6 +50,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `porosity_stiffness.py --check` | 공극률 결정(CVI 하한)·강성 정합·공정 귀속 | 56 |
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
 | `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 + **판정 CSV**(값·근거·판정 동행) + **허용치 대조**(잔차가 허용치의 몇 배인가 → TOLERANCE / EQUILIBRIUM) | 29 |
+| `damage_ceiling.py --selftest` | 손상 상한 0.9 판정 — 공간 분포(밴드 vs 산포)·하중 이전 포화·Voigt 부풀림 상한, 그리고 **순위표 절단과 결합 손상값에 대한 판정 불가 선언** | 22 |
 | `m6_report.py --selftest` | M6 결과 판독기 — 피크 도달 여부, **접선 정의의 정본**(절대 창·원점 통과·$R^2$ 하한)과 기각된 상대 창의 절단 표류 재실측 | 20 |
 | `m6_verdict.py --selftest` | M6 판정기 — 접선 함수를 **import 로만** 쓰는지 원본 대조, 세 곡선 재적합, 값·근거·판정 CSV | 19 |
 | `compare_tangent.py --selftest` | ITAN 0/1 수렴 비용 대조 — 답이 같은지를 먼저 판정하고, 다르면 비용행을 읽지 못하게 막는다 | 21 |
@@ -72,7 +73,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `check_ch2_numbers.py` | 제2장 본문 수치 vs 문헌 CSV + 사이클 데이터셋 | 46 |
 | `check_ch5_numbers.py` | 제5장 vs 덱 생성기 실제값 + **측정 구배 사다리를 `macro_heat_ladder.csv`에서 대조** | 119 |
 | `check_ch6_numbers.py` | 제6장 검증표적 vs 사이클 데이터셋 재유도 (T5 정정 + §6.2.3 확정표) | 54 |
-| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출 + M6 접선 **재적합**·정의 단일화·T500 허용치 판정) | 120 |
+| `check_ch4_numbers.py` | 제4장 수치 vs 메시·덱 재유도 (κ×공극 노출 + M6 접선 **재적합**·정의 단일화·T500 허용치 판정·손상 상한 판정) | 134 |
 | `check_ch7_numbers.py` | 제7장 결론 경계 — 결과 없는 결론 6개의 근거·결과 의존 구역의 완료어 금지 + 한계 12개와 소성 몫 재유도 | 41 |
 | `check_chapter_flow.py` | 제1~5장 유기적 연결성 (본문 `§` 상호참조 전수 해석 포함 — 그림 자리 상자의 참조도 검사 대상) | 214 |
 | `review_inbox.py --check` | 리뷰 브랜치(a3) 수신 — 원문 PDF 보유 확인·저자 명단·Zhang의 내부 참고문헌 30·32·33번·Ge Table 3 파괴에너지·두 초안 계보 대조 | 29 |
@@ -91,11 +92,11 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `extract_pls.py --selftest` | 비례한도(PLS) 추출 — 정의 4종·산포·선형분율 | 30 |
 | `extract_probe.py --selftest` | E(N) 프로브 판독 — **Δ기반**(절대반력은 차단 열응력을 읽는다) + `*Depvar` 양쪽 조회 + 스텝 진단 | 13 |
 | `compare_cyclejump.py --selftest` | cycle-jump 오차 판정 규칙 + refs/[57]·[58] 역할 분리와 10배 격차 | 11 |
-| `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis·**손상 상한을 덱 생성기에서 읽어옴** | 41 |
+| `damage_map.py --selftest` | 상마다 다른 SDV 번호를 하나의 `DAMG`로 통일 — 크기·모드·국소화 판정·표면/내부 프로파일·CENTROID 대체경로·DCYC 모드(35)·ALL 라벨 basis·**손상 상한을 덱 생성기에서 읽어옴·성분 기준 at-cap 부피분율** | 48 |
 | `damage_census.py --check` | 손상 census — 부피가중 분율·ATEFF 클램프 임계·**강도 인용 가부 판정 CSV** | 10 |
 | `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) · **저Bi 고유값·욕조온도·alpha(T) 창** | 31 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정 | 18 |
-| **합계** | | **2991** |
+| **합계** | | **3034** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 

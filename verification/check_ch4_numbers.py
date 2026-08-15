@@ -542,6 +542,60 @@ def main():
     check("  Ch.4 records that miss rather than quietly fixing it",
           "눈을 감고 있었다" in ch4 and "0.99" in ch4)
 
+    # ------------------------------------------------- 4.9-0d  the ceiling
+    print("\n 4.9-0d the damage ceiling -- where, when, how much")
+    import damage_ceiling as _dc
+    if os.path.exists(dm):
+        got = _dc.analyse(dm)
+        tot = [r for r in got if r[0] == "summary"][0]
+        check("the ceiling count is re-derived, not read from the chapter",
+              tot[4] == 42, "%s certain cap hits" % tot[4])
+        pre = [r for r in got
+               if r[0] == "timing" and r[7] == "CEILING REACHED BEFORE LOADING"]
+        check("  and %d of them predate any mechanical load"
+              % (pre[0][4] if pre else 0), bool(pre) and pre[0][4] == 12,
+              pre[0][2] if pre else "no unloaded step saturates")
+        check("  which Ch.4 states as the timing answer",
+              "12개는" in ch4 and "역학 하중을 전혀 걸지 않는다" in ch4)
+        sp = [r for r in got if r[0] == "space" and "Tension" in r[2]]
+        check("  the capped points span the whole cell, not one band",
+              sp and sp[0][7].startswith("SCATTERED"),
+              sp[0][6] if sp else "no space row")
+        check("  and Ch.4 quotes the spacing that says they are contiguous",
+              "0.0565" in ch4 and "밴드" in ch4)
+        ph = {r[3]: r[4] for r in got if r[0] == "phase" and "Tension" in r[2]}
+        check("  the ceiling is mostly MATRIX, correcting 4.9-0a(4)",
+              ph.get("MATRIX", 0) == 22 and sum(v for k, v in ph.items()
+                                                if k != "MATRIX") == 8,
+              "matrix %s, yarn %s" % (ph.get("MATRIX"),
+                                      sum(v for k, v in ph.items()
+                                          if k != "MATRIX")))
+        check("  and Ch.4 issues that correction explicitly",
+              "귀속 정정" in ch4 and "22개가 기지" in ch4)
+        cen = [r for r in got if r[0] == "count" and r[7] == "LOWER BOUND"]
+        check("  the tension count is censored by the rank limit",
+              bool(cen), cen[0][6] if cen else "not censored")
+        check("  and Ch.4 says 30 is a lower bound, not a count",
+              "하한이다" in ch4 and "미상" in ch4)
+        bd = [r for r in got if r[0] == "bound"]
+        check("  the inflation bound is refused on a pre-fix map",
+              bd and bd[0][7] == "NOT COMPUTABLE FROM THIS FILE")
+        check("  and Ch.4 says so instead of reporting zero",
+              "아직 못 센다" in ch4)
+    rt = os.path.join(M6, "LTH_M6_RT23_damage_map.csv")
+    if os.path.exists(rt):
+        got = _dc.analyse(rt)
+        sm = [r for r in got if r[0] == "summary"]
+        und = [r for r in sm if r[7] == "INDETERMINATE FROM THIS FILE"]
+        check("RT23 is left undecided, because DY1 is a combined value",
+              sm[0][4] == 0 and und and und[0][4] == 30,
+              "0 certain, %s indeterminate" % (und[0][4] if und else "-"))
+        check("  and Ch.4 explains why 0.976 decides nothing",
+              "0.976" in ch4 and "INDETERMINATE" in ch4)
+    check("the top volume bin no longer sits on the cap",
+          all(b < _dmp.DMAX_CAP for b in _dmp.D_BINS),
+          "bins %s under %.2f" % (list(_dmp.D_BINS), _dmp.DMAX_CAP))
+
     print("\n" + "=" * 72)
     if _BAD:
         print("ROUND 1 FAIL -- %d of %d: %s"
