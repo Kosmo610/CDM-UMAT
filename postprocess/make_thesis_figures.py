@@ -770,12 +770,24 @@ def fig_5_4():
 
 
 def fig_4_6():
-    """M6 — 출처 있는 카드가 M5 대비 무엇을 고쳤나 (판정 3종)."""
+    """M6 — 출처 있는 카드가 M5 대비 무엇을 고쳤나.
+
+    (a)는 README 표를 열 이름으로 파싱하고, (b)(c)는 2026-08-16부터 a2가 커밋한
+    원곡선 CSV(data/results/M6/LTH_M6_*_ss.csv)를 직접 읽는다.  판독은 전부
+    postprocess/m6_verdict.py의 함수(read_curve/stress_at/peak)와 상수(ZHANG/
+    EPS_TARGET)로 한다 — 여기서 다시 구현하면 판독기가 둘이 되고, 접선 정의가
+    두 개였던 사고(§4.9-0b)의 재판이 된다.
+    """
+    sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+    import m6_verdict as mv
     tan = m6_table("| $T$ [°C] | M6 [GPa]")
-    eps = m6_table("| $T$ [°C] | M6 [MPa]")
-    pk = m6_table("| $T$ [°C] | 피크 [MPa]")
     T = [_num(r[0]) for r in tan]
-    fig, (a1, a2, a3_) = plt.subplots(1, 3, figsize=(7.4, 2.9))
+    curves = {}
+    for t in (23, 500, 1000):
+        f = os.path.join(RESULTS, "M6", "LTH_M6_%s_ss.csv"
+                         % {23: "RT23", 500: "T500", 1000: "T1000"}[t])
+        curves[t] = mv.read_curve(f)
+    fig, (a1, a2, a3_) = plt.subplots(1, 3, figsize=(7.6, 2.9))
 
     # (a) initial tangent ratio -- the one quantity X_t cannot touch, which
     # is why it is the honest test of the porosity correction.
@@ -791,31 +803,46 @@ def fig_4_6():
     a1.set_title("(a) 초기 접선\n공극률 보정의 시험", fontsize=8.6)
     a1.legend(fontsize=7, loc="upper left")
 
-    # (b) stress at the measured fracture strain -- the sign SPLITS, and the
-    # split is the finding, so it gets its own zero line and no trend curve.
-    r_eps = [_num(v) for v in m6_pick("| $T$ [°C] | M6 [MPa]", "비")]
-    a2.axhline(1.0, color=C_GREY, lw=1.0, ls="--")
-    a2.bar([str(int(x)) for x in T], r_eps,
-           color=[C_AUX if v < 1 else C_ACC for v in r_eps])
-    for i, v in enumerate(r_eps):
-        a2.text(i, v + 0.03, "%.2f×" % v, ha="center", fontsize=8)
-    a2.set_ylim(0, 1.45)
-    a2.set_xlabel("$T$ [°C]"); a2.set_ylabel("M6 / Zhang T3")
-    a2.set_title("(b) 파단변형률 응력\n부호가 갈린다", fontsize=8.6)
+    # (b) the actual stress-strain curves, with the fracture-strain test ON
+    # them: x = Zhang's measured strength at his own measured failure strain,
+    # o = where the M6 curve passes that strain.  The vertical gap IS the
+    # (b)-verdict; the old bar chart showed the ratio and hid the curve.
+    shades = {23: C_AUX, 500: C_ACC, 1000: "#7a3010"}
+    for t in (23, 500, 1000):
+        c = curves[t]
+        a2.plot([100.0 * e for e, _ in c], [sg for _, sg in c],
+                color=shades[t], lw=1.4, label="%d °C" % t)
+        et = mv.EPS_TARGET[t]
+        a2.axvline(100.0 * et, color=shades[t], lw=0.7, ls=":", alpha=0.6)
+        a2.plot([100.0 * et], [mv.stress_at(c, et)], "o", color=shades[t],
+                ms=5)
+        a2.plot([100.0 * et], [mv.ZHANG[t]], "x", color="black", ms=7,
+                mew=1.6)
+    a2.set_xlabel(r"$\varepsilon$ [%]"); a2.set_ylabel(r"$\sigma$ [MPa]")
+    a2.set_title("(b) 원곡선과 파단변형률 시험\n×=Zhang, ●=M6", fontsize=8.6)
+    a2.legend(fontsize=6.6, loc="lower right")
 
-    # (c) did the curve peak at all.  M5: none.  M6: two of three.
-    reached = [1.0 if "예" in v else 0.0
-               for v in m6_pick("| $T$ [°C] | 피크 [MPa]", "피크 도달?")]
-    a3_.bar([str(int(_num(r[0]))) for r in pk], reached,
-            color=[C_ACC if v else C_GREY for v in reached])
-    for i, (r, v) in enumerate(zip(pk, reached)):
-        a3_.text(i, 0.04, "%.0f MPa" % _num(r[1]), ha="center", fontsize=7.6,
-                 rotation=90, va="bottom", color="white" if v else "black")
-    a3_.set_ylim(0, 1.35)
-    a3_.set_yticks([0, 1]); a3_.set_yticklabels(["미도달", "도달"])
-    a3_.set_xlabel("$T$ [°C]")
-    a3_.set_title("(c) 피크 도달\nM5 0/3 → M6 %d/3"
-                  % int(sum(reached)), fontsize=8.6)
+    # (c) the same three tests collapsed: stress over ZHANG[T] against strain
+    # over EPS_TARGET[t], so every target sits at (1, 1).  A curve passing
+    # above the cross over-predicts, below under-predicts -- the sign split
+    # is one glance.  Peaks (v) before x = 1 are what M5 never had; the RT23
+    # curve ending right of x = 1 while still rising is the expected shape,
+    # not a failure (Zhang's RT specimen broke at 0.150 %).
+    for t in (23, 500, 1000):
+        c = curves[t]
+        et, zt = mv.EPS_TARGET[t], mv.ZHANG[t]
+        a3_.plot([e / et for e, _ in c], [sg / zt for _, sg in c],
+                 color=shades[t], lw=1.4)
+        pe, ps, at_end = mv.peak(c)
+        if not at_end:
+            a3_.plot([pe / et], [ps / zt], "v", color=shades[t], ms=6)
+    a3_.plot([1.0], [1.0], "x", color="black", ms=8, mew=1.8)
+    a3_.axhline(1.0, color=C_GREY, lw=0.7, ls="--")
+    a3_.axvline(1.0, color=C_GREY, lw=0.7, ls="--")
+    a3_.set_xlim(0, 1.35); a3_.set_ylim(0, 1.75)
+    a3_.set_xlabel(r"$\varepsilon$ / $\varepsilon_{meas}$")
+    a3_.set_ylabel(r"$\sigma$ / Zhang T3")
+    a3_.set_title("(c) 정규화 — 표적이 (1,1)\n▼=피크(잠정)", fontsize=8.6)
     return save(fig, "fig_4_6_m6")
 
 
@@ -908,10 +935,24 @@ def check():
       abs(ratios[-1] - 1.01) > 1e-9
       and not any(x in inspect.getsource(fig_4_6)
                   for x in ("1.01", "111.1", "174.2")))
-    t("fig 4.6 counts the peaks reached rather than stating 2/3",
+    # (b)(c) now consume the committed curves through m6_verdict's own
+    # readers.  What matters is that the figure has NO reader of its own --
+    # a second reader is how the two-tangent fork happened.
+    sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+    import m6_verdict as _mv
+    src46 = inspect.getsource(fig_4_6)
+    t("fig 4.6 reads the curves via m6_verdict, not its own parser",
+      "mv.read_curve" in src46 and "mv.stress_at" in src46
+      and "csv" not in src46.replace("_ss.csv", ""))
+    t("...and the peak count it can draw agrees with the README verdict",
       sum(1 for v in m6_pick("| $T$ [°C] | 피크 [MPa]", "피크 도달?")
-          if "예" in v) == 2
-      and "sum(reached)" in inspect.getsource(fig_4_6))
+          if "예" in v)
+      == sum(1 for tag in ("RT23", "T500", "T1000")
+             if not _mv.peak(_mv.read_curve(os.path.join(
+                 RESULTS, "M6", "LTH_M6_%s_ss.csv" % tag)))[2]))
+    t("...and the targets it marks are m6_verdict's, not typed",
+      "mv.ZHANG" in src46 and "mv.EPS_TARGET" in src46
+      and not any(x in src46 for x in ("128.45", "179.42", "199.15")))
     t("fig 4.6 does not hard-code the M6 stresses",
       not any(s in inspect.getsource(fig_4_6)
               for s in ("199.83", "226.83", "284.71", "0.81", "1.19")))

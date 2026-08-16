@@ -135,7 +135,7 @@ CASES = [
      count_bracketed, 12),
     ("retune_deck.py --check",
      "python3 abaqus/retune_deck.py --check",
-     count_plain, 166),
+     count_plain, 178),
     ("check_ch1_numbers.py",
      "python3 verification/check_ch1_numbers.py",
      count_plain, 53),
@@ -156,7 +156,7 @@ CASES = [
      count_plain, 45),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
-     count_plain, 216),
+     count_plain, 218),
     ("review_inbox.py --check",
      "python3 verification/review_inbox.py --check",
      count_bracketed, 29),
@@ -224,7 +224,7 @@ CASES = [
          r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 10),
     ("make_thesis_figures.py --check",
      "python3 postprocess/make_thesis_figures.py --check",
-     count_bracketed, 55),
+     count_bracketed, 57),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
      count_bracketed, 33),
@@ -421,6 +421,49 @@ def main():
     check("3.8-5a points at --brittle as the fix", "--brittle" in sec5a)
     check("3.8-5a routes the regularisation verdict to the _BR bars",
           "_BR` 봉으로 한다" in sec5a)
+
+    # ---- 3.8-8 the ceiling that fires before the load, and what it costs C1
+    print("\n section 3.8-8 -- the damage ceiling reaches the C1 comparison")
+    sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+    import damage_ceiling as dc
+    dm = os.path.join(ROOT, "data", "results", "M6",
+                      "LTH_M6_T500_damage_map.csv")
+    if os.path.exists(dm):
+        got = dc.analyse(dm)
+        pre = [r for r in got if r[0] == "timing"
+               and r[7] == "CEILING REACHED BEFORE LOADING"]
+        tot = [r for r in got if r[0] == "summary"][0]
+        check("the unloaded-step saturation is re-derived, not quoted",
+              bool(pre) and pre[0][4] == 12, "%s in %s"
+              % (pre[0][4] if pre else "-", pre[0][2] if pre else "-"))
+        check("  and 3.8-8 states both that count and the total",
+              "42개가" in text and "12개는" in text,
+              "%d total, %d before load" % (tot[4], pre[0][4] if pre else 0))
+        # the 0.344 is the cooldown maximum the reheat climbs from
+        import csv as _csv
+        cool = [float(r["value"]) for r in _csv.DictReader(open(dm))
+                if r["item"] == "damg_max" and r["phase"] == "MATRIX"
+                and r["step"].startswith("Manufacturing")]
+        check("  the pre-reheat matrix maximum is read from the map",
+              cool and abs(cool[0] - 0.344269) < 1e-5, "%.6f" % cool[0])
+        check("  and 3.8-8 quotes it as the level the reheat climbs from",
+              "0.344" in text)
+    check("3.8-8 names WHICH C1 cases the ceiling collapses together",
+          "B(1회 냉각 후 동결)와 C(손상에 따라 재분배)" in text)
+    check("  and says which way the error runs",
+          "과소평가하는 쪽이다" in text)
+    check("  so the 'small difference' conclusion carries a gate",
+          "8.4(a)를 먼저 통과해야 한다" in text)
+    check("  while the 'large difference' one does not need it",
+          "차이가 크게 나오는 경우" in text)
+    check("3.8-8 offers a way to close it without a solver",
+          "volfrac_at_cap" in text and "해석 불요" in text)
+    ch2 = open(os.path.join(ROOT, "docs", "CH2_LITERATURE_REVIEW.md")).read()
+    check("Ch.2 2.3.4 points forward to it, since it is that section's "
+          "only permanent channel",
+          "제3장 §3.8-8" in ch2 and "0.344" in ch2)
+    check("  without making a new claim about the literature",
+          "해석에서 확인되었다" in ch2 and "제4장 §4.9-0d" in ch2)
 
     # the grand total the chapter states
     print("\n the grand total stated in Ch.3 section 3.1")

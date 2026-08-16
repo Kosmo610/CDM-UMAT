@@ -192,6 +192,32 @@ M7_FTOL_EXHAUSTED_AT = 0.02            # what already shipped and still died
 #: the worst free-driver residual T500 died on, MPa of macro stress
 M7_T500_WORST_MPA = 4.081633e-02
 
+#: The M7 preset: everything M6 shipped, plus exactly these.
+#:
+#:   gtc        0.107 -> 0   Slot 35 carried a TENSILE G_Ic, which makes the
+#:                           compressive snap-back limit 0.0759 mm against a
+#:                           0.0845 mm element (a1-0040).  The ratio is
+#:                           (Yc/Yt)^2 = 19.14, so no mesh size escapes it.
+#:                           This is a LEGALITY fix and it is provably inert
+#:                           here: the T500 damage map has zero damaged volume
+#:                           in mode 24, and `--gtc 0` moves exactly one
+#:                           number on the card.  See Ch.4 4.9-0c(4) for the
+#:                           condition under which it has to be revisited.
+#:
+#:   stabilize  2e-4 -> 1e-3 The ONE behavioural change.  A single factor-five
+#:                           step, because the value is a declared numerical
+#:                           knob with no source and stepping it twice at once
+#:                           would leave nothing to attribute the outcome to.
+#:                           allsdtol = 0.05 does the limiting: Abaqus reduces
+#:                           the damping itself if ALLSD/ALLIE passes 5 %.
+#:
+#: So M7 is a one-knob experiment even though two card entries move, and the
+#: check below holds it to that.
+M7 = dict(gtc=0.0, stabilize=1.0e-3)
+#: raising this without reading ALLSD/ALLIE afterwards is how an artificial
+#: damping term ends up quoted as a peak strength
+M7_REQUIRES_ENERGY_OUTPUT = ("ALLSD", "ALLIE")
+
 # --------------------------------------------------------------------------
 # 2026-08-03, M6: the three card values that stopped being guesses
 # --------------------------------------------------------------------------
@@ -1345,8 +1371,99 @@ def check():
       "Rn = %.2f" % need)
     t("so the lever named here is NOT ftol", M7_LEVER != "ftol")
 
+    # ---- the M7 preset: one behavioural knob, and a legality fix ---------
+    print("\n  the M7 preset")
+    t("it names both entries it moves", set(M7) == set(("gtc", "stabilize")),
+      "gtc -> %g, stabilize -> %g" % (M7["gtc"], M7["stabilize"]))
+    t("ftol is not among them", "ftol" not in M7)
+    t("stabilize moves up, not down", M7["stabilize"] > D_STABILIZE,
+      "%g -> %g, a factor of %.0f"
+      % (D_STABILIZE, M7["stabilize"], M7["stabilize"] / D_STABILIZE))
+    t("  by one step, so the outcome stays attributable",
+      M7["stabilize"] / D_STABILIZE <= 10.0,
+      "%.0fx" % (M7["stabilize"] / D_STABILIZE))
+    t("  and the damping guard is still what limits it",
+      D_ALLSDTOL > 0.0, "allsdtol = %g caps ALLSD/ALLIE at %.0f %%"
+      % (D_ALLSDTOL, 100.0 * D_ALLSDTOL))
+    t("the preset says a peak may not be quoted without the energies",
+      set(M7_REQUIRES_ENERGY_OUTPUT) <= set(OUTPUT.split()) or
+      all(k in OUTPUT for k in M7_REQUIRES_ENERGY_OUTPUT),
+      "%s are in the deck's *Energy Output"
+      % ", ".join(M7_REQUIRES_ENERGY_OUTPUT))
+
+    # gtc = 0 must move exactly one number, or it is not the inert fix the
+    # damage map says it is
+    class _M7Args(object):
+        pass
+
+    def _mk(**kw):
+        z = _M7Args()
+        for k, v in dict(dmax=D_DMAX, eta=D_ETA, djump=D_DJUMP, hsmo=D_HSMO,
+                         matrix_e=None, kappa=1.0, itan=None, yarn_xt=None,
+                         g1t=D_G1T, g1c=D_G1C, gtt=0.107, gtc=0.107,
+                         zero=D_ZERO).items():
+            setattr(z, k, v)
+        for k, v in kw.items():
+            setattr(z, k, v)
+        return z
+
+    m6 = materials(_mk()).splitlines()
+    m7 = materials(_mk(gtc=M7["gtc"])).splitlines()
+    diff = [(x, y) for x, y in zip(m6, m7) if x != y]
+    t("gtc = 0 changes exactly one card line", len(diff) == 1
+      and len(m6) == len(m7), "%d line(s)" % len(diff))
+    if diff:
+        n6 = [w.strip() for w in diff[0][0].split(",")]
+        n7 = [w.strip() for w in diff[0][1].split(",")]
+        moved = [k for k, (p, q) in enumerate(zip(n6, n7)) if p != q]
+        t("  and exactly one number on it", len(moved) == 1,
+          "%s -> %s" % (n6[moved[0]], n7[moved[0]]) if moved else "none")
+        t("  leaving the tensile slot alone", "0.107" in diff[0][1],
+          "Gtt stays, Gtc goes to 0")
+
+    # the preset must never overwrite something the caller typed
+    ap7 = argparse.ArgumentParser()
+    ap7.add_argument("--gtc", type=float, default=None)
+    ap7.add_argument("--stabilize", type=float, default=D_STABILIZE)
+    got = ap7.parse_args([])
+    applied, kept = apply_m7(got, ap7)
+    t("on a bare command line the preset fills both in",
+      set(applied) == set(M7) and not kept,
+      "gtc=%g stabilize=%g" % (got.gtc, got.stabilize))
+    got = ap7.parse_args(["--stabilize", "5e-3"])
+    applied, kept = apply_m7(got, ap7)
+    t("an explicit --stabilize survives the preset",
+      abs(got.stabilize - 5e-3) < 1e-15 and "stabilize" in kept,
+      "kept %g, applied %s" % (got.stabilize, sorted(applied)))
+    t("  and the preset says so instead of discarding it silently",
+      "reported rather than silently discarded" in apply_m7.__doc__)
+
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
+
+
+def apply_m7(a, ap):
+    """Fill in the M7 preset, never overriding what the caller asked for.
+
+    Returns (applied, kept).  A value is applied only where the argument is
+    still at its parser default; anything the caller typed wins and is
+    reported rather than silently discarded, because a preset that quietly
+    overwrites an explicit flag is a preset that will one day produce a deck
+    nobody can account for.
+    """
+    applied, kept = {}, {}
+    for key, val in M7.items():
+        cur = getattr(a, key, None)
+        default = ap.get_default(key)
+        same = (cur is None and default is None) or (
+            cur is not None and default is not None
+            and abs(float(cur) - float(default)) < 1e-15)
+        if same:
+            setattr(a, key, val)
+            applied[key] = val
+        else:
+            kept[key] = cur
+    return applied, kept
 
 
 def main():
@@ -1365,6 +1482,16 @@ def main():
     ap.add_argument("--inc", type=int, default=D_INC,
                     help="increment budget per step (default %d). 10000 let a "
                          "crawling job burn 15 h before giving up." % D_INC)
+    ap.add_argument("--m7", action="store_true",
+                    help="apply the M7 preset: gtc=%g (slot 35 carried a "
+                         "TENSILE G_Ic and is inadmissible in compression on "
+                         "this mesh, though the mode never fired) and "
+                         "stabilize=%g (the one behavioural change; ftol is "
+                         "exhausted -- M6 already shipped Rn=0.02 and T500's "
+                         "free-driver residual was 73x it). Values you pass "
+                         "explicitly are kept. ALLSD/ALLIE must be read "
+                         "before quoting any peak from the result."
+                         % (M7["gtc"], M7["stabilize"]))
     ap.add_argument("--stabilize", type=float, default=D_STABILIZE,
                     help="*Static stabilize factor, 0 disables (default %g)"
                          % D_STABILIZE)
@@ -1469,6 +1596,18 @@ def main():
 
     if a.check:
         sys.exit(check())
+
+    if getattr(a, "m7", False):
+        applied, kept = apply_m7(a, ap)
+        for k, v in sorted(applied.items()):
+            print("  M7 preset  %-10s -> %g" % (k, v))
+        for k, v in sorted(kept.items()):
+            print("  M7 preset  %-10s NOT applied: you passed %g explicitly"
+                  % (k, v))
+        print("  M7 preset  ftol left at %g -- it is EXHAUSTED, not a lever"
+              % a.ftol)
+        print("  M7 preset  read %s before quoting any peak"
+              % "/".join(M7_REQUIRES_ENERGY_OUTPUT))
     if not a.deck:
         ap.error("give a deck to retune, or --check")
 
