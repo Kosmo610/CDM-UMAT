@@ -74,21 +74,37 @@ CLUSTER_HI = ("Li refs/[28] 142.06 / ZHANG2013 Fig.3 ~140", 140.0, 145.0)
 CLUSTER_LO = ("ZHANG2013 Fig.4(b) 97.7 / Mei refs/[43] 70", 70.0, 98.0)
 
 
+def ss_columns(header):
+    """(eps_index, sigma_index) resolved BY NAME from an _ss.csv header.
+
+    By name, not by position: a1's figure gate went quietly wrong when a
+    column was inserted into a table read by position (2026-08-16), and the
+    same failure was latent here -- extract_ss_curve.py writes
+    eps_xx,sigma_xx_MPa first today, but nothing stops a future version
+    prepending a time column, and a positional reader would then fit a
+    tangent to time against strain without erroring.
+    """
+    names = [h.strip().lower() for h in header.split(",")]
+    ei = next((i for i, n in enumerate(names) if n.startswith("eps")), None)
+    si = next((i for i, n in enumerate(names) if n.startswith("sig")), None)
+    if ei is None or si is None:
+        raise ValueError("not an _ss.csv header: %r (need eps*, sig*)"
+                         % header.strip())
+    return ei, si
+
+
 def read_ss(path):
     """Return (eps, sig) from an extract_ss_curve.py CSV."""
     eps, sig = [], []
     with open(path) as f:
-        head = f.readline()
-        if "eps" not in head:
-            raise ValueError("%s: not an _ss.csv (header was %r)"
-                             % (path, head.strip()))
+        ei, si = ss_columns(f.readline())
         for line in f:
             line = line.strip()
             if not line:
                 continue
             parts = line.split(",")
-            eps.append(float(parts[0]))
-            sig.append(float(parts[1]))
+            eps.append(float(parts[ei]))
+            sig.append(float(parts[si]))
     return eps, sig
 
 
@@ -351,7 +367,44 @@ def selftest():
         t("the real RT23 curve is committed for this test",
           False, "missing %s" % rt)
 
+    # ---- column-name hardening (the a1-0041 failure class) ---------------
+    print("\n  columns are resolved by name, not position")
+    import tempfile
+    d5 = tempfile.mkdtemp()
+    normal = os.path.join(d5, "n_ss.csv")
+    open(normal, "w").write("eps_xx,sigma_xx_MPa\n0.001,100.0\n0.002,180.0\n")
+    shifted = os.path.join(d5, "s_ss.csv")
+    open(shifted, "w").write("time,eps_xx,sigma_xx_MPa\n"
+                             "0.5,0.001,100.0\n1.0,0.002,180.0\n")
+    e1, s1 = read_ss(normal)
+    e2, s2 = read_ss(shifted)
+    t("a prepended column changes nothing", e1 == e2 and s1 == s2,
+      "eps %s sig %s either way" % (e1, s1))
+    t("  the positional reading of the shifted file would have been wrong",
+      e1 != [0.5, 1.0], "position 0 is 'time' there")
+    try:
+        ss_columns("a,b,c")
+        t("a header with neither eps nor sigma fails loudly", False)
+    except ValueError as exc:
+        t("a header with neither eps nor sigma fails loudly", True, str(exc))
+
     import m6_verdict as _v
+    cs = _v.read_curve(shifted)
+    t("m6_verdict.read_curve absorbs the shift the same way",
+      cs == [(0.001, 100.0), (0.002, 180.0)], "%s" % cs)
+    open(os.path.join(d5, "h_ss.csv"), "w").write("0.001,100.0\n0.002,180.0\n")
+    t("  and a headerless legacy file still reads as columns 0/1",
+      _v.read_curve(os.path.join(d5, "h_ss.csv")) == [(0.002, 180.0)],
+      "first line consumed as header, by design -- legacy files had one")
+    sys.path.insert(0, os.path.join(os.path.dirname(here), "data",
+                                    "properties"))
+    import m6_calibration as _cal
+    t("m6_calibration's M5 reader is hardened the same way",
+      _cal.measured_curve(shifted) == [(0.001, 100.0), (0.002, 180.0)]
+      if hasattr(_cal, "measured_curve") else "startswith(\"eps\")"
+      in open(os.path.join(os.path.dirname(here), "data", "properties",
+                           "m6_calibration.py")).read(),
+      "columns by name in all three curve readers")
     # NOT `is`: run as __main__ this module is loaded twice under two names,
     # so the two function objects differ while the definition does not.
     # Attribution plus the import line is what actually pins it.
@@ -361,8 +414,8 @@ def selftest():
       and _v.initial_tangent.__name__ == "initial_tangent",
       "%s.%s" % (_v.initial_tangent.__module__, _v.initial_tangent.__name__))
     t("and it gets there by importing, not by copying",
-      "from m6_report import" in src and "initial_tangent" in
-      src.split("from m6_report import")[1].split(")")[0],
+      any("initial_tangent" in seg.split(")")[0]
+          for seg in src.split("from m6_report import")[1:]),
       "one definition, imported once")
 
     print("\n%s" % ("ALL %d SELFTESTS PASS" % len(ok) if all(ok)

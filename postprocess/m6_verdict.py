@@ -59,16 +59,31 @@ VY_X = 0.4982 / 2.0
 
 
 def read_curve(path):
-    """[(eps, sigma)] from an extract_ss_curve.py csv."""
+    """[(eps, sigma)] from an extract_ss_curve.py csv.
+
+    Columns are resolved BY NAME from the header (m6_report.ss_columns), not
+    taken as the first two -- this reader used to be positional, which works
+    until the day someone prepends a column, and then it fits time as strain
+    without a single error message.  Same signature as always: a1's figure
+    4.6 imports this function.
+    """
+    from m6_report import ss_columns
     out = []
     with open(path) as f:
-        for line in f.read().splitlines()[1:]:
-            p = line.split(",")
-            if len(p) >= 2:
-                try:
-                    out.append((float(p[0]), float(p[1])))
-                except ValueError:
-                    pass
+        lines = f.read().splitlines()
+    if not lines:
+        return out
+    try:
+        ei, si = ss_columns(lines[0])
+    except ValueError:
+        ei, si = 0, 1                     # headerless legacy file
+    for line in lines[1:]:
+        p = line.split(",")
+        if len(p) > max(ei, si):
+            try:
+                out.append((float(p[ei]), float(p[si])))
+            except ValueError:
+                pass
     return sorted(out)
 
 
