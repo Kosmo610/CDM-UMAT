@@ -9,51 +9,64 @@
 
 ---
 
-## Q1. ★ M7 — T500 재도전 (M6 의 유일한 미완주)
+## Q1. ★ M7 — **묶음이 도착했다. 지금 돌릴 수 있다.** ✅
 
 | | |
 |---|---|
-| 묶음 | **아직 없다.** 프리셋(`--m7`)은 정해졌으나 zip 이 안 나왔다 — 아래 8/16 갱신 |
+| 묶음 | **`dist/LTH_M7_0816_2022.zip`** (a2 `3cdb308`) — a3 가 열어 확인했다 |
 | 여는 것 | S1 완결 → **S3·S4·S5 전부** |
-| 안 하면 | 세 온도 중 하나가 비어 보정이 미완으로 남는다 |
+| 비용 | 잡 3개, 서로 **독립 → 창 3개로 병렬** |
 
-### ★ 2026-08-14 정정 — **진단이 뒤집혔다. 허용오차 문제가 아니다.**
-
-전에는 「M3 와 같은 서명 = 솔버가 무의미한 정밀도를 요구한다」로 적었다.
-a2 의 R4-A6(`9b03a0d`)이 **그것을 실측으로 부정했다**:
-
-- M3 의 `*CONTROLS` 완화는 **이미 M6 덱에 들어가 있었다** — 세 스텝 모두
-  $R_n$ = 0.02 (`abaqus/M6_CONTROLS.txt`, 배포 덱에서 sha256 과 함께 그대로 인용).
-- 그런데도 죽었고, **그 잔차를 통과시키려면 $R_n$ = 1.47 이 필요하다.**
-  그것은 허용오차가 아니라 **평형을 포기하는 값**이다.
-- 즉 **같은 증상, 다른 병**이다. **허용오차 레버는 이미 다 썼다.**
-
-**M7 의 레버는 `stabilize` 이며, `allsdtol = 0.05` 로 묶는다**(인공 감쇠가 피크를
-부풀리는 것을 막는 CLAUDE.md 규칙). `msg_residual_census` 가 이제 이 판정을
-스스로 내려 CSV 에 `TOLERANCE` / `EQUILIBRIUM` 를 써 준다.
-
-### 2026-08-16 갱신 — **프리셋은 정해졌다. 묶음이 아직 없다.**
-
-a2 `f9ee9a5` 가 `retune_deck.py --m7` 을 넣었다. 두 가지만 바꾼다:
+**M6 덱과의 차이는 정확히 두 줄뿐**이고 저장소 검사가 바이트로 고정한다:
 
 | | M6 | **M7** | 성격 |
 |---|---|---|---|
-| 얀 $G_{tc}$ | 0.107 | **0** | **적법성 수정** — 여기서 무해함이 증명돼 있다 |
-| `stabilize` | 2e-4 | **1e-3** | **거동을 바꾸는 유일한 항목.** 5배 한 걸음만 |
+| 얀 슬롯 35 ($G_{tc}$) | 0.107 | **0** | 적법성 수정. 이 하중경로에서 모드 24 손상부피 0 → **결과 무해** |
+| `*Static stabilize` | 2e-4 | **1e-3** | **거동을 바꾸는 유일한 항목.** 한 단계만 |
 
-한 번에 하나만 움직이는 것이 요점이다 — 둘을 같이 바꾸면 결과를 어디에
-돌릴지 알 수 없다. `ftol` 은 그대로다.
+`ftol` 은 그대로 0.02 다 — **소진 판정**이며(T500 잔차가 그 기준의 73배였다)
+덱이 매 실행마다 그것을 소리 내어 적는다.
 
-**그러나 `dist/` 에 M7 zip 이 없으므로 아직 못 돌린다.** 스위치는 덱을
-만드는 도구이지 워크스테이션에 풀 묶음이 아니다. **a2 에게 묶음을 요청했다**
-(`TO_A1.md` 머리말 B-2). 오면 `LTH_M7_<MMDD_HHMM>` 이름으로 온다.
+**a3 가 덱을 열어 확인한 것:** 세 스텝 전부
+`*Static, stabilize=0.001, allsdtol=0.05` 이고 `*Energy Output` 에
+`ALLIE, ALLSD, ALLWK, ALLPD` 가 들어 있다. **감쇠 관문이 실제로 걸려 있다.**
 
-**받으면 반드시 확인할 것 — `ALLSD/ALLIE` 가 출력에 있는지.** `stabilize` 를
-켰으므로 인공 감쇠가 5 % 미만인지 못 보면 **피크를 논문에 못 싣는다.**
+### 명령 — 압축을 `E:\LTH\` 에 풀면 폴더가 그대로 실행 폴더가 된다
 
-→ **따라서 Q1 은 아직 못 돌린다.** 막는 것이 「덱 수정」에서
-   **「`stabilize` 를 넣은 M7 덱을 만들어 zip 으로 내보내기」** 로 바뀌었을 뿐이다.
-   **이것이 지금 사용자를 막고 있는 유일한 항목이다.**
+**① 해석 (Abaqus Command 창 3개, 서로 독립)**
+
+```
+E:
+cd \LTH\LTH_M7_0816_2022
+abaqus job=LTH_M7_RT23  input=LTH_M7_RT23.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
+abaqus job=LTH_M7_T500  input=LTH_M7_T500.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
+abaqus job=LTH_M7_T1000 input=LTH_M7_T1000.inp user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
+```
+
+**② 잡 하나가 끝날 때마다 그 잡부터 바로** (수 초, `cpus`/`memory` 불필요)
+
+```
+abaqus python extract_ss_curve.py LTH_M7_RT23.odb
+abaqus python damage_map.py       LTH_M7_RT23.odb
+abaqus python driver_audit.py     LTH_M7_RT23.odb
+abaqus python reheat_frames.py    LTH_M7_T500.odb
+```
+
+`driver_audit` 가 **ALLSD/ALLIE 5 % 관문**이다 — **이것 없이는 피크를 논문에
+못 싣는다.** `reheat_frames` 는 T500·T1000 만(RT23 에는 재가열 스텝이 없다).
+
+**③ 세 잡이 다 끝나면**
+
+```
+python m6_verdict.py     LTH_M7_RT23_ss.csv LTH_M7_T500_ss.csv LTH_M7_T1000_ss.csv
+python damage_ceiling.py LTH_M7_RT23_damage_map.csv LTH_M7_T500_damage_map.csv LTH_M7_T1000_damage_map.csv
+```
+
+죽은 잡이 있으면: `python msg_residual_census.py LTH_M7_T500.msg LTH_M7_T500.inp`
+
+**채팅에 올릴 것:** `m6_verdict_summary.csv` · `damage_ceiling_summary.csv` ·
+`LTH_M7_*_ss.csv`(3) · `LTH_M7_*_damage_map.csv`(3) ·
+`LTH_M7_*_drivers.csv`(3, 감쇠 판정 포함) · `LTH_M7_{T500,T1000}_reheat_frames.csv`
 
 ---
 
@@ -170,7 +183,7 @@ S0 선행검증의 마지막 항목이다. **9케이스 매트릭스 전에** �
 
 ```
 솔버 불요 (에이전트가 진행 중)   █████████░  R4 10건 중 9건 완료 (남은 것 A-1)
-솔버 필요 (사람 대기)            ░░░░░░░░░░  Q1~Q5, 그중 Q3·Q3-c·Q4 는 회수·후처리만
+솔버 필요 (사람 대기)            ░░░░░░░░░░  Q1~Q5 **전부 실행 가능** — 차단 없음
 ```
 
 **2026-08-16 기준 — 앉으면 바로 되는 순서**
@@ -183,7 +196,7 @@ S0 선행검증의 마지막 항목이다. **9케이스 매트릭스 전에** �
 | Q4 | CAE 캡처 3장 + 죽은 M5 ODB | 10분 | ✅ Q3-c 와 같은 자리 |
 | Q2 | ITAN·취성 봉 9잡 | 30분 | ✅ |
 | Q5 | 사이클 점프 5덱 | 1시간 | ✅ |
-| Q1 | M7 | 큼 | ⛔ **프리셋은 왔다. a2 가 zip 을 내보내야 한다** |
+| **Q1** | **M7 — 창 3개 병렬** | 큼 | ✅ **묶음 도착. 지금 가능** |
 | Q6 | S3 9잡 | 큼 | ⛔ 카드 자리표 — 금지 |
 
 **Q3-c 의 값이 8/16 에 올라갔다.** 처음에는 「강도 절대값의 잠정 딱지」만
