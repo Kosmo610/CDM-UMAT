@@ -153,7 +153,7 @@ CASES = [
      count_plain, 174),
     ("check_ch7_numbers.py",
      "python3 verification/check_ch7_numbers.py",
-     count_plain, 41),
+     count_plain, 45),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
      count_plain, 216),
@@ -261,7 +261,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 65
+EXPECTED_CASES = 65  # 2026-08-15: +damage_ceiling (a2, R4-A-4) -- a conscious raise, as designed
 
 
 def main():

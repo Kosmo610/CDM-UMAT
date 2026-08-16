@@ -137,8 +137,8 @@ def main():
     # band and stays proportional to l_e, so the TOTAL is mesh-dependent
     # even when the band is perfect.  Measured by
     # verification/plastic_dissipation_audit.py.
-    check("twelve numbered limitations", len(
-        re.findall(r"(?m)^\d+\. ", L)) == 12)
+    check("thirteen numbered limitations", len(
+        re.findall(r"(?m)^\d+\. ", L)) == 13)
     for needle, why in (
             ("분위기 변수가 없다", "one-atmosphere model"),
             ("미측정", "the 900-1200 hole"),
@@ -151,10 +151,21 @@ def main():
             ("빌려온", "borrowed matrix card"),
             ("PIP인데", "process mismatch"),
             ("독립성이 완전하지 않다", "target independence"),
+            ("공개되어 있지 않다", "transverse compression: absent, not unfound"),
             ("소성 소산은 놓아준다", "plastic work is outside the crack band")):
         check("  covers: %s" % why, needle in L)
     check("the two unresolved 6.2.3 rows surface here too",
           "굽힘" in L)
+    # R10-2 (a3 recommends, a1 rules): "not published" is a stronger claim
+    # than "not found", so the chapter must carry BOTH legs it stands on --
+    # the three dated literature sweeps and the zero damage volume -- or the
+    # wording degrades back to an unsupported absolute.
+    check("limitation 13 names the three sweeps",
+          "2026-08-03" in L and "08-11" in L and "08-15" in L)
+    check("limitation 13 names the second, independent leg",
+          "손상 부피가 0" in L and "4.9-0c" in L)
+    check("limitation 13 does not promote the slot out of GUESS",
+          "GUESS" in L and "재판정" in L)
     # The plastic-share numbers must be the audit's, not typed ones.
     sys.path.insert(0, HERE)
     import plastic_dissipation_audit as pda
