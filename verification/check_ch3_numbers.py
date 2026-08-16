@@ -112,6 +112,9 @@ CASES = [
     ("msg_residual_census.py --check",
      "python3 postprocess/msg_residual_census.py --check",
      count_bracketed, 29),
+    ("reheat_saturation.py --check",
+     "python3 verification/reheat_saturation.py --check",
+     count_bracketed, 31),
     ("damage_ceiling.py --selftest",
      "python3 postprocess/damage_ceiling.py --selftest",
      count_plain, 22),
@@ -261,7 +264,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 65  # 2026-08-15: +damage_ceiling (a2, R4-A-4) -- a conscious raise, as designed
+EXPECTED_CASES = 66  # 2026-08-16: +reheat_saturation (a2, cause of the reheat ceiling) -- a conscious raise, as designed
 
 
 def main():

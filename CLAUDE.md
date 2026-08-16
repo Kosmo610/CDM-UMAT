@@ -565,6 +565,7 @@ python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 verification/plastic_dissipation_audit.py      # Ge (23)(24) 소성분이 A_m에 들어가는가 (철회 기록)
+python3 verification/reheat_saturation.py --check      # 재가열 상한 도달의 원인 (점성 지연 16 % + 재분배 84 %)
 python3 verification/knob_sensitivity.py --check       # knob→관측량 정량 자코비안 + SVD 식별성 (rF 파생)
 python3 postprocess/m6_report.py --selftest            # M6 결과 판독기 (피크 + 냉각 후 접선)
 python3 postprocess/m6_verdict.py --selftest          # M6 판정기 (접선 정의 단일화 + CSV)
