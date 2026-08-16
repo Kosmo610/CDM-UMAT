@@ -162,7 +162,7 @@ CASES = [
      count_bracketed, 29),
     ("check_manuscript_citations.py",
      "python3 verification/check_manuscript_citations.py",
-     count_plain, 14),
+     count_plain, 22),
     ("prerun_gate.py --check",
      "python3 verification/prerun_gate.py --check",
      count_bracketed, 44),

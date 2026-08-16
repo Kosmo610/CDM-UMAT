@@ -111,6 +111,27 @@ def paragraphs(text):
     return out
 
 
+def conflict_markers(text):
+    """(line number, marker) for every REAL conflict marker in the text.
+
+    Line-start only, and never inside a fenced code block: the gate must be
+    able to coexist with a chapter that quotes a marker as an example.  The
+    bare ======= separator is deliberately not matched -- markdown uses it
+    as a heading underline -- but a conflict cannot be committed without its
+    <<<<<<< and >>>>>>> lines, so the two are sufficient.
+    """
+    hits, fenced = [], False
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        if line.startswith("<<<<<<< ") or line.startswith(">>>>>>> "):
+            hits.append((i, line[:12]))
+    return hits
+
+
 def main():
     print("=" * 78)
     print("MANUSCRIPT CITATION AUDIT -- docs/CH1..CH7 is the submission")
@@ -122,6 +143,28 @@ def main():
           ", ".join(missing))
     if missing:
         return 1
+
+    # ---------------------------------------------------------------- F
+    # F. the submission is a WHOLE document before it is a correct one.
+    #
+    # a3 R12 (2026-08-16): CH1 sat for two days with three unresolved merge
+    # conflicts committed -- the same sentence twice, with different totals --
+    # and check_ch1 / consistency / flow ALL PASSED, because every checker
+    # asks "is the right string present" and none asks "is the file an intact
+    # document".  The wrong string being present too is invisible to that
+    # question.  So: markers are checked at line start only (a3's own quote
+    # of the defect tripped this very check until indented), and lines inside
+    # fenced code blocks are skipped, so a chapter may legitimately DISCUSS a
+    # conflict marker without failing the gate.
+    print("\n F. the seven chapters carry no merge-conflict markers")
+    for tag, body in sorted(ch.items()):
+        check("%s is an intact document (no conflict markers)" % tag,
+              not conflict_markers(body),
+              "; ".join("line %d: %s" % hit for hit in conflict_markers(body)))
+    check("the detector ignores fenced and indented examples",
+          not conflict_markers(
+              "```\n<<<<<<< HEAD\n```\n >>>>>>> theirs\n")
+          and len(conflict_markers("<<<<<<< HEAD\nx\n>>>>>>> b\n")) == 2)
 
     tbl, rows = reference_table(ch["제2장"])
     check("the chapter-2 reference section was located", bool(tbl))
