@@ -125,12 +125,21 @@ def load_curve(path=None):
     path = path or os.path.join(HERE, "M5_c26k_T1000_ss.csv")
     if not os.path.exists(path):
         return []
+    # columns by NAME, not position -- the same hardening as m6_report/
+    # m6_verdict (2026-08-16): a prepended column must break loudly or be
+    # absorbed correctly, never read silently as the wrong quantity.
+    lines = open(path).read().splitlines()
+    if not lines:
+        return []
+    names = [h.strip().lower() for h in lines[0].split(",")]
+    ei = next((i for i, n in enumerate(names) if n.startswith("eps")), 0)
+    si = next((i for i, n in enumerate(names) if n.startswith("sig")), 1)
     out = []
-    for line in open(path).read().splitlines()[1:]:
+    for line in lines[1:]:
         p = line.split(",")
-        if len(p) >= 2:
+        if len(p) > max(ei, si):
             try:
-                out.append((float(p[0]), float(p[1])))
+                out.append((float(p[ei]), float(p[si])))
             except ValueError:
                 pass
     return sorted(out)

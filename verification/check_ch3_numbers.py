@@ -123,10 +123,13 @@ CASES = [
      count_plain, 22),
     ("m6_report.py --selftest",
      "python3 postprocess/m6_report.py --selftest",
-     count_plain, 20),
+     count_plain, 26),
     ("m6_verdict.py --selftest",
      "python3 postprocess/m6_verdict.py --selftest",
      count_plain, 19),
+    ("matrix_audit.py --check",
+     "python3 abaqus/matrix_audit.py --check",
+     count_bracketed, 39),
     ("make_rve_conductivity.py --check",
      "python3 abaqus/make_rve_conductivity.py --check",
      count_bracketed, 41),
@@ -267,7 +270,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 67  # 2026-08-16: +reheat_saturation (a2, cause of the reheat ceiling) -- a conscious raise, as designed
+EXPECTED_CASES = 68  # 2026-08-16: +reheat_saturation (a2, cause of the reheat ceiling) -- a conscious raise, as designed
 
 
 def main():

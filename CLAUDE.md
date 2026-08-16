@@ -574,6 +574,7 @@ python3 postprocess/compare_tangent.py --selftest      # ITAN 0/1 수렴 비용 
 python3 postprocess/md_to_pdf.py --selftest            # 문서 PDF 변환 (한글 폰트 + 파일명 규칙)
 python3 postprocess/md_to_docx.py --selftest           # 논문 초안 워드(.docx) 합본 생성기
 python3 postprocess/make_thesis_figures.py --check      # 논문 그림 생성기 (문헌값 재유도 + 본문 삽입)
+python3 abaqus/matrix_audit.py --check               # 9케이스 매트릭스 축 검증 + 실행 계획서 생성
 python3 abaqus/make_patch_tests.py --check            # 패치·균열대 덱 (Jacobian 포함)
 python3 postprocess/extract_kbar.py --selftest        # kbar 공극률 판정 산식
 python3 postprocess/extract_pls.py --selftest         # 비례한도(PLS) 추출 정의 4종
