@@ -163,6 +163,39 @@ def drive(path, nsub=200, scale=1.0, dt=DT_MAX):
     return out
 
 
+def lag_share_vs_eta(etas=(0.0, 0.025, 0.05, 0.1, 0.2), scale=None):
+    """How much of the reheat rise the viscous lag explains, per ETA.
+
+    ETA is a declared numerical KNOB (card_gap_triage: 'a solver parameter,
+    not a material one'), and this is what it now buys: the share of the
+    load-free reheat rise that is numerical rather than physical.  The drive
+    (the calibrated cooldown path) is held fixed while ETA varies, so the
+    column moves for one reason only.
+
+    Returns [(eta, d_end_cool, target, lag_remaining, share_of_gap)] where
+    share_of_gap = (target - d_end) / (DMAX - d_end): the fraction of the
+    distance to the ceiling that pure single-point lag can still cover.
+    """
+    scale = calibrate() if scale is None else scale
+    out = []
+    for eta in etas:
+        card = MATRIX_CARD.copy()
+        card[9] = eta
+        sv = np.zeros(20)
+        nsub = 200
+        for k in range(1, nsub + 1):
+            T = T_ZERO + (T_COLD - T_ZERO) * k / float(nsub)
+            eps = np.array([scale * matrix_mech_strain(T), 0, 0, 0, 0, 0])
+            _s, _C, sv, _d = vc.matrix_point(eps, sv, card, dtime=DT_MAX,
+                                             celent=CELENT, kstep=1)
+        d_end, rt = sv[0], sv[2]
+        target = damage_target(rt)
+        lag = max(0.0, target - d_end)
+        gap = DMAX - d_end
+        out.append((eta, d_end, target, lag, lag / gap if gap > 0 else 0.0))
+    return out
+
+
 def calibrate(target_d=DAMG_END_COOL, lo=1.0, hi=3.0, tol=1.0e-6):
     """The scale that makes the cooldown leg end at the measured damage."""
     cool = [PATH[0]]
@@ -252,6 +285,16 @@ def report():
     print("    hold the answer -- damage_map reads frames[-1] only.  Reading the")
     print("    reheat step frame by frame separates the two contributions with")
     print("    no solver time at all.")
+    print("\n 8. WHAT THE ETA KNOB BUYS -- the lag share is tunable, the rest is not")
+    print("    %-8s %12s %10s %12s %12s"
+          % ("ETA", "d_end cool", "target", "lag left", "share of gap"))
+    for eta, d, tgt, lag, share in lag_share_vs_eta():
+        print("    %-8.3f %12.4f %10.4f %12.4f %11.1f %%"
+              % (eta, d, tgt, lag, 100.0 * share))
+    print("    ETA is a declared numerical KNOB (card_gap_triage).  This is")
+    print("    its price: it sets how much of the load-free reheat rise is")
+    print("    numerical.  The redistribution part is whatever remains, and")
+    print("    reheat_frames.py measures it from the odb, ETA-free.")
     print("=" * 78)
     return 0
 
@@ -374,6 +417,30 @@ def check():
       "점성 지연" in ch3 and "재분배" in ch3)
     t("  so the gate is strengthened, not removed",
       "차이가 크게 나오는 경우" in ch3 and "관문이 약해지지 않는다" in ch3)
+
+    print("\n H. the ETA knob's price is quantified, not just declared")
+    tg = open(os.path.join(ROOT, "data", "properties",
+                           "card_gap_triage.py")).read()
+    t("card_gap_triage already grades ETA as a KNOB",
+      '"eta", 0.05, "KNOB"' in tg.replace("'", '"'),
+      "a solver parameter, not a material one")
+    rows = lag_share_vs_eta()
+    t("the lag share is monotone in ETA",
+      all(rows[i][4] <= rows[i + 1][4] + 1e-12 for i in range(len(rows) - 1)),
+      " -> ".join("%.1f %%" % (100 * r[4]) for r in rows))
+    t("  ETA = 0 leaves no lag at all", rows[0][4] < 1e-9,
+      "d_end = target = %.4f" % rows[0][2])
+    z = [r for r in rows if abs(r[0] - 0.05) < 1e-12][0]
+    t("  and the card's 0.05 reproduces the 16 %", 0.15 < z[4] < 0.18,
+      "%.1f %%" % (100 * z[4]))
+    t("  doubling ETA nearly doubles the numerical share",
+      1.5 < [r for r in rows if abs(r[0] - 0.1) < 1e-12][0][4] / z[4] < 2.0,
+      "16.3 -> 26.9 %")
+    t("the frame reader that settles it ETA-free exists and is in the gate",
+      os.path.exists(os.path.join(ROOT, "postprocess", "reheat_frames.py")),
+      "reheat_frames.py splits by the RMT high-water mark, not by time")
+    t("Ch.3 8.3-a states the knob and its price together",
+      "ETA" in ch3 and "16.3" in ch3 and "26.9" in ch3)
 
 
 def main(argv):

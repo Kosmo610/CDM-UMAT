@@ -114,7 +114,10 @@ CASES = [
      count_bracketed, 29),
     ("reheat_saturation.py --check",
      "python3 verification/reheat_saturation.py --check",
-     count_bracketed, 31),
+     count_bracketed, 38),
+    ("reheat_frames.py --selftest",
+     "python3 postprocess/reheat_frames.py --selftest",
+     count_bracketed, 18),
     ("damage_ceiling.py --selftest",
      "python3 postprocess/damage_ceiling.py --selftest",
      count_plain, 22),
@@ -264,7 +267,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 66  # 2026-08-16: +reheat_saturation (a2, cause of the reheat ceiling) -- a conscious raise, as designed
+EXPECTED_CASES = 67  # 2026-08-16: +reheat_saturation (a2, cause of the reheat ceiling) -- a conscious raise, as designed
 
 
 def main():
