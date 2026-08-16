@@ -87,7 +87,7 @@ CASES = [
      count_bracketed, 31),
     ("cte_sensitivity.py --check",
      "python3 data/properties/cte_sensitivity.py --check",
-     count_bracketed, 59),
+     count_bracketed, 69),
     ("cte_r11_envelope.py --check",
      "python3 data/literature/cte_r11_envelope.py --check",
      count_bracketed, 27),
@@ -126,7 +126,7 @@ CASES = [
      count_bracketed, 41),
     ("check_card_ranges.py",
      "python3 verification/check_card_ranges.py",
-     count_plain, 95),
+     count_plain, 114),
     ("card_gap_triage.py --check",
      "python3 data/properties/card_gap_triage.py --check",
      count_bracketed, 68),
@@ -150,13 +150,13 @@ CASES = [
      count_plain, 54),
     ("check_ch4_numbers.py",
      "python3 verification/check_ch4_numbers.py",
-     count_plain, 134),
+     count_plain, 174),
     ("check_ch7_numbers.py",
      "python3 verification/check_ch7_numbers.py",
-     count_plain, 41),
+     count_plain, 45),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
-     count_plain, 216),
+     count_plain, 218),
     ("review_inbox.py --check",
      "python3 verification/review_inbox.py --check",
      count_bracketed, 29),
@@ -165,6 +165,9 @@ CASES = [
      count_plain, 14),
     ("prerun_gate.py --check",
      "python3 verification/prerun_gate.py --check",
+     count_bracketed, 44),
+    ("pending_slots.py --check",
+     "python3 verification/pending_slots.py --check",
      count_bracketed, 27),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
@@ -174,7 +177,7 @@ CASES = [
      count_bracketed, 30),
     ("refs_audit.py --check",
      "python3 data/literature/refs_audit.py --check",
-     count_bracketed, 133),
+     count_bracketed, 134),
     ("gf_temperature.py --check",
      "python3 data/literature/gf_temperature.py --check",
      count_bracketed, 30),
@@ -184,6 +187,9 @@ CASES = [
     ("cte_composite_targets.py --check",
      "python3 data/literature/cte_composite_targets.py --check",
      count_bracketed, 32),
+    ("cte_rve_verdict.py --check",
+     "python3 data/literature/cte_rve_verdict.py --check",
+     count_bracketed, 38),
     ("modulus_definition.py --check",
      "python3 data/literature/modulus_definition.py --check",
      count_bracketed, 25),
@@ -218,7 +224,7 @@ CASES = [
          r"(?m)^\s{0,4}(?:PASS|FAIL|SKIP)\b", s)), 10),
     ("make_thesis_figures.py --check",
      "python3 postprocess/make_thesis_figures.py --check",
-     count_bracketed, 40),
+     count_bracketed, 57),
     ("extract_kbar.py --selftest",
      "python3 postprocess/extract_kbar.py --selftest",
      count_bracketed, 33),
@@ -252,6 +258,12 @@ CASES = [
 ]
 
 
+#: How many rows the ledger has.  Pinned so that a merge cannot silently
+#: shorten it -- see the note at the top of main().  Raising this is a
+#: conscious act; a row disappearing is not.
+EXPECTED_CASES = 65  # 2026-08-15: +damage_ceiling (a2, R4-A-4) -- a conscious raise, as designed
+
+
 def main():
     print("=" * 72)
     print("check_ch3_numbers.py -- Ch.3's claimed test counts vs reality")
@@ -261,6 +273,37 @@ def main():
         print("  docs/CH3_VERIFICATION.md not found")
         return 1
     text = open(CHAPTER).read()
+
+    # ------------------------------------------------------------------
+    # The ledger's own integrity, BEFORE any of it is counted.
+    #
+    # 2026-08-14: a3 reported the merged-tree total as 3095 against a1's
+    # 3160, and the 65 was not a counting disagreement -- their resolution of
+    # a merge conflict had DROPPED two rows outright, cte_rve_verdict (38)
+    # and pending_slots (27).  38 + 27 = 65 exactly.  Nothing failed: a
+    # shorter list still sums, and the chapter was then edited to agree with
+    # the shorter sum, so the loss became self-consistent.
+    #
+    # A count that can quietly shrink is not a count.  So: the number of
+    # rows is pinned, every row must be a command CLAUDE.md actually lists,
+    # and any gate CLAUDE.md lists that is NOT a row is printed rather than
+    # ignored -- an unlisted gate is how a row goes missing unnoticed.
+    print("\n the ledger's own row set")
+    check("no duplicate rows", len(set(c[0] for c in CASES)) == len(CASES),
+          "%d labels" % len(set(c[0] for c in CASES)))
+    check("the row count is the declared %d" % EXPECTED_CASES,
+          len(CASES) == EXPECTED_CASES, "%d rows" % len(CASES))
+    claude = open(os.path.join(ROOT, "CLAUDE.md"), encoding="utf-8").read()
+    orphan = [c[1] for c in CASES if c[1] not in claude]
+    check("every ledger row is a gate CLAUDE.md lists", not orphan,
+          "; ".join(orphan[:3]))
+    listed = re.findall(r"(?m)^(python3 [^\s#]+(?: --?[a-z]+)?)", claude)
+    counted = set(c[1] for c in CASES)
+    uncounted = sorted(set(x.strip() for x in listed) - counted)
+    print("     %d of %d CLAUDE.md gates carry a row here; the rest are "
+          "counted elsewhere or not at all:" % (len(counted), len(set(listed))))
+    for u in uncounted:
+        print("       - %s" % u)
 
     print("\n per-script assertion counts")
     total = 0

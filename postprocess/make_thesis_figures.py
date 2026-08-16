@@ -27,6 +27,7 @@ Run:
 """
 from __future__ import print_function
 
+import inspect
 import math
 import os
 import re
@@ -597,6 +598,82 @@ def solved_bi(spec_key, mat_key):
     return h, h * L / mat["k3"], mat["k3"] / (mat["rho"] * mat["cp"]), L
 
 
+
+# --------------------------------------------------------------------------
+# Committed-result readers.  a3 R4-B-3.
+#
+# These two figures are the first that draw MEASURED numbers rather than
+# literature or deck values, so the rule at the top of this file bites
+# hardest here: nothing below is typed.  The ladder comes out of the CSV the
+# heat jobs wrote, and the M6 panel is parsed out of the results README's own
+# tables.  If a2 re-runs either, the figures move with them.
+# --------------------------------------------------------------------------
+RESULTS = os.path.join(ROOT, "data", "results")
+
+#: The CSV states its verdict in English; the figure is Korean.
+#: Mapped here rather than in the figure so the two cannot drift.
+VERDICT_KO = {"holds": "균일 가정 성립", "strained": "아슬아슬",
+              "BROKEN": "균일 가정 깨짐"}
+
+
+def heat_ladder():
+    """Rows of data/results/macro_heat_ladder.csv, one per severity."""
+    import csv as _csv
+    path = os.path.join(RESULTS, "macro_heat_ladder.csv")
+    with open(path) as fh:
+        return list(_csv.DictReader(fh))
+
+
+def m6_table(header, keep_header=False):
+    """Rows of one markdown table in data/results/M6/README.md.
+
+    Returns a list of cell-lists, header row dropped.  Parsing the README
+    rather than re-typing its numbers is the whole point -- these are a2's
+    measurements and a1 must not become a second, drifting copy of them.
+    """
+    txt = open(os.path.join(RESULTS, "M6", "README.md"), encoding="utf-8").read()
+    i = txt.find(header)
+    if i < 0:
+        return []
+    rows = []
+    for ln in txt[i:].splitlines():
+        s = ln.strip()
+        if not s.startswith("|"):
+            if rows:
+                break
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if set("".join(cells)) <= set("-: "):
+            continue
+        rows.append(cells)
+    return rows if keep_header else rows[1:]
+
+
+def m6_pick(header, colname):
+    """Values of ONE NAMED column of that table.
+
+    Indexing by position is what broke on 2026-08-14: a2 inserted an R^2
+    column between "M6 [GPa]" and the measured value, and every r[3] in this
+    file silently started reading a different quantity.  The figure would
+    still have drawn, with the wrong numbers on it.  So the column is chosen
+    by its heading, and a missing heading raises instead of shifting.
+    """
+    rows = m6_table(header, keep_header=True)
+    if not rows:
+        return []
+    head = rows[0]
+    if colname not in head:
+        raise KeyError("%r not in %r" % (colname, head))
+    j = head.index(colname)
+    return [r[j] for r in rows[1:]]
+
+
+def _num(cell):
+    """First number in a markdown cell, bold markers and units stripped."""
+    m = re.search(r"-?\d+(?:\.\d+)?", cell.replace("**", ""))
+    return float(m.group(0)) if m else None
+
+
 def fig_5_3():
     """급랭 경계조건 — 두 물성 계보의 온도 이력과 Biot 사다리."""
     spec = qc.SPECIMENS["ZHANG2013"]
@@ -639,11 +716,143 @@ def fig_5_3():
     return save(fig, "fig_5_3_quench")
 
 
+
+def fig_5_4():
+    """열 사다리 — 세 심각도의 Biot 수와 실제 측정된 두께방향 구배."""
+    rows = heat_ladder()
+    bis = [float(r["bi"]) for r in rows]
+    pct = [float(r["grad_pct"]) for r in rows]
+    lab = [r["severity"] for r in rows]
+    verdict = [r["uniform_assumption"] for r in rows]
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(6.9, 3.0))
+
+    # (a) Bi against the measured gradient share.  The 30 % line is not a
+    # literature threshold and is not drawn as one -- it is where THIS
+    # dataset crosses from "holds" to "strained", read off the CSV's own
+    # verdict column so the figure cannot disagree with the deck report.
+    cross = [p for p, v in zip(pct, verdict) if v != "holds"]
+    x = list(range(len(rows)))
+    a1.plot(x, pct, "o-", color=C_ACC, lw=1.7, ms=7)
+    for i, (p_, l) in enumerate(zip(pct, lab)):
+        a1.annotate("%s  %.1f %%" % (l, p_), (i, p_),
+                    textcoords="offset points", xytext=(8, -3), fontsize=8.2)
+    if cross:
+        a1.axhline(min(cross), color=C_GREY, lw=1.0, ls=":")
+        a1.text(0.02, min(cross) * 1.06,
+                "이 아래에서만 균일 가정이 성립", fontsize=7.4, color=C_GREY)
+    # A categorical axis, not a log one: three points do not make a trend,
+    # and a log axis here typesets its exponent in mathtext, which the Hangul
+    # face has no minus glyph for.
+    a1.set_xticks(x)
+    a1.set_xticklabels(["$Bi$ = %g" % b for b in bis])
+    a1.set_xlim(-0.35, len(rows) - 0.35)
+    a1.set_xlabel("심각도")
+    a1.set_ylabel("최대 구배 / 낙차 [%]")
+    a1.set_title("(a) 측정된 구배 사다리", fontsize=9)
+
+    # (b) how many elements the front actually spans.  A gradient the mesh
+    # does not resolve is not a result, so the front depth and its element
+    # count travel WITH the percentage, never apart from it.
+    depth = [float(r["front_depth_mm"]) for r in rows]
+    nel = [int(r["elements_in_front"]) for r in rows]
+    bars = a2.bar(range(len(rows)), depth,
+                  color=[C_ACC if v != "holds" else C_AUX for v in verdict])
+    for i, (b, n, v) in enumerate(zip(bars, nel, verdict)):
+        a2.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.03,
+                "%d개 요소\n%s" % (n, VERDICT_KO.get(v, v)), ha="center",
+                fontsize=7.6)
+    a2.set_xticks(range(len(rows)))
+    a2.set_xticklabels(["%s ($Bi$ %g)" % (l, b) for l, b in zip(lab, bis)])
+    a2.set_ylabel("열경계층 깊이 [mm]")
+    a2.set_ylim(0, max(depth) * 1.35)
+    a2.set_title("(b) 그 구배를 메시가 푸는가", fontsize=9)
+    return save(fig, "fig_5_4_heat_ladder")
+
+
+def fig_4_6():
+    """M6 — 출처 있는 카드가 M5 대비 무엇을 고쳤나.
+
+    (a)는 README 표를 열 이름으로 파싱하고, (b)(c)는 2026-08-16부터 a2가 커밋한
+    원곡선 CSV(data/results/M6/LTH_M6_*_ss.csv)를 직접 읽는다.  판독은 전부
+    postprocess/m6_verdict.py의 함수(read_curve/stress_at/peak)와 상수(ZHANG/
+    EPS_TARGET)로 한다 — 여기서 다시 구현하면 판독기가 둘이 되고, 접선 정의가
+    두 개였던 사고(§4.9-0b)의 재판이 된다.
+    """
+    sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+    import m6_verdict as mv
+    tan = m6_table("| $T$ [°C] | M6 [GPa]")
+    T = [_num(r[0]) for r in tan]
+    curves = {}
+    for t in (23, 500, 1000):
+        f = os.path.join(RESULTS, "M6", "LTH_M6_%s_ss.csv"
+                         % {23: "RT23", 500: "T500", 1000: "T1000"}[t])
+        curves[t] = mv.read_curve(f)
+    fig, (a1, a2, a3_) = plt.subplots(1, 3, figsize=(7.6, 2.9))
+
+    # (a) initial tangent ratio -- the one quantity X_t cannot touch, which
+    # is why it is the honest test of the porosity correction.
+    r_tan = [_num(v) for v in m6_pick("| $T$ [°C] | M6 [GPa]", "비")]
+    a1.axhline(1.0, color=C_GREY, lw=1.0, ls="--")
+    a1.plot(T, r_tan, "o-", color=C_ACC, lw=1.7, ms=6, label="M6")
+    a1.plot([1000.0], [1.36], "s", color=C_GREY, ms=7, label="M5 (옛 카드)")
+    for x, y in zip(T, r_tan):
+        a1.annotate("%.2f×" % y, (x, y), textcoords="offset points",
+                    xytext=(0, 7), ha="center", fontsize=8)
+    a1.set_ylim(0.7, 1.5)
+    a1.set_xlabel("$T$ [°C]"); a1.set_ylabel("M6 / 실측")
+    a1.set_title("(a) 초기 접선\n공극률 보정의 시험", fontsize=8.6)
+    a1.legend(fontsize=7, loc="upper left")
+
+    # (b) the actual stress-strain curves, with the fracture-strain test ON
+    # them: x = Zhang's measured strength at his own measured failure strain,
+    # o = where the M6 curve passes that strain.  The vertical gap IS the
+    # (b)-verdict; the old bar chart showed the ratio and hid the curve.
+    shades = {23: C_AUX, 500: C_ACC, 1000: "#7a3010"}
+    for t in (23, 500, 1000):
+        c = curves[t]
+        a2.plot([100.0 * e for e, _ in c], [sg for _, sg in c],
+                color=shades[t], lw=1.4, label="%d °C" % t)
+        et = mv.EPS_TARGET[t]
+        a2.axvline(100.0 * et, color=shades[t], lw=0.7, ls=":", alpha=0.6)
+        a2.plot([100.0 * et], [mv.stress_at(c, et)], "o", color=shades[t],
+                ms=5)
+        a2.plot([100.0 * et], [mv.ZHANG[t]], "x", color="black", ms=7,
+                mew=1.6)
+    a2.set_xlabel(r"$\varepsilon$ [%]"); a2.set_ylabel(r"$\sigma$ [MPa]")
+    a2.set_title("(b) 원곡선과 파단변형률 시험\n×=Zhang, ●=M6", fontsize=8.6)
+    a2.legend(fontsize=6.6, loc="lower right")
+
+    # (c) the same three tests collapsed: stress over ZHANG[T] against strain
+    # over EPS_TARGET[t], so every target sits at (1, 1).  A curve passing
+    # above the cross over-predicts, below under-predicts -- the sign split
+    # is one glance.  Peaks (v) before x = 1 are what M5 never had; the RT23
+    # curve ending right of x = 1 while still rising is the expected shape,
+    # not a failure (Zhang's RT specimen broke at 0.150 %).
+    for t in (23, 500, 1000):
+        c = curves[t]
+        et, zt = mv.EPS_TARGET[t], mv.ZHANG[t]
+        a3_.plot([e / et for e, _ in c], [sg / zt for _, sg in c],
+                 color=shades[t], lw=1.4)
+        pe, ps, at_end = mv.peak(c)
+        if not at_end:
+            a3_.plot([pe / et], [ps / zt], "v", color=shades[t], ms=6)
+    a3_.plot([1.0], [1.0], "x", color="black", ms=8, mew=1.8)
+    a3_.axhline(1.0, color=C_GREY, lw=0.7, ls="--")
+    a3_.axvline(1.0, color=C_GREY, lw=0.7, ls="--")
+    a3_.set_xlim(0, 1.35); a3_.set_ylim(0, 1.75)
+    a3_.set_xlabel(r"$\varepsilon$ / $\varepsilon_{meas}$")
+    a3_.set_ylabel(r"$\sigma$ / Zhang T3")
+    a3_.set_title("(c) 정규화 — 표적이 (1,1)\n▼=피크(잠정)", fontsize=8.6)
+    return save(fig, "fig_4_6_m6")
+
+
 FIGURES = [
     ("1.1", fig_1_1), ("1.2", fig_1_2),
     ("2.1", fig_2_1), ("2.2", fig_2_2), ("2.3", fig_2_3), ("2.4", fig_2_4),
     ("3.1", fig_3_1), ("3.2", fig_3_2), ("3.3", fig_3_3), ("3.4", fig_3_4),
+    ("4.6", fig_4_6),
     ("5.1", fig_5_1), ("5.2", fig_5_2), ("5.3", fig_5_3),
+    ("5.4", fig_5_4),
 ]
 
 
@@ -691,6 +900,72 @@ def check():
       len([r for r in tcd.DATA if "modulus" not in r[7]]) == 14
       and len(tcd.DATA) == 16)
 
+    # a3 R4-B-3.  The two result figures are the first that draw MEASURED
+    # numbers, so they get the strictest form of this file's rule: every
+    # value must be re-read from the committed artefact, and the figure must
+    # be *placed* -- an unplaced figure is a file nobody sees.
+    ladder = heat_ladder()
+    t("fig 5.4 reads three severities from the results CSV",
+      [r["severity"] for r in ladder] == ["L", "M", "H"],
+      "%d rows" % len(ladder))
+    t("...and their gradient shares are the CSV's, not typed",
+      [round(float(r["grad_pct"]), 1) for r in ladder] == [7.0, 36.9, 72.2],
+      ", ".join("%.1f" % float(r["grad_pct"]) for r in ladder))
+    t("the uniform-assumption verdict comes from the CSV column",
+      [r["uniform_assumption"] for r in ladder] == ["holds", "strained",
+                                                    "BROKEN"])
+    t("...and every verdict word has a Korean rendering",
+      all(v in VERDICT_KO for v in
+          set(r["uniform_assumption"] for r in ladder)))
+    t("fig 5.4 does not hard-code any of those numbers",
+      not any(s in inspect.getsource(fig_5_4)
+              for s in ("36.9", "72.2", "433.3", "221.2")))
+    tan = m6_table("| $T$ [°C] | M6 [GPa]")
+    pk = m6_table("| $T$ [°C] | 피크 [MPa]")
+    t("fig 4.6 parses the M6 tangent table out of the results README",
+      [_num(r[0]) for r in tan] == [23.0, 500.0, 1000.0],
+      "%d rows" % len(tan))
+    ratios = [_num(v) for v in m6_pick("| $T$ [°C] | M6 [GPa]", "비")]
+    t("...and the 1000 C ratio is read by COLUMN NAME, not by position",
+      len(ratios) == 3 and 0.5 < ratios[-1] < 2.0, "%.2fx" % ratios[-1])
+    # 2026-08-14: a2 settled the tangent definition and every ratio moved.
+    # The retired ones must not survive anywhere -- this file used to assert
+    # 1.01 as if it were a fact about the material.
+    t("...and the retired fractional-window ratio is gone",
+      abs(ratios[-1] - 1.01) > 1e-9
+      and not any(x in inspect.getsource(fig_4_6)
+                  for x in ("1.01", "111.1", "174.2")))
+    # (b)(c) now consume the committed curves through m6_verdict's own
+    # readers.  What matters is that the figure has NO reader of its own --
+    # a second reader is how the two-tangent fork happened.
+    sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+    import m6_verdict as _mv
+    src46 = inspect.getsource(fig_4_6)
+    t("fig 4.6 reads the curves via m6_verdict, not its own parser",
+      "mv.read_curve" in src46 and "mv.stress_at" in src46
+      and "csv" not in src46.replace("_ss.csv", ""))
+    t("...and the peak count it can draw agrees with the README verdict",
+      sum(1 for v in m6_pick("| $T$ [°C] | 피크 [MPa]", "피크 도달?")
+          if "예" in v)
+      == sum(1 for tag in ("RT23", "T500", "T1000")
+             if not _mv.peak(_mv.read_curve(os.path.join(
+                 RESULTS, "M6", "LTH_M6_%s_ss.csv" % tag)))[2]))
+    t("...and the targets it marks are m6_verdict's, not typed",
+      "mv.ZHANG" in src46 and "mv.EPS_TARGET" in src46
+      and not any(x in src46 for x in ("128.45", "179.42", "199.15")))
+    t("fig 4.6 does not hard-code the M6 stresses",
+      not any(s in inspect.getsource(fig_4_6)
+              for s in ("199.83", "226.83", "284.71", "0.81", "1.19")))
+    ch4_txt = open(os.path.join(ROOT, "docs",
+                                "CH4_RVE_HOMOGENISATION.md")).read()
+    ch5_txt = open(os.path.join(ROOT, "docs",
+                                "CH5_MACRO_THERMALSHOCK.md")).read()
+    t("fig 4.6 is placed in Ch.4, not merely generated",
+      "figures/fig_4_6_m6.png" in ch4_txt)
+    t("fig 5.4 is placed in Ch.5", "figures/fig_5_4_heat_ladder.png" in ch5_txt)
+    t("Ch.4 marks the M6 strengths provisional until the damage cap is judged",
+      "강도 절대값은 잠정이다" in ch4_txt)
+
     # deck values come from the generator, never from this file
     t("fig 5.2 reads the specimen from make_macro_thermalshock",
       mac.SPECIMENS["ZHANG2013"]["dims"] == (12.5, 6.0, 3.0))
@@ -716,7 +991,6 @@ def check():
     # nobody's material, so it must never reach a figure.
     h_lit, _, _, L = solved_bi("ZHANG2013", "zhang2013")
     bi_mixed = h_lit * L / qc.MATERIALS["ours"]["k3"]
-    import inspect
     drawn = "".join(inspect.getsource(f) for _, f in FIGURES)
     t("fig 5.3 never pairs the literature h with our kbar_3",
       abs(bi_mixed - 0.0548) < 5e-4 and "%.4f" % bi_mixed not in drawn,

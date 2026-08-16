@@ -538,6 +538,7 @@ python3 data/literature/refs_audit.py --check          # refs/ 전수 점검 (�
 python3 data/literature/gf_temperature.py --check      # Gf(T) 방향 출처 + A 표류 한계
 python3 data/literature/pls_validation.py --check      # 비례한도를 TRS 검증 지표로
 python3 data/literature/cte_composite_targets.py --check # 복합재 CTE 절대 표적 4점
+python3 data/literature/cte_rve_verdict.py --check    # RVE 실물 CTE 대 절대 표적 (4단 사다리)
 python3 data/literature/modulus_definition.py --check  # 대조 모듈러스 정의 (접선 vs 할선)
 python3 data/literature/crack_band_simplex.py --check   # refs/[47]의 2D 사면체 배수 (a2 kappa 검증)
 python3 data/literature/thermal_cycling_dataset.py --check # 반복 열충격 전 데이터 + 심각도 역설
@@ -559,6 +560,7 @@ python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결�
 python3 verification/review_inbox.py --check           # 리뷰 브랜치 수신·원문 대조 (a3)
 python3 verification/check_manuscript_citations.py     # 제출본(CH1~7) 인용 전수 (고아·허공·무인용 주장)
 python3 verification/prerun_gate.py --check            # 최소 해석 계획·단계별 관문 (a1 몫)
+python3 verification/pending_slots.py --check          # [결과 대기] 슬롯 8개 — 단계·소유자·차단/부분
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
@@ -585,7 +587,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 69개를 전부 통과시킨다.**
+**커밋 전에 위 70개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이

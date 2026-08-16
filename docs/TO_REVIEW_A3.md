@@ -168,8 +168,19 @@ Ge (2018) Table 3 *Material properties of matrix and yarn* 에 다음이 **명�
    옮길 때 필요한 것은 두 가지뿐이다 — 이쪽 브랜치를 병합해 `refs/` 72편과
    `docs/CH1~CH7` 을 받는 것, 그리고 R1~R4의 대상 파일 목록을 바꾸는 것이다.
    `OUTLINE.md` 계약과 판정 등급 체계는 그대로 쓸 수 있다.
-4. **[5]의 Ref. 30 (Zhong 2015, Compos. Struct. 128 (2015) 1–9)** 을 새 P-1로
-   올려라. $X_{PO}$·$r_F$·$K_1$ 의 유일한 1차 출처다.
+4. **[5]의 Ref. 30 (Zhong 2015)** 을 새 P-1로 올려라. $X_{PO}$·$K_1$ 의 유일한
+   1차 출처다. 서지는 다음과 같다(2026-08-11 확정):
+
+   > S.Y. Zhong, L.C. Guo, G. Liu, H.Y. Lu, T. Zeng, *A continuum damage model for
+   > three-dimensional woven composites and finite element implementation*,
+   > **Composite Structures 128 (2015) 1–9**, DOI `10.1016/j.compstruct.2015.03.030`
+
+   **✅ 2026-08-11 확보 완료 — `refs/[73]`.** DOI가 표제면에 찍혀 있어 등급을
+   `fulltext` 로 올렸다. 그리고 **정작 찾던 수치는 그 논문에도 없다** — Table 1은
+   구성재 탄성상수만, Table 2는 구조만 싣는다. 즉 $X_{PO}$·$K_1$ 은 "아직 못 찾은
+   값"이 아니라 **계보의 원전에도 없는 값**이며, 이 추적 항목은 그것으로 닫힌다.
+   당신들의 3등급 제안으로 말하면 UNVERIFIED 였던 것이 **UNSOURCED 로 확정**된
+   사례다 — 두 등급을 나눠야 하는 이유가 여기서 실제로 드러난다.
 
 ---
 

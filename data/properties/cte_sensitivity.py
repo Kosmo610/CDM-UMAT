@@ -14,7 +14,20 @@ range independent measurements report:
                                      independent sources, all POSITIVE
     transverse  card  3.1e-6/K   vs  Pradere refs/[07] 5-10e-6, our PANEX 33
                                      secant 5.630e-6 -- the card is BELOW the
-                                     measured band
+                                     band
+                                     ** 2026-08-13: that band is WIDER THAN OUR
+                                     PROBLEM.  refs/[07] mixes rayon-, PAN- and
+                                     pitch-based fibres to 2500 K, and its
+                                     transverse numbers are an inverse
+                                     identification, not a dilatometer reading
+                                     (companion paper: "ESTIMATION of the
+                                     transverse CTE ...", Inverse Probl. Sci.
+                                     Eng. 15(1) 2007 77-89).  A PAN-only,
+                                     20-1100 C in-situ TEM study reports
+                                     3.8-5.6e-6 -- see PAN_TRANSVERSE_BAND
+                                     below.  On that band the card is 18 %
+                                     under the floor, not outside a two-fold
+                                     range. **
 
 Both deviations lower the composite CTE, which raises the matrix TRS -- the
 same direction as the over-prediction already on record.  That is a coincidence
@@ -74,6 +87,13 @@ VY_RVE = 0.4982                        # yarn fraction of the RVE (Ch.4 4.1)
 # RVE anchors -- MEASURED, from the M3 cooldown (Ch.4 4.5.1 / 4.5.3)
 # --------------------------------------------------------------------------
 RVE_ALPHA_XX = 3.132e-6                # /K, secant 1050 -> 23 C, damaged
+# The same quantity from the direct undamaged probe (a2-0026, ELAS+CTE run).
+# The mean field below is itself undamaged, so THIS is the number it must be
+# compared against; measuring a mean-field estimate against the damaged secant
+# charged the mean field for microcracks it does not model (17.5 % instead of
+# the true 12.1 %).  RVE_ALPHA_XX stays the anchor for the TRS transfer, where
+# the damaged state is the right one.  Verdict: data/literature/cte_rve_verdict.py
+RVE_ALPHA_XX_UNDAMAGED = 3.2827e-6     # /K, direct probe, damage OFF
 RVE_TRS = 268.08                       # MPa, volume-averaged matrix sigma_11
 XRD_TRS = 114.7                        # MPa, refs/[15] 3D braided, XRD
 T_ROOM = 23.0
@@ -87,6 +107,17 @@ T_SF_DECK = 1050.0                     # what the deck ships with
 VARIANTS = [
     ("CARD", -0.3e-6, 3.1e-6, "T300 (Zhang 2022 Table 1)",
      "the value the RVE card was verified against"),
+    # PROVENANCE OF THE TRANSVERSE NUMBERS (2026-08-12).  refs/[07]'s transverse
+    # CTEs are not a direct measurement.  The companion paper that produced them
+    # is titled "ESTIMATION of the transverse coefficient of thermal expansion on
+    # carbon fibers at very high temperature" and appeared in Inverse Problems in
+    # Science and Engineering 15 (1) (2007) 77-89 -- an inverse identification,
+    # not a dilatometer reading.  The 5-10e-6 band also mixes rayon-, PAN- and
+    # pitch-based fibres over 300-2500 K.  An in-situ TEM study measured PAN
+    # fibres over 20-1100 C, our own range, and reports a much tighter 3.8-5.6e-6
+    # (candidate N1, docs/LIT_FIBRE_TRANSVERSE_CTE.md).  Both are search-verified
+    # only; no PDF is held, so nothing here is changed on their account.  Do not
+    # call the 5-10 band "measured" in the manuscript -- call it identified.
     ("PANEX33", None, None, "PANEX 33 ex-PAN, E = 230 GPa",
      "Pradere & Sauder refs/[07] Tables 3/4, evaluated as a secant"),
     ("HTA5131", None, None, "HTA 5131 ex-PAN, E = 248 GPa",
@@ -98,6 +129,25 @@ VARIANTS = [
     ("YAN2011", 1.0e-6, 3.1e-6, "2D C/SiC CVI, their Eq. 2",
      "refs/[35] Section 3.2 -- axial only; transverse left at the card value"),
 ]
+
+#: The PAN-only transverse band, 20-1100 C -- our own temperature range.
+#:
+#: SOURCE AND GRADE.  Kulkarni & Ochoa, "Transverse and Longitudinal CTE
+#: Measurements of Carbon Fibers and their Impact on Interfacial Residual
+#: Stresses in Composites", J. Compos. Mater. 40 (8) (2006) 733-754,
+#: doi 10.1177/0021998305055545.  In-situ TEM on IM7 (axial -0.4, transverse
+#: 5.6) and T1000 (axial -1.4, transverse 3.8), 1e-6/C.
+#:
+#: ** GRADE: search-verified.  NO PDF IS HELD.**  These four numbers come from
+#: a literature sweep (docs/LIT_FIBRE_TRANSVERSE_CTE.md, candidate N1), not
+#: from a table this project has read.  They therefore may NOT enter a card and
+#: may NOT replace refs/[07] anywhere a value is consumed.  What they are
+#: allowed to do is exactly one thing: narrow the RANGE this file quotes when
+#: it says how far the card sits from independent measurement.  A check below
+#: enforces that separation -- if any VARIANT ever carries one of these
+#: numbers, the gate fails.
+PAN_TRANSVERSE_BAND = (3.8e-6, 5.6e-6)
+PAN_BAND_GRADE = "search-verified"
 
 POLY = {"PANEX33": (ec.PANEX33_LONG, ec.PANEX33_TRANS),
         "HTA5131": (ec.HTA5131_LONG, ec.HTA5131_TRANS)}
@@ -285,11 +335,14 @@ def report():
     print("    " + "-" * 70)
     print("    RVE measured alpha_xx (damaged secant, Ch.4 4.5.3): %10.3e"
           % RVE_ALPHA_XX)
+    print("    RVE direct probe alpha_in (undamaged, a2-0026)    : %10.3e"
+          % RVE_ALPHA_XX_UNDAMAGED)
     print("    matrix alpha at this T_sf                         : %10.3e"
           % base["am"])
     print("\n    The mean field puts alpha_bar %.1f %% above the RVE for the"
-          % ((base["alpha_bar"] / RVE_ALPHA_XX - 1.0) * 100.0))
-    print("    card case.  That is why only its DERIVATIVE is used below.")
+          % ((base["alpha_bar"] / RVE_ALPHA_XX_UNDAMAGED - 1.0) * 100.0))
+    print("    card case -- compared like for like, undamaged against")
+    print("    undamaged.  That is why only its DERIVATIVE is used below.")
 
     print("\n 2. MATRIX TRS, transferred onto the RVE measurement")
     print("    %-11s %9s %9s %9s | %8s  %s"
@@ -456,6 +509,34 @@ def selftest():
        effective_t_sf("PRADERE_HI", 2.1e-6, 10.0e-6) is None,
        "already below 114.7 MPa at 1050 C")
 
+    print("\n G1a. the PAN-only band narrows the quoted range, and NOTHING else")
+    lo, hi = PAN_TRANSVERSE_BAND
+    card_t = 3.1e-6
+    ck("the PAN band is inside the Pradere band, not beside it",
+       5.0e-6 - 1.3e-6 < lo < 5.0e-6 and hi <= 10.0e-6,
+       "%.1f-%.1f vs 5-10 e-6/K" % (lo * 1e6, hi * 1e6))
+    ck("it is narrower by more than half",
+       (hi - lo) < 0.4 * (10.0e-6 - 5.0e-6),
+       "%.1f vs 5.0 e-6/K wide" % ((hi - lo) * 1e6))
+    ck("the card sits BELOW the floor, but by 18 %, not by a factor",
+       card_t < lo and (lo - card_t) / lo < 0.20,
+       "%.1f %% under %.1f e-6/K" % (100 * (lo - card_t) / lo, lo * 1e6))
+    ck("our PANEX 33 secant lands at the TOP of the PAN band, not past it",
+       abs(fibre_cte("PANEX33", None, None, T_SF_DECK)[1] - hi) < 0.1e-6,
+       "%.3f vs %.1f e-6/K" % (fibre_cte("PANEX33", None, None,
+                                         T_SF_DECK)[1] * 1e6, hi * 1e6))
+    ck("so CONFIG_P's fibre CTE is the band's top edge, not an extreme",
+       True, "PANEX33 5.630 vs PAN band top 5.6")
+    ck("the band is graded search-verified, not fulltext",
+       PAN_BAND_GRADE == "search-verified")
+    ck("and NO variant consumes it -- it may narrow a range, never feed a card",
+       all(abs((b or 0) - lo) > 1e-9 and abs((b or 0) - hi) > 1e-9
+           for _, _, b, _, _ in VARIANTS),
+       "%d variants checked" % len(VARIANTS))
+    ck("the docstring says why the wide band was too wide for this problem",
+       all(s in " ".join(__doc__.split())
+           for s in ("WIDER THAN OUR PROBLEM", "inverse identification")))
+
     print("\n G2. the sweep is monotonic and falls FASTER than linear in dT")
     kappa = transfer(card, card)[2]
     prev, prev_lin = None, None
@@ -479,6 +560,11 @@ def selftest():
         ck("source states: %s" % why, phrase in src)
     ck("alpha_bar error vs the RVE is reported, not buried",
        "above the RVE for the" in src)
+    ck("the mean field is compared undamaged-to-undamaged",
+       "RVE_ALPHA_XX_UNDAMAGED - 1.0" in src,
+       "%.1f %% high" % ((card["alpha_bar"] / RVE_ALPHA_XX_UNDAMAGED - 1) * 100))
+    ck("and the damaged anchor is kept for the TRS transfer",
+       "RVE_ALPHA_XX - base" in src or "RVE_ALPHA_XX -" in src)
 
     print("\n I. the numbers Ch.4 will quote")
     r = evaluate("PANEX33", None, None)

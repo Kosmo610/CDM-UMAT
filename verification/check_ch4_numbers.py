@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 check_ch4_numbers.py   --  ROUND 1 of the chapter self-verification
-===================================================================
-Every number Ch.4 states must be re-derivable from a primary source.
+============================================================Every number Ch.4 states must be re-derivable from a primary source.
 
 Ch.4 is the most exposed chapter numerically: it quotes mesh statistics, phase
 volumes, driver displacements read off an ODB, and the outputs of two analysis
@@ -326,6 +325,140 @@ def main():
     print("\n 4.4.1 Zhang Table 3 targets")
     for v in TABLE3:
         check("Ch.4 quotes %.2f MPa" % v, ("%.2f" % v) in ch4)
+
+    # ------------------------------------------- 4.9-10 the CTE ladder
+    # Every rung is recomputed here.  The chapter is allowed to PRINT the
+    # ladder; it is not allowed to be the place the ladder is decided.
+    print("\n 4.9-10 the four-rung CTE ladder -- every rung recomputed")
+    sys.path.insert(0, os.path.join(ROOT, "data", "literature"))
+    import cte_rve_verdict as crv
+    from cte_rve_verdict import ec
+    r1, r2, r3, r4 = crv.ladder()
+    r2, r3 = r2 * 1e6, r3 * 1e6
+    for tag, val in (("rung 1 RVE direct probe 3.2827", "%.4f" % r1),
+                     ("rung 2 mean field, card CTEs 3.6815", "%.4f" % r2),
+                     ("rung 3 mean field, PANEX33 4.0294", "%.4f" % r3)):
+        check("Ch.4 quotes %s" % tag, val in ch4, val)
+    check("Ch.4 quotes rung 4, refs/[61] at 600 C", "4.6" in ch4)
+    for tag, step in (("1->2", r2 / r1 - 1), ("2->3", r3 / r2 - 1),
+                      ("3->4", r4 / r3 - 1)):
+        s = "%.1f" % (100 * step)
+        check("Ch.4's step %s is %s %%, recomputed" % (tag, s),
+              ("+%s %%" % s) in ch4, s)
+    _, a_th, _ = crv.rve_alphas()
+    check("Ch.4 quotes the through-thickness value", "4.0891" in ch4)
+    check("...and its ratio to the matrix card",
+          ("%.3f" % (a_th / (ec.Z_AM * 1e6))) in ch4,
+          "%.3f" % (a_th / (ec.Z_AM * 1e6)))
+    check("Ch.4 quotes the composite/matrix ratio inside refs/[11]'s band",
+          ("%.3f" % (r1 / (ec.Z_AM * 1e6))) in ch4,
+          "%.3f" % (r1 / (ec.Z_AM * 1e6)))
+    check("Ch.4 refuses the phase-bound argument in writing",
+          "틀렸다" in ch4 and "카드에 대한 진술" in ch4)
+    check("Ch.4 names the crack share and says it is not enough",
+          "4.6 %" in ch4 and "미세균열만으로 설명하지 않는다" in ch4)
+
+    # ------------------------------------------- 4.9-8 the closed X_PO trail
+    # a3 R4-B-1.  The verdict "the origin does not publish these numbers" lived
+    # only in a sync message; the submission still called the shape parameters
+    # five and r_F a convention.  These pin the corrected statement to the
+    # module that owns the classification, so the two cannot drift apart.
+    print("\n 4.9-8 the X_PO / K_1 trail is closed, and r_F is not a knob")
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    import card_gap_triage as cgt
+    rows = {r[1]: r for r in cgt.CARD_GAPS} if hasattr(cgt, "CARD_GAPS") else {}
+    check("Ch.4 states four shape parameters, not five",
+          "구성식 형상 파라미터 — 4개" in ch4)
+    check("...and r_F is absent from that list",
+          "$G_{tt}$, $G_{tc}$, $X_{PO}$, $K_1$" in ch4)
+    check("Ch.4 says why r_F left the list, rather than silently dropping it",
+          "교점 위에 놓인 값" in ch4 and "유도량" in ch4)
+    check("the r_F = 3 'convention' wording is retracted in writing",
+          "관례로 고른 값이 아니라" in ch4)
+    check("Ch.4 calls X_PO / K_1 declared, not still-being-traced",
+          "확정적으로 선언된 knob" in ch4 and "추적이 종결" in ch4)
+    check("the triage module classifies X_PO as a knob, agreeing with the text",
+          not rows or rows.get("X_PO", (None, None, None, "KNOB"))[3] == "KNOB",
+          rows.get("X_PO", ("", "", "", "KNOB"))[3])
+    check("Ch.2 carries [73] so the closure has a reference to stand on",
+          "10.1016/j.compstruct.2015.03.030"
+          in open(os.path.join(ROOT, "docs", "CH2_LITERATURE_REVIEW.md")).read())
+
+    # ------------------------------------------- 4.9-6 the narrowed CTE band
+    # a3 R4-B-2.  The band the chapter quotes is the one the card is judged
+    # against, so it is a source statement, not a number -- but the arithmetic
+    # around it ("18 % under the floor") still has to be re-derived.
+    print("\n 4.9-6 the PAN-only transverse CTE band")
+    import cte_sensitivity as cs
+    lo, hi = cs.PAN_TRANSVERSE_BAND
+    check("Ch.4 quotes the narrowed band", "3.8–5.6e-6/K" in ch4,
+          "%.1f-%.1f" % (lo * 1e6, hi * 1e6))
+    under = 100.0 * (lo - 3.1e-6) / lo
+    check("Ch.4's '18 %% under the floor' is re-derived, not asserted",
+          ("%.0f %%" % under) in ch4 or ("%d %%" % round(under)) in ch4,
+          "%.1f %%" % under)
+    check("Ch.4 says the refs/[07] band is an inverse identification",
+          "역해석" in ch4 and "Inverse Problems" in ch4)
+    check("...and gives the method paper's own title as the evidence",
+          "Estimation** of the transverse" in ch4)
+    check("Ch.4 places the CONFIG_P value at the band's top, not beyond it",
+          abs(cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] - hi)
+          < 0.1e-6 and "위쪽 끝" in ch4,
+          "%.3f vs %.1f e-6/K"
+          % (cs.fibre_cte("PANEX33", None, None, cs.T_SF_DECK)[1] * 1e6,
+             hi * 1e6))
+    check("the band is marked search-verified in the chapter too",
+          "search-verified" in ch4 and "미보유" in ch4)
+    check("and the chapter states it changes no card value",
+          "카드값을 바꾸지 않고" in ch4)
+    # ------------------------------------------- 4.9-8b the card that ran
+    # The audit that grades every card slot was pinned to one July deck, so it
+    # stayed green while describing a card no run uses.  Ch.4 now prints what
+    # M6 actually loaded; every number in that table is re-derived here from
+    # the module that owns it, so the table cannot become the third copy.
+    print("\n 4.9-8b M6's card against the audited one")
+    sys.path.insert(0, os.path.join(ROOT, "verification"))
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    import check_card_ranges as ccr
+    import porosity_stiffness as ps
+    import insitu_yarn_strength as iy
+    import yarn_fracture_energy as yf
+    vp = ps.porosity_from_density(2.0, 0.40, ps.RHO_T300)
+    kd = ps.pocket_knockdown(vp)
+    check("Ch.4 quotes M6's knocked-down matrix E",
+          ("%d" % round(ps.EM_CARD * kd)) in ch4.replace(" ", "")
+          or "213 110" in ch4, "%.0f MPa" % (ps.EM_CARD * kd))
+    check("...and the knockdown factor that produced it",
+          ("%.4f" % kd) in ch4, "%.4f" % kd)
+    check("...and says the value is BELOW the independent floor",
+          "독립 하한 300 000의 **아래**" in ch4)
+    for T in (23.0, 500.0, 1000.0):
+        check("Ch.4 quotes M6's in-situ Xt at %d C" % T,
+              ("%.1f" % iy.recommended(T)) in ch4, "%.1f" % iy.recommended(T))
+    # The self-comparison trap, stated as a number rather than as a mood.
+    lo_x = [r for r in ccr.YARN if r[0] == 11][0][3]
+    gap = 100.0 * abs(iy.recommended(23.0) - lo_x) / lo_x
+    check("Ch.4 states how close the RT value sits to the bracket floor",
+          ("%.2f %%" % gap) in ch4, "%.2f %%" % gap)
+    check("...and refuses to call that corroboration",
+          "같은 출처의 같은 계산" in ch4 and "IN으로 올리지 않는다" in ch4)
+    check("...naming the 2026-08-03 mistake it would repeat",
+          "스트랜드" in ch4 and "반복" in ch4)
+    yt = [r for r in ccr.YARN if r[0] == 13][0][2]
+    yc = [r for r in ccr.YARN if r[0] == 14][0][2]
+    Lt, _ = yf.le_max(yf.SHI2023["GIc"], yt, yf.E2)
+    Lc, _ = yf.le_max(yf.SHI2023["GIc"], yc, yf.E2)
+    check("Ch.4 quotes the tensile crack-band limit", ("%.4f" % Lt) in ch4,
+          "%.4f mm" % Lt)
+    check("...and the compressive one, which is the finding",
+          ("%.4f" % Lc) in ch4, "%.4f mm" % Lc)
+    check("...and states it is below the largest element",
+          ("%.4f" % yf.CELENT_MAX) in ch4 and "작다" in ch4)
+    check("...and shows the gap is (Yc/Yt)^2, not a coincidence",
+          ("%.2f" % (Lt / Lc)) in ch4 and ("%.3f" % (yc / yt)) in ch4,
+          "%.2fx = (%.3f)^2" % (Lt / Lc, yc / yt))
+    check("Ch.4 routes the convergence question to the analysis chat",
+          "해석 쪽 판정" in ch4 and "카드 판정" in ch4)
 
     # ------------------------------------------------- 4.9-0a  M6 result
     print("\n 4.9-0a M6 -- re-derived from data/results/M6/, not from the prose")
