@@ -108,7 +108,21 @@ def get_elset(odb, name):
     return None
 
 
+def _stale_swap(names, nm):
+    # 옛 이름 덱(슬롯2=DY1C, 슬롯3=DYTT) + V2_7P 이후 UMAT 짝이면
+    # 이름이 옛 자리를 가리킨다. V2_7D 표식('SDV17' 필드 -- 이름 없이
+    # 덧붙인 17번 슬롯)이 있을 때만 이름을 맞바꿔 진짜 슬롯을 탄다.
+    # P3 t23 에서 DYTT 가 D1C(=0) 를 읽은 사고의 재발 방지.
+    if 'SDV17' in names and ('SDV_' + nm) in names:
+        if nm == 'DYTT':
+            return 'DY1C'
+        if nm == 'DY1C':
+            return 'DYTT'
+    return nm
+
+
 def resolve_sdv(names, idx, nm):
+    nm = _stale_swap(names, nm)
     tgt = 'SDV_' + nm
     for n in names:
         if n == tgt:

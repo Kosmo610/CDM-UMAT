@@ -145,11 +145,29 @@ def subset_values(field, elset, labels):
 _SDV_SAID = set()
 
 
+def _stale_swap(names, nm):
+    """옛 이름 덱 + V2_7P 이후 UMAT 짝을 잡아 이름을 맞바꾼다.
+
+    V2_7P 가 얀 SV(2)<->SV(3) 을 맞바꿨다 (SDV2 = 횡손상 표시).
+    옛 이름 덱(슬롯2=DY1C, 슬롯3=DYTT)으로 V2_7D 를 돌리면 이름이
+    옛 자리를 가리켜 DYTT 가 D1C(냉각·인장 내내 0)를 읽는다 --
+    P3 t23 에서 실제로 일어났다. V2_7D 표식은 이름 없이 덧붙인
+    17번 슬롯이 'SDV17' 로 뜨는 것: 제대로 다시 이름 붙인 덱이라면
+    17번도 이름(SDV_YSHR1T)이라 'SDV17' 필드 자체가 없다."""
+    if 'SDV17' in names and ('SDV_' + nm) in names:
+        if nm == 'DYTT':
+            return 'DY1C', True
+        if nm == 'DY1C':
+            return 'DYTT', True
+    return nm, False
+
+
 def resolve_sdv(names, idx, nm):
+    nm, swapped = _stale_swap(names, nm)
     tgt = 'SDV_' + nm
     for n in names:
         if n == tgt:
-            return n, 'name'
+            return n, ('name-swap' if swapped else 'name')
     cand = [n for n in names if n.startswith(tgt)]
     if cand:
         cand.sort(key=len)

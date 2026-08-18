@@ -357,6 +357,13 @@ def main():
     fo_names = list(st.frames[sel[0][0]].fieldOutputs.keys())
 
     def resolve_var(cands):
+        # 옛 이름 덱(슬롯2=DY1C, 슬롯3=DYTT) + V2_7P 이후 UMAT 짝이면
+        # 이름이 옛 자리를 가리킨다. V2_7D 표식('SDV17' 필드)이 있을
+        # 때만 이름을 맞바꿔 진짜 슬롯을 탄다 (추출기들과 같은 가드).
+        if 'SDV17' in fo_names:
+            swap = {'SDV_DYTT': 'SDV_DY1C', 'SDV_DY1C': 'SDV_DYTT'}
+            cands = [swap.get(c, c) if c in fo_names or
+                     swap.get(c, c) in fo_names else c for c in cands]
         for c in cands:
             cu = c.upper()
             if cu in ('S11', 'S22', 'S33', 'MISES'):
