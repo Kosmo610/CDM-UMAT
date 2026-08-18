@@ -154,7 +154,9 @@ def _stale_swap(names, nm):
     P3 t23 에서 실제로 일어났다. V2_7D 표식은 이름 없이 덧붙인
     17번 슬롯이 'SDV17' 로 뜨는 것: 제대로 다시 이름 붙인 덱이라면
     17번도 이름(SDV_YSHR1T)이라 'SDV17' 필드 자체가 없다."""
-    if 'SDV17' in names and ('SDV_' + nm) in names:
+    tgt = 'SDV_' + nm
+    if 'SDV17' in names and any(n == tgt or n.startswith(tgt)
+                                for n in names):
         if nm == 'DYTT':
             return 'DY1C', True
         if nm == 'DY1C':
