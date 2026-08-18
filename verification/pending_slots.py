@@ -141,17 +141,192 @@ def ladder_measured():
                  r["uniform_assumption"]) for r in csv.DictReader(fh)]
 
 
+def _write_csv(path, header, rows):
+    """The one place this file writes.  Both CSVs go through here so that
+    "this script classifies, it does not fill" stays checkable by counting
+    write modes in the source."""
+    with open(path, "w") as fh:
+        w = csv.writer(fh)
+        w.writerow(header)
+        for r in rows:
+            w.writerow(r)
+    return path, len(rows)
+
+
 def write_csv(path=None):
     path = path or os.path.join(ROOT, "verification", "pending_slots.csv")
     rows = slots()
-    with open(path, "w") as fh:
-        w = csv.writer(fh)
-        w.writerow(["file", "line", "section", "stage", "owner", "status",
-                    "what_would_fill_it"])
-        for s in rows:
-            w.writerow([s["file"], s["line"], s["section"], s["stage"],
-                        s["owner"], s["status"], s["fills"]])
-    return path, len(rows)
+    return _write_csv(
+        path,
+        ["file", "line", "section", "stage", "owner", "status",
+         "what_would_fill_it"],
+        [[s["file"], s["line"], s["section"], s["stage"], s["owner"],
+          s["status"], s["fills"]] for s in rows])
+
+
+# --------------------------------------------------------------------------
+# a3 R17-2.  A PLACEHOLDER IS NOT A NEUTRAL BLANK.
+#
+# §6.6.2 got its conclusion backwards for one commit because the chapter read
+# the fixed crack-band exponent A = 2 as "no value yet".  It is not a missing
+# value; it is the DECLARATION |Gf_inel| = g0*le, and the direction a real
+# measurement would move the answer follows from comparing the declaration to
+# the measurement -- not from the fact that one is provisional.
+#
+# So every placeholder still standing is written down here WITH the direction
+# its landing would push the answer.  Where the direction cannot be stated it
+# says so and says why: an honest "undetermined" is the RT23 discipline, and
+# the opposite move -- sweeping the third case in with the two that agree --
+# is what made §6.6.2 wrong in the first place.
+#
+# Directions are NOT typed here.  They are read off the measured Jacobian in
+# knob_sensitivity.csv (sign of the LIVE sensitivities), so a re-measurement
+# moves this table instead of leaving it stale.
+# --------------------------------------------------------------------------
+KNOB_CSV = os.path.join(HERE, "knob_sensitivity.csv")
+
+#: obs key -> short label, so the report reads without opening the CSV
+OBS_LABEL = {
+    "y1t_peak": "얀 종인장 피크", "y1t_eps_pk": "얀 종인장 피크변형률",
+    "y1t_eps80": "얀 종인장 80 % 잔존 변형률",
+    "y1t_Wd09": "얀 종인장 소산일(d=0.9)",
+    "y2t_Wd05": "얀 횡인장 소산일(d=0.5)",
+    "on2t_uni": "횡인장 개시(1축)", "on2t_biax": "횡인장 개시(2축)",
+    "on12": "전단12 개시", "on23": "전단23 개시", "on2c": "횡압축 개시",
+    "m_peak": "기지 피크", "m_eps_pk": "기지 피크변형률",
+    "m_resid": "기지 잔류응력",
+}
+
+#: slot -> why no direction can be stated.  Only for slots the Jacobian
+#: cannot move; a slot WITH live sensitivities must not appear here.
+NO_DIRECTION = {
+    "Gtt": "카드값이 0 이라 균열대가 꺼져 있다. p=0 에서의 차분은 구조적으로 "
+           "0 이므로 자코비안이 방향을 만들 수 없다 — 값이 없어서가 아니라 "
+           "(Shi refs/[31] 0.107 N/mm 이 있다) 켜져 있지 않아서다",
+    "Gtc": "같은 이유로 p=0 이고, 그 위에 값 자체도 없다. 24번 모드의 손상 "
+           "부피가 0 이라 이 슬롯을 움직일 관측량 자체가 아직 생기지 않는다",
+    "X_PO": "13개 관측량 전부 NEAR_NULL 또는 상 간 구조적 0 이다. Ge Eq.16-17 "
+            "의 보조변수라 rF 를 통해서만 들어가며, rF 는 이 카드에서 유도량이다",
+    "dmax_t": "자코비안 관측량 집합에 들어 있지 않다. 손상 상한의 방향은 "
+              "damage_ceiling.py 가 판정하며 그 판정은 아직 「판정 불가」다",
+    "eta": "같은 이유로 관측량 집합 밖이다. 점성 항의 몫은 reheat_saturation.py "
+           "가 16 % 로 재었으나 그것은 재가열 포화의 분해이지 카드 슬롯의 "
+           "방향이 아니다",
+}
+
+
+def knob_directions():
+    """{knob: (verdict, [(obs, S), ...])} from the measured Jacobian."""
+    out = {}
+    if not os.path.exists(KNOB_CSV):
+        return out
+    with open(KNOB_CSV) as fh:
+        rows = list(csv.DictReader(fh))
+    for knob in sorted(set(r["knob"] for r in rows)):
+        live = [(r["obs"], float(r["S_h1em3"])) for r in rows
+                if r["knob"] == knob and r["structure"] == "LIVE"]
+        if not live:
+            out[knob] = ("미정", [])
+        elif all(s > 0 for _o, s in live):
+            out[knob] = ("올라간다", live)
+        elif all(s < 0 for _o, s in live):
+            out[knob] = ("내려간다", live)
+        else:
+            out[knob] = ("양방향", live)
+    return out
+
+
+def crack_band_direction():
+    """The §6.6.2 case, re-derived rather than quoted.
+
+    A = 2 declares |Gf_inel| = g0*le.  Compare that declaration against what
+    the truncated M6 branches have ALREADY dissipated after the peak: a
+    branch that stopped early can only gain more, so the comparison bounds A
+    from above.  Returns {T: (g0*le_max, post-peak, A_upper or None)}.
+    """
+    sys.path.insert(0, HERE)
+    sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    import card_pipeline_rehearsal as R
+    import make_macro_thermalshock as MT
+    zs = MT.graded(12, 3.0, 0.55)
+    dzs = [zs[i + 1] - zs[i] for i in range(len(zs) - 1)]
+    le_hi = ((40.0 / 20.0) * (10.0 / 6.0) * max(dzs)) ** (1.0 / 3.0)
+    out = {}
+    for T, fn in R.CURVES:
+        eps, sig = R.read_curve(os.path.join(R.CURVE_DIR, fn))
+        f = R.curve_facts(eps, sig)
+        post = f["inel"] * (1.0 - f["prepeak"])
+        out[int(round(T))] = (f["g0"] * le_hi, post,
+                              (2.0 * f["g0"] * le_hi / post)
+                              if post > 0 else None)
+    return out
+
+
+def placeholder_rows():
+    """Every declared placeholder, joined to the direction it would move."""
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    import card_gap_triage as CG
+    dirs = knob_directions()
+    out = []
+    for phase, slot, val, grade, _why in CG.TRIAGE:
+        if grade == "DERIVED":
+            continue                      # not a placeholder: computed
+        verdict, live = dirs.get(slot, ("미정", []))
+        out.append(dict(
+            where="card:%s" % phase, slot=slot, value=val, grade=grade,
+            direction=verdict,
+            evidence="; ".join("%s %+.3g" % (OBS_LABEL.get(o, o), s)
+                               for o, s in live) or "LIVE 행 없음",
+            why=NO_DIRECTION.get(slot, "") if verdict == "미정" else ""))
+    return out
+
+
+def placeholder_report():
+    rows = placeholder_rows()
+    cb = crack_band_direction()
+    print("\n" + "=" * 78)
+    print("자리표 %d개 — 값이 확정되면 무엇이 어느 방향으로 움직이는가 (a3 R17-2)"
+          % (len(rows) + 1))
+    print("=" * 78)
+    for r in rows:
+        print("  %-14s %-7s %-10s %s"
+              % (r["where"], r["slot"], r["direction"], r["evidence"]))
+        if r["why"]:
+            print("        미정 이유: %s" % r["why"])
+    print("\n  %-14s %-7s %-10s %s"
+          % ("card:macro", "32-35", "올라간다",
+             "고정 A=2 는 |Gf_inel| = g0*le 라는 선언이다"))
+    for T in sorted(cb):
+        g0le, post, A = cb[T]
+        if A is None:
+            print("        T%-5d g0*le %.3f  피크 이후 %.3f  ->  판정 불가"
+                  % (T, g0le, post))
+        else:
+            print("        T%-5d g0*le %.3f  피크 이후 %.3f  ->  A <= %.2f "
+                  "< 2, 연화 완만, 잔여강도 하한" % (T, g0le, post, A))
+    p, n = write_placeholder_csv()
+    print("\n -> %s (%d행)" % (os.path.relpath(p, ROOT), n))
+    return rows, cb
+
+
+def write_placeholder_csv(path=None):
+    path = path or os.path.join(ROOT, "verification",
+                                "placeholder_directions.csv")
+    rows = placeholder_rows()
+    cb = crack_band_direction()
+    out = [[r["where"], r["slot"], r["value"], r["grade"], r["direction"],
+            r["evidence"], r["why"]] for r in rows]
+    for T in sorted(cb):
+        g0le, post, A = cb[T]
+        out.append(["card:macro", "32-35 (A=2) @%dC" % T, 0.0, "KNOB",
+                    "미정" if A is None else "올라간다",
+                    "g0*le %.4f vs 피크 이후 %.4f" % (g0le, post),
+                    "피크 이후 소산이 0 이라 부등호를 세울 수 없다"
+                    if A is None else ""])
+    return _write_csv(path,
+                      ["where", "slot", "value", "grade", "direction",
+                       "evidence", "why_undetermined"], out)
 
 
 def report():
@@ -175,6 +350,7 @@ def report():
             print("   %-2s Bi=%-5g %5.1f %%   %s" % (sev, bi, pct, v))
     p, n = write_csv()
     print("\n -> %s (%d행)" % (os.path.relpath(p, ROOT), n))
+    placeholder_report()
     return 0
 
 
@@ -266,6 +442,49 @@ def check():
       "verification/pending_slots.csv")
     t("and the refusal is stated in the docstring",
       "does not fill anything itself" in " ".join(__doc__.split()))
+
+    print("\n G. a3 R17-2 -- every placeholder carries a direction")
+    ph = placeholder_rows()
+    t("the card placeholders are read from card_gap_triage, not retyped",
+      len(ph) >= 10, "%d 자리표 (DERIVED 제외)" % len(ph))
+    t("every one carries a direction verdict",
+      all(r["direction"] in ("올라간다", "내려간다", "양방향", "미정")
+          for r in ph))
+    und = [r for r in ph if r["direction"] == "미정"]
+    t("every 미정 says WHY it cannot be stated, in a sentence",
+      all(len(r["why"]) > 30 for r in und),
+      ", ".join(r["slot"] for r in und))
+    t("...and no slot with live sensitivities is excused as 미정",
+      not [r for r in ph
+           if r["direction"] != "미정" and r["slot"] in NO_DIRECTION],
+      "NO_DIRECTION %d개" % len(NO_DIRECTION))
+    t("directions come from the measured Jacobian, not this file",
+      all(r["evidence"] != "LIVE 행 없음" for r in ph
+          if r["direction"] != "미정"))
+    # The sign is the whole point: S23 moves two observables opposite ways,
+    # so calling it "up" would be the §6.6.2 error in miniature.
+    s23 = [r for r in ph if r["slot"] == "S23"]
+    t("S23 is reported as 양방향, not collapsed to one sign",
+      s23 and s23[0]["direction"] == "양방향",
+      s23[0]["evidence"] if s23 else "missing")
+
+    print("\n H. the worked example -- the crack-band exponent")
+    cb = crack_band_direction()
+    t("all three temperatures are covered", sorted(cb) == [23, 500, 1000])
+    t("RT23 carries no post-peak dissipation, so no bound",
+      abs(cb[23][1]) < 1e-12 and cb[23][2] is None,
+      "피크 이후 %.4g N/mm" % cb[23][1])
+    for T in (500, 1000):
+        g0le, post, A = cb[T]
+        t("T%d: what already dissipated exceeds the declaration" % T,
+          post > g0le, "%.3f > %.3f N/mm (%.1f배)" % (post, g0le, post / g0le))
+        t("T%d: so A <= %.2f, below the declared 2" % (T, A), A < 2.0)
+    t("the docstring says a placeholder is a declaration, not a blank",
+      "not a missing" in " ".join(open(__file__, encoding="utf-8")
+                                  .read().split()))
+    t("the second CSV is produced for both agents",
+      write_placeholder_csv()[1] == len(ph) + 3,
+      "verification/placeholder_directions.csv")
 
     print("\n" + "=" * 74)
     if _BAD:

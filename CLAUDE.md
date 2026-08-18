@@ -583,7 +583,7 @@ python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결�
 python3 verification/review_inbox.py --check           # 리뷰 브랜치 수신·원문 대조 (a3)
 python3 verification/check_manuscript_citations.py     # 제출본(CH1~7) 인용 전수 (고아·허공·무인용 주장)
 python3 verification/prerun_gate.py --check            # 최소 해석 계획·단계별 관문 (a1 몫)
-python3 verification/pending_slots.py --check          # [결과 대기] 슬롯 8개 — 단계·소유자·차단/부분
+python3 verification/pending_slots.py --check          # [결과 대기] 슬롯 8개 + 자리표 방향 (a3 R17-2)
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
 python3 verification/card_pipeline_rehearsal.py --check # RVE곡선→거시카드→9덱 이음새 (Gf 연화 관문)
