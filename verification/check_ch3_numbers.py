@@ -156,7 +156,7 @@ CASES = [
      count_plain, 119),
     ("check_ch6_numbers.py",
      "python3 verification/check_ch6_numbers.py",
-     count_plain, 54),
+     count_plain, 68),
     ("check_ch4_numbers.py",
      "python3 verification/check_ch4_numbers.py",
      count_plain, 174),

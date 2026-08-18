@@ -614,7 +614,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 70개를 전부 통과시킨다.**
+**커밋 전에 위 78개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이
