@@ -56,6 +56,7 @@ A_FROM = '2.0'
 A_TO = '50.0'
 XT_SLOT = 11
 XT_WANT = '2835.0'      # P3 계보 확인용 -- 이게 아니면 P3 덱이 아니다
+GF_SLOT = 32            # 있으면 크랙밴드가 A1T 를 무시한다 -- 반드시 없어야
 
 
 def head(t):
@@ -194,24 +195,75 @@ def preflight():
 
 
 def lineage_ok(decks):
-    """P3 계보 확인 -- XT=2835, Depvar=17 이어야 한다."""
+    """P3 계보 확인 -- XT=2835, Depvar=17, 그리고 GF1T 가 꺼져 있어야.
+
+    GF1T 가 살아 있으면 UMAT 이 A1TEFF 를 크랙밴드로 계산하고
+    PROPS(18) 을 **통째로 무시한다** (V2_7D 370-380행). 그 상태로
+    A1T 를 바꾸면 아무 일도 안 일어나는 헛배치가 되므로 여기서
+    막는다. 이 배치의 존재 이유가 걸린 가드다.
+    """
     bad = []
     for d in decks:
         xt = read_slot(d, 'YARN', XT_SLOT)
         dv = yarn_depvar_count(d)
+        gf = read_slot(d, 'YARN', GF_SLOT)
         okx = xt is not None and abs(float(xt) - float(XT_WANT)) < 1e-9
         okd = dv == 17
-        mark = 'OK  ' if (okx and okd) else '문제'
-        print('  %s   %-46s XT=%-8s Depvar=%s'
-              % (mark, os.path.basename(d), xt, dv))
-        if not (okx and okd):
-            bad.append(d)
+        okg = (gf is None) or (abs(float(gf)) <= 0.0)
+        mark = 'OK  ' if (okx and okd and okg) else '문제'
+        print('  %s   %-40s XT=%-8s Depvar=%-4s GF1T=%s'
+              % (mark, os.path.basename(d), xt, dv,
+                 '없음(정상)' if gf is None else gf))
+        if not (okx and okd and okg):
+            bad.append((d, okx, okd, okg))
     if bad:
         print('')
-        print('[중단] 위 덱은 P3 덱이 아니다 (XT 2835 + Depvar 17 이어야')
-        print('       한다). Try_P3* 에 setup_p3 결과물이 있는지 확인할 것.')
+        if any(not g for _, _, _, g in bad):
+            print('[중단] 얀 카드에 GF1T(슬롯 32)가 살아 있다.')
+            print('       GF1T>0 이면 UMAT 이 A1TEFF 를 크랙밴드로')
+            print('       계산하고 PROPS(18) 을 무시한다. A1T 를 바꿔도')
+            print('       결과가 안 변하는 헛배치가 되므로 막는다.')
+            print('       P3 덱은 상수 31개(슬롯 32 없음)여야 한다.')
+        else:
+            print('[중단] 위 덱은 P3 덱이 아니다 (XT 2835 + Depvar 17 이어야')
+            print('       한다). Try_P3* 에 setup_p3 결과물이 있는지 확인.')
         return False
     return True
+
+
+def fix_names(decks):
+    """얀 *Depvar 이름줄이 옛 배치면 V2_7P 배치로 바로잡는다.
+
+    이름줄은 출력 라벨일 뿐 해석에 안 들어간다 (UMAT 은 STATEV 를
+    번호로 받는다). 그래서 '변수 하나' 규칙을 안 깨면서, P3 t23 을
+    괴롭힌 SDV_DYTT<->SDV_DY1C 오독(§5.24D)을 P4 에서는 원천 차단할
+    수 있다. 추출할 때 --sdv-layout 을 신경 쓸 필요가 없어진다.
+    """
+    n = 0
+    for d in decks:
+        lines = DEPVAR.read_lines(d)
+        hits = DEPVAR.find_yarn_depvars(lines)
+        if not hits:
+            continue
+        dv_line, _ = hits[0]
+        a, b = DEPVAR.block_extent(lines, dv_line)
+        data = [k for k in range(a, b) if lines[k].strip()]
+        named = [k for k in data[1:] if ',' in lines[k]]
+        if not named:
+            print('  %-40s 이름줄 없음 -- 번호로 잡힌다 (그대로)'
+                  % os.path.basename(d))
+            continue
+        msg = DEPVAR.fix_slot23(lines, named)
+        if msg:
+            if not os.path.isfile(d + '.bak'):
+                shutil.copyfile(d, d + '.bak')
+            DEPVAR.write_lines(d, lines)
+            print('  %-40s 슬롯 2/3 이름을 V2_7P 배치로 정정'
+                  % os.path.basename(d))
+            n += 1
+        else:
+            print('  %-40s 이름배치 이미 정상' % os.path.basename(d))
+    return n
 
 
 def main(argv=None):
@@ -268,7 +320,10 @@ def main(argv=None):
         print('다 맞으면:  python setup_p4.py --apply')
         return 0
 
-    head('4) 적용 — 얀 A1T %s -> %s' % (A_FROM, A_TO))
+    head('4) 얀 SDV 이름배치 정정 (해석엔 영향 없음, 추출 사고 예방)')
+    fix_names(decks)
+
+    head('5) 적용 — 얀 A1T %s -> %s' % (A_FROM, A_TO))
     state, vals = slot_state(decks, A_SLOT, A_FROM, A_TO)
     if state == 'to':
         print('       세 덱 모두 이미 %s. 건너뛴다 (멱등).' % A_TO)
@@ -287,7 +342,7 @@ def main(argv=None):
                   % A_FROM)
             return 1
 
-    head('5) 발사 전 최종 확인')
+    head('6) 발사 전 최종 확인')
     show(decks, A_SLOT, 'A1T — 세 줄 모두 %s' % A_TO)
     print('')
     show(decks, XT_SLOT, 'XT — 그대로 %s 여야 한다' % XT_WANT)
@@ -304,7 +359,7 @@ def main(argv=None):
             print('[중단] 이웃 슬롯이 바뀌었다. .bak 으로 되돌릴 것.')
             return 1
 
-    head('6) 발사 (창 3개, 10코어씩 = 30/32)')
+    head('7) 발사 (창 3개, 10코어씩 = 30/32)')
     for _, _, p4d, p4f, job in RUNS:
         print('')
         print('  cd /d %s' % os.path.join(root, p4d))
@@ -350,8 +405,11 @@ def _deck(named):
 
 
 def _slotval(body, slot):
-    """합성 덱 본문에서 얀 카드 슬롯 값을 위치로 읽는다."""
-    tail = body.split('constants=31')[1]
+    """합성 덱 본문에서 얀 카드 슬롯 값을 위치로 읽는다.
+
+    상수 개수(31/38)를 가리지 않게 얀 재료 뒤의 첫 *User Material
+    부터 센다."""
+    tail = body.split('CSIC_YARN_DAMAGE')[1].split('*User Material')[1]
     nums = []
     for ln in tail.split('\r\n')[1:]:
         if not ln.strip() or ln.startswith('*'):
@@ -422,8 +480,11 @@ def selftest():
         c('apply-keeps-crlf', '\r\n' in body and '\n\n' not in body, out)
         c('apply-depvar-17-kept', '\r\n17,\r\n' in body, out)
         if named:
-            c('apply-names-untouched', '2, DY1C,' in body
-              and '17, YSHR1T,' in body, out)
+            # 이름배치는 이제 '정정되는 것' 이 정상이다 (§5.24D 재발
+            # 방지). 해석엔 안 들어가므로 단일변수 규칙과 무관하다.
+            c('apply-names-repaired', '2, DYTT,' in body
+              and '3, DY1C,' in body and '2, DY1C,' not in body, out)
+            c('apply-slot17-name-kept', '17, YSHR1T,' in body, out)
         c('apply-leaves-bak', os.path.isfile(d23 + '.bak'), out)
         c('apply-prints-launch', 'abaqus job=CSIC_t23_p4' in out, out)
 
@@ -478,6 +539,32 @@ def selftest():
                  encoding='utf-8', newline='') as fh:
         c4 = fh.read()
     check('wrong-lineage-no-patch', _slotval(c4, 18) == '2.0', c4)
+    shutil.rmtree(tmp)
+
+    # GF1T 가 살아 있으면(38상수 덱) 반드시 거부해야 한다.
+    # A1TEFF 를 크랙밴드가 덮어써 P(18) 이 무시되기 때문이다.
+    tmp = _tf.mkdtemp()
+    gfdeck = _deck(False).replace(
+        '0.10, 3.0, 0.25, 1.0, 1.15, 0.75, 0.50',
+        '0.10, 3.0, 0.25, 1.0, 1.15, 0.75, 0.50, 12.5\r\n'
+        '12.5, 0.0, 0.0, 700.0, 3.0, 8000.0').replace(
+        'constants=31', 'constants=38')
+    for p3d, p3f, _, _, _ in RUNS:
+        os.makedirs(os.path.join(tmp, p3d))
+        with io.open(os.path.join(tmp, p3d, p3f), 'w',
+                     encoding='utf-8', newline='') as fh:
+            fh.write(gfdeck)
+        with io.open(os.path.join(tmp, p3d, ORI), 'w') as fh:
+            fh.write('m')
+        with io.open(os.path.join(tmp, p3d, UMAT), 'w') as fh:
+            fh.write('s')
+    rc, out = _quiet_call(main, ['--root', tmp, '--apply', '--skip-selftest'])
+    check('gf1t-alive-refused', rc == 1 and 'GF1T' in out, out)
+    with io.open(os.path.join(tmp, 'Try_P4',
+                              'CSIC_PLAIN_WEAVE_RVE_23C_P4.inp'),
+                 encoding='utf-8', newline='') as fh:
+        g4 = fh.read()
+    check('gf1t-alive-no-patch', _slotval(g4, 18) == '2.0', g4)
     shutil.rmtree(tmp)
 
     # 준비물이 없으면 복사 전에 멈춰야 한다
