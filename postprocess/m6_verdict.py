@@ -137,6 +137,49 @@ def peak(curve):
     return curve[i][0], curve[i][1], i == len(curve) - 1
 
 
+#: The RVE in-plane edge, the length homogenize.py extracts Gf at, and the
+#: two gate thresholds it applies.  Mirrored here rather than imported so this
+#: reader still works inside `abaqus python`, where the repo may not be on the
+#: path -- and pinned against homogenize.py by the selftest.
+L_RVE = 3.5
+SOFT_MIN = 0.50
+PREPEAK_MAX = 0.50
+
+
+def _area(xs, ys):
+    """Trapezoid, without NumPy -- this runs under abaqus python too."""
+    return sum(0.5 * (ys[i] + ys[i + 1]) * (xs[i + 1] - xs[i])
+               for i in range(len(xs) - 1))
+
+
+def softening_facts(curve, le=L_RVE):
+    """Everything homogenize.py's crack-band gate decides on.
+
+    Returns softened (1 - sigma_end/peak), the pre-peak share of what would
+    ship, and the dissipated part itself.  The three M6 curves scored
+    0.0 / 0.3 / 16.6 % softened with 100 / 70 / 22 % of the area pre-peak,
+    which is why none of them may supply a fracture energy.
+    """
+    eps = [e for e, _ in curve]
+    sig = [s for _, s in curve]
+    ps = max(sig)
+    ipk = sig.index(ps)
+    E, _r2, _n = tangent_of(curve)
+    out = dict(softened=(1.0 - sig[-1] / ps) if ps > 0 else 0.0,
+               peak=ps, eps_peak=eps[ipk], prepeak=0.0, inel=0.0, g0=None)
+    if not E or E <= 0.0 or ps <= 0.0:
+        return out
+    g0 = ps * ps / (2.0 * E)
+    elastic = g0 * le
+    inel = _area(eps, sig) * le - elastic
+    out["g0"] = g0
+    out["inel"] = inel
+    if inel > 0.0:
+        pre = _area(eps[:ipk + 1], sig[:ipk + 1]) * le
+        out["prepeak"] = max(0.0, pre - elastic) / inel
+    return out
+
+
 def report(paths):
     print("=" * 78)
     print("m6_verdict.py -- the three re-sourced card values, judged")
@@ -257,6 +300,38 @@ def report(paths):
                   "deck stops at the")
             print("                strain the specimen failed at.")
 
+    print("\n 4b. DID THE CURVE SOFTEN ENOUGH TO SUPPLY A FRACTURE ENERGY?")
+    print("    This is what M8 exists to answer.  A crack-band Gf is the area")
+    print("    under a COMPLETED softening branch; postprocess/homogenize.py")
+    print("    refuses one that fell less than %.0f %% of peak, or whose area"
+          % (100.0 * SOFT_MIN))
+    print("    is more than %.0f %% PRE-peak.  M6 gave 0.0 / 0.3 / 16.6 %%."
+          % (100.0 * PREPEAK_MAX))
+    print("    %-8s %10s %12s %12s   %s"
+          % ("T [C]", "softened", "pre-peak", "Gf_inel", "verdict"))
+    for T, p, c in rows:
+        s = softening_facts(c)
+        ok = (s["softened"] >= SOFT_MIN and s["prepeak"] <= PREPEAK_MAX)
+        why = []
+        if s["softened"] < SOFT_MIN:
+            why.append("fell only %.1f %%" % (100.0 * s["softened"]))
+        if s["prepeak"] > PREPEAK_MAX:
+            why.append("%.0f %% pre-peak" % (100.0 * s["prepeak"]))
+        print("    %-8d %9.1f %% %11.0f %% %12s   %s"
+              % (T, 100.0 * s["softened"], 100.0 * s["prepeak"],
+                 "%.4g" % s["inel"] if s["inel"] > 0 else "-",
+                 "SUPPLIES Gf" if ok else "REFUSED: " + "; ".join(why)))
+        csv_rows.append(("softening", "%d C" % T,
+                         "%.4f" % s["softened"], "-",
+                         "1 - sigma_end/peak; gate needs >= %.2f" % SOFT_MIN,
+                         "pre-peak share %.3f (allow <= %.2f), "
+                         "Gf_inel %.4g N/mm at le = %.3g mm"
+                         % (s["prepeak"], PREPEAK_MAX, s["inel"], L_RVE),
+                         "SUPPLIES Gf" if ok else "REFUSED"))
+    print("    A refused mode leaves macro card slots 32-35 at 0.0, which the")
+    print("    UMAT reads as 'crack band off, fixed exponent'.  That is a")
+    print("    declared assumption, and Ch.6 6.6.2 has to say so.")
+
     print("\n 5. THE CEILING THE CARD IMPLIES")
     print("    %-8s %10s %14s %12s" % ("T [C]", "Xt", "ROM bound", "Zhang T3"))
     for T in sorted(M6_XT):
@@ -367,6 +442,48 @@ def selftest():
         t("and it is still the best of the three against a measurement",
           abs(now[1000] / 172.7 - 1.0) < abs(now[23] / 128.7 - 1.0),
           "%.2fx vs %.2fx" % (now[1000] / 172.7, now[23] / 128.7))
+
+    print("\n  C2. the softening gate -- what M8 is for")
+    # The thresholds are mirrored, not imported (this has to run under abaqus
+    # python), so they have to be checked against the file that owns them.
+    try:
+        sys.path.insert(0, here)
+        import homogenize as _H
+        t("the mirrored thresholds match homogenize.py, which owns them",
+          abs(_H.SOFT_MIN - SOFT_MIN) < 1e-12
+          and abs(_H.PREPEAK_MAX - PREPEAK_MAX) < 1e-12,
+          "SOFT_MIN %.2f, PREPEAK_MAX %.2f" % (SOFT_MIN, PREPEAK_MAX))
+    except Exception as exc:                                  # pragma: no cover
+        t("the mirrored thresholds match homogenize.py, which owns them",
+          False, str(exc))
+    want = {23: (0.000, 1.000), 500: (0.003, 0.697), 1000: (0.166, 0.216)}
+    for tag, T in (("RT23", 23), ("T500", 500), ("T1000", 1000)):
+        p = os.path.join(m6, "LTH_M6_%s_ss.csv" % tag)
+        if not os.path.exists(p):
+            continue
+        s = softening_facts(read_curve(p))
+        ws, wp = want[T]
+        t("%-5s softened %.1f %% and is %.0f %% pre-peak"
+          % (tag, 100 * s["softened"], 100 * s["prepeak"]),
+          abs(s["softened"] - ws) < 5e-3 and abs(s["prepeak"] - wp) < 5e-3,
+          "expected %.1f %% / %.0f %%" % (100 * ws, 100 * wp))
+        t("  -> refused, so no Gf crosses the scale boundary",
+          not (s["softened"] >= SOFT_MIN and s["prepeak"] <= PREPEAK_MAX))
+    # and it must ACCEPT a real branch, or it is only an off switch
+    import math
+    c = [(2.0e-5 * i, 100.0 * (2.0e-5 * i) / 1.0e-3) for i in range(51)]
+    c += [(1.0e-3 + 2.0e-4 * i, 100.0 * math.exp(-0.05 * i))
+          for i in range(1, 60)]
+    s = softening_facts(c)
+    t("a curve that DID soften is accepted",
+      s["softened"] >= SOFT_MIN and s["prepeak"] <= PREPEAK_MAX,
+      "softened %.1f %%, pre-peak %.1f %%"
+      % (100 * s["softened"], 100 * s["prepeak"]))
+    t("  and the trapezoid agrees with NumPy to 1e-12",
+      abs(_area([x for x, _ in c], [y for _, y in c])
+          - float(__import__("numpy").trapezoid([y for _, y in c],
+                                                [x for x, _ in c]))) < 1e-12,
+      "no NumPy needed inside abaqus python")
 
     print("\n  D. the CSV this file used to not write")
     import tempfile

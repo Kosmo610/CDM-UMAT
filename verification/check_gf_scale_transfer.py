@@ -161,7 +161,12 @@ def part_b():
     check("homogenize.py multiplies the area by an RVE length",
           "Gf = area * Lchar" in src)
     check("and takes the area under the WHOLE curve, elastic included",
-          "np.trapz(sig, eps)" in src and "whole curve" in src)
+          "_trapz(sig, eps)" in src and "whole curve" in src)
+    # np.trapz was REMOVED in NumPy 2.0 (renamed np.trapezoid).  homogenize.py
+    # is the last thing to run in the whole RVE campaign, so resolving the
+    # name at call time is what stops one rename from costing every job.
+    check("  and it resolves trapz/trapezoid rather than trusting one NumPy",
+          "getattr(np, \"trapezoid\"" in src and "getattr(np, \"trapz\")" in src)
 
     # Invert the A-formula and confirm it returns the same area convention.
     # A = 2*g0*le/(Gf - g0*le)  <=>  Gf = le * g0 * (1 + 2/A)
