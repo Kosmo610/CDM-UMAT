@@ -547,6 +547,7 @@ python3 data/literature/digitize_ref28_fig17.py --check # refs/[28] Fig.17 TRS (
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
 python3 abaqus/quench_calibration.py --check          # 급랭 h 보정 + Biot
 python3 abaqus/retune_deck.py --check                 # 덱 재튜닝 (카드 슬롯 + 스텝)
+python3 abaqus/lengthen_tension.py --check            # 인장 스텝 연장 (연화 가지 확보, 3줄만)
 python3 verification/check_ch1_numbers.py             # Ch.1 인용·기여·전방참조 (검증 1회차)
 python3 verification/check_ch2_numbers.py             # Ch.2 본문 수치 vs 문헌 CSV
 python3 verification/check_ch3_numbers.py             # Ch.3 검증 개수 vs 실제 (느림)
@@ -563,6 +564,7 @@ python3 verification/prerun_gate.py --check            # 최소 해석 계획·�
 python3 verification/pending_slots.py --check          # [결과 대기] 슬롯 8개 — 단계·소유자·차단/부분
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
 python3 verification/check_gf_scale_transfer.py        # Gbar_f가 RVE 크기를 달고 넘어가는지 (M6 관문)
+python3 verification/card_pipeline_rehearsal.py --check # RVE곡선→거시카드→9덱 이음새 (Gf 연화 관문)
 python3 verification/m6_calibration_plan.py            # M6가 무엇을 움직이고 무엇을 건드리면 안 되는지
 python3 verification/plastic_dissipation_audit.py      # Ge (23)(24) 소성분이 A_m에 들어가는가 (철회 기록)
 python3 verification/reheat_saturation.py --check      # 재가열 상한 도달의 원인 (점성 지연 16 % + 재분배 84 %)

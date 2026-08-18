@@ -126,7 +126,7 @@ CASES = [
      count_plain, 26),
     ("m6_verdict.py --selftest",
      "python3 postprocess/m6_verdict.py --selftest",
-     count_plain, 19),
+     count_plain, 28),
     ("matrix_audit.py --check",
      "python3 abaqus/matrix_audit.py --check",
      count_bracketed, 39),
@@ -144,7 +144,7 @@ CASES = [
      count_bracketed, 12),
     ("retune_deck.py --check",
      "python3 abaqus/retune_deck.py --check",
-     count_plain, 178),
+     count_plain, 187),
     ("check_ch1_numbers.py",
      "python3 verification/check_ch1_numbers.py",
      count_plain, 53),
@@ -213,7 +213,10 @@ CASES = [
      count_bracketed, 40),
     ("check_gf_scale_transfer.py",
      "python3 verification/check_gf_scale_transfer.py",
-     count_plain, 81),
+     count_plain, 82),
+    ("card_pipeline_rehearsal.py --check",
+     "python3 verification/card_pipeline_rehearsal.py --check",
+     count_bracketed, 52),
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
      count_plain, 33),
@@ -263,14 +266,17 @@ CASES = [
      count_bracketed, 31),
     ("homogenize.py --selftest",
      "python3 postprocess/homogenize.py --selftest",
-     count_bracketed, 18),
+     count_bracketed, 27),
+    ("lengthen_tension.py --check",
+     "python3 abaqus/lengthen_tension.py --check",
+     count_bracketed, 21),
 ]
 
 
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 68  # 2026-08-16: +reheat_saturation (a2, cause of the reheat ceiling) -- a conscious raise, as designed
+EXPECTED_CASES = 70  # 2026-08-18: +lengthen_tension (a2, the tension step that ended at its own peak) -- a conscious raise, as designed
 
 
 def main():

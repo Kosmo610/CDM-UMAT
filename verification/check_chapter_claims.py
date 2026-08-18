@@ -75,6 +75,22 @@ def main():
     check("chapters name at least 15 files", len(named) >= 15,
           "%d found" % len(named))
 
+    # Generators write Markdown too (matrix_audit.py -> RUN_MANIFEST.md), and
+    # a .md name is only legitimate here if the generator actually WRITES it.
+    # Whitelisting every quoted "*.md" would be wrong: retune_deck.py quotes
+    # CALIBRATION_GUIDE.md only to READ it, and a chapter naming a file that
+    # nothing writes and nothing commits is exactly what this check is for.
+    # So the literal has to sit within a few lines of an open(..., "w").
+    def _written_markdown(src, window=6):
+        lines = src.splitlines()
+        out = set()
+        for i, ln in enumerate(lines):
+            for m in re.findall(r'"([A-Za-z0-9_]+\.md)"', ln):
+                near = "\n".join(lines[i:i + window])
+                if re.search(r'open\([^)]*"w"', near):
+                    out.add(m)
+        return out
+
     # Some named files are GENERATED, not committed -- the input decks are
     # 2.5 MB each and live only in dist/.  A generated name is legitimate as
     # long as some generator in the repo actually writes it, so index the
@@ -83,7 +99,7 @@ def main():
     generated = set()
     for gen in ("abaqus/make_patch_tests.py", "abaqus/make_rve_virtual_tests.py",
                 "abaqus/assemble_inp.py", "abaqus/retune_deck.py",
-                "abaqus/make_macro_thermalshock.py"):
+                "abaqus/make_macro_thermalshock.py", "abaqus/matrix_audit.py"):
         gp = os.path.join(ROOT, gen)
         if os.path.exists(gp):
             src = open(gp).read()
@@ -93,6 +109,7 @@ def main():
                 generated.add(m + ".inp")
             for m in re.findall(r'"([A-Za-z0-9_]+)%d\.inp"', src):
                 generated.add(m)
+            generated |= _written_markdown(src)
 
     index = {}
     for dirpath, dirnames, filenames in os.walk(ROOT):
