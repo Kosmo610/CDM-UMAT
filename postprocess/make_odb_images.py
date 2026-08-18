@@ -362,11 +362,14 @@ def main():
         # 때만 이름을 맞바꿔 진짜 슬롯을 탄다 (추출기들과 같은 가드).
         if 'SDV17' in fo_names:
             swap = {'SDV_DYTT': 'SDV_DY1C', 'SDV_DY1C': 'SDV_DYTT'}
-
-            def _has(nm):
-                return any(n == nm or n.startswith(nm) for n in fo_names)
-            cands = [swap[c] if c in swap and _has(c) else c
-                     for c in cands]
+            out = []
+            for c in cands:
+                tgt = c
+                if c in swap and any(n == tgt or n.startswith(tgt)
+                                     for n in fo_names):
+                    c = swap[c]
+                out.append(c)
+            cands = out
         for c in cands:
             cu = c.upper()
             if cu in ('S11', 'S22', 'S33', 'MISES'):
