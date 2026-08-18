@@ -218,7 +218,7 @@ def main(argv=None):
     head('2) 지금 상태')
     show(decks, XT_SLOT, 'XT (슬롯 11) — 세 줄 모두 %s 여야 한다' % XT_FROM)
     print('')
-    print('  [*Depvar — 기지 20 / 얀 16 이어야 한다]')
+    print('  [*Depvar — 얀 16 이어야 한다. 기지는 안 건드린다]')
     DEPVAR.main(decks + ['--check'])
 
     if not args.apply:
@@ -293,14 +293,26 @@ def main(argv=None):
     return 0
 
 
-def selftest():
-    """합성 트리로 확인+복사+미리보기+적용 전 과정을 돌린다."""
-    import tempfile
-    tmp = tempfile.mkdtemp()
-    fails = []
-    deck = """*Material, Name=SIC_MATRIX_DAMAGE
+def _deck(matrix_depvar, yarn_constants):
+    """덱 두 모양을 만든다.
+
+    A(38/20) 는 문서가 오래 추정하던 모양, B(31/14) 는 2026-08-12 에
+    사용자 PC 에서 실측한 진짜 모양이다. B 에는 슬롯 32(GF1T)가
+    아예 없어 얀 크랙밴드가 꺼져 있다. 둘 다 통과해야 한다.
+    """
+    yarn = [
+        '1.0, 254967.228042, 44321.7, 44321.7, 0.2475, 0.2475, 0.3958, 26431.5',
+        '26431.5, 15876.6, 421.0, 1956.0, 50.0, 350.0, 120.0, 120.0',
+        '100.0, 2.0, 2.0, 2.0, 2.0, 0.99, 0.99, 0.02',
+    ]
+    if yarn_constants == 31:
+        yarn.append('0.10, 3.0, 0.25, 1.0, 1.15, 0.75, 0.50')
+    else:
+        yarn.append('0.10, 3.0, 0.25, 1.0, 1.15, 0.75, 0.50, 0.03962')
+        yarn.append('0.03962, 0.0, 0.0, 700.0, 3.0, 8000.0')
+    return """*Material, Name=SIC_MATRIX_DAMAGE
 *Depvar
-20,
+%d,
 *User Material, constants=24
 2.0, 350000.0, 0.20, 310.0, 310.0, 0.0, 0.0, 0.99
 0.99, 0.02, 0.10, 3.0, 0.25, 1.0, 0.031, 0.031
@@ -308,98 +320,124 @@ def selftest():
 *Material, Name=CSIC_YARN_DAMAGE
 *Depvar
 16,
-*User Material, constants=38
-1.0, 254967.228042, 44321.7, 44321.7, 0.2475, 0.2475, 0.3958, 26431.5
-26431.5, 15876.6, 421.0, 1956.0, 50.0, 350.0, 120.0, 120.0
-100.0, 2.0, 2.0, 2.0, 2.0, 0.99, 0.99, 0.02
-0.10, 3.0, 0.25, 1.0, 1.15, 0.75, 0.50, 0.03962
-0.03962, 0.0, 0.0, 700.0, 3.0, 8000.0
-"""
-    for p2d, p2f, _, _, _ in RUNS:
-        os.makedirs(os.path.join(tmp, p2d))
-        with io.open(os.path.join(tmp, p2d, p2f), 'w',
-                     encoding='utf-8', newline='\r\n') as fh:
-            fh.write(deck)
-    with io.open(os.path.join(tmp, RUNS[0][0], ORI), 'w') as fh:
-        fh.write('mesh placeholder')
-    with io.open(os.path.join(tmp, UMAT), 'w') as fh:
-        fh.write('      SUBROUTINE UMAT\n')
+*User Material, constants=%d
+%s
+""" % (matrix_depvar, yarn_constants, '\n'.join(yarn))
+
+
+# (모양이름, 기지 Depvar, 얀 상수개수)
+DECK_SHAPES = [
+    ('B31', 14, 31),   # 실측 -- 사용자 덱이 이 모양이다
+    ('A38', 20, 38),   # 문서 추정 -- 과거 덱 호환 확인용
+]
+
+
+def selftest():
+    """합성 트리로 확인+복사+미리보기+적용 전 과정을 두 덱 모양에 돌린다."""
+    import tempfile
+    fails = []
+
+    def check(tag, cond, extra=''):
+        print('  %-32s %s' % (tag, 'PASS' if cond else 'FAIL'))
+        if not cond:
+            fails.append(tag)
+            if extra:
+                print(extra[-1500:])
 
     def quiet(argv):
         # --skip-selftest 필수. 안 그러면 main() 이 preflight() 를
         # 부르고 preflight() 가 다시 selftest() 를 불러 무한재귀가 된다.
         return _quiet_call(main, argv + ['--skip-selftest'])
 
-    def check(tag, cond, extra=''):
-        print('  %-28s %s' % (tag, 'PASS' if cond else 'FAIL'))
-        if not cond:
-            fails.append(tag)
-            if extra:
-                print(extra[-1500:])
-
     print('자체시험')
-    rc, out = quiet(['--root', tmp])
-    d23 = os.path.join(tmp, 'Try_P3', 'CSIC_PLAIN_WEAVE_RVE_23C_P3.inp')
-    check('preview-rc0', rc == 0, out)
-    check('preview-copies-tree', os.path.isfile(d23), out)
-    check('preview-copies-ori',
+    for shape, mdep, ycon in DECK_SHAPES:
+        print('  --- 덱 모양 %s (기지 Depvar %d / 얀 상수 %d) ---'
+              % (shape, mdep, ycon))
+        deck = _deck(mdep, ycon)
+        tmp = tempfile.mkdtemp()
+
+        def c(tag, cond, extra=''):
+            check('%s %s' % (shape, tag), cond, extra)
+
+        for p2d, p2f, _, _, _ in RUNS:
+            os.makedirs(os.path.join(tmp, p2d))
+            with io.open(os.path.join(tmp, p2d, p2f), 'w',
+                         encoding='utf-8', newline='\r\n') as fh:
+                fh.write(deck)
+        with io.open(os.path.join(tmp, RUNS[0][0], ORI), 'w') as fh:
+            fh.write('mesh placeholder')
+        with io.open(os.path.join(tmp, UMAT), 'w') as fh:
+            fh.write('      SUBROUTINE UMAT\n')
+
+        rc, out = quiet(['--root', tmp])
+        d23 = os.path.join(tmp, 'Try_P3', 'CSIC_PLAIN_WEAVE_RVE_23C_P3.inp')
+        c('preview-rc0', rc == 0, out)
+        c('preview-copies-tree', os.path.isfile(d23), out)
+        c('preview-copies-ori',
           os.path.isfile(os.path.join(tmp, 'Try_P3', ORI)), out)
-    check('preview-copies-umat',
+        c('preview-copies-umat',
           os.path.isfile(os.path.join(tmp, 'Try_P3', UMAT)), out)
-    with io.open(d23, encoding='utf-8', newline='') as fh:
-        body = fh.read()
-    check('preview-writes-nothing', '421.0' in body and '16,' in body, out)
+        with io.open(d23, encoding='utf-8', newline='') as fh:
+            body = fh.read()
+        c('preview-writes-nothing', '421.0' in body and '16,' in body, out)
 
-    rc, out = quiet(['--root', tmp, '--apply'])
-    with io.open(d23, encoding='utf-8', newline='') as fh:
-        body = fh.read()
-    check('apply-rc0', rc == 0, out)
-    check('apply-xt-2835', '2835.0' in body and '421.0' not in body, out)
-    check('apply-depvar-17', '\r\n17,\r\n' in body, out)
-    check('apply-matrix-20', '\r\n20,\r\n' in body, out)
-    check('apply-keeps-crlf', '\r\n' in body and '\n\n' not in body, out)
-    check('apply-keeps-gf1t', '0.03962' in body, out)
-    check('apply-leaves-bak', os.path.isfile(d23 + '.bak'), out)
-    check('apply-prints-launch', 'abaqus job=CSIC_t23_p3' in out, out)
+        rc, out = quiet(['--root', tmp, '--apply'])
+        with io.open(d23, encoding='utf-8', newline='') as fh:
+            body = fh.read()
+        c('apply-rc0', rc == 0, out)
+        c('apply-xt-2835', '2835.0' in body and '421.0' not in body, out)
+        c('apply-depvar-17', '\r\n17,\r\n' in body, out)
+        c('apply-matrix-untouched', '\r\n%d,\r\n' % mdep in body, out)
+        c('apply-keeps-crlf', '\r\n' in body and '\n\n' not in body, out)
+        c('apply-keeps-constants', 'constants=%d' % ycon in body, out)
+        # 31 짜리엔 GF1T 가 없어야 하고, 38 짜리엔 남아 있어야 한다.
+        if ycon == 31:
+            c('apply-no-gf1t-slot', '0.03962' not in body, out)
+        else:
+            c('apply-keeps-gf1t', body.count('0.03962') == 2, out)
+        c('apply-leaves-bak', os.path.isfile(d23 + '.bak'), out)
+        c('apply-prints-launch', 'abaqus job=CSIC_t23_p3' in out, out)
 
-    rc, out = quiet(['--root', tmp, '--apply'])
-    check('apply-twice-idempotent', rc == 0 and '이미' in out, out)
-    with io.open(d23, encoding='utf-8', newline='') as fh:
-        again = fh.read()
-    check('apply-twice-no-change', again == body, out)
+        rc, out = quiet(['--root', tmp, '--apply'])
+        c('apply-twice-idempotent', rc == 0 and '이미' in out, out)
+        with io.open(d23, encoding='utf-8', newline='') as fh:
+            again = fh.read()
+        c('apply-twice-no-change', again == body, out)
 
-    # 일부만 적용된 상태 -- 가장 위험하다. 반드시 멈춰야 한다.
-    d500 = os.path.join(tmp, 'Try_P3T500',
-                        'CSIC_PLAIN_WEAVE_RVE_500C_P3.inp')
-    with io.open(d500, encoding='utf-8', newline='') as fh:
-        keep500 = fh.read()
-    with io.open(d500, 'w', encoding='utf-8', newline='') as fh:
-        fh.write(keep500.replace('2835.0', '421.0'))
-    rc, out = quiet(['--root', tmp, '--apply'])
-    check('mixed-state-refused', rc == 1 and '일부만 적용' in out, out)
-    with io.open(d500, 'w', encoding='utf-8', newline='') as fh:
-        fh.write(keep500)
+        # 일부만 적용된 상태 -- 가장 위험하다. 반드시 멈춰야 한다.
+        d500 = os.path.join(tmp, 'Try_P3T500',
+                            'CSIC_PLAIN_WEAVE_RVE_500C_P3.inp')
+        with io.open(d500, encoding='utf-8', newline='') as fh:
+            keep500 = fh.read()
+        with io.open(d500, 'w', encoding='utf-8', newline='') as fh:
+            fh.write(keep500.replace('2835.0', '421.0'))
+        rc, out = quiet(['--root', tmp, '--apply'])
+        c('mixed-state-refused', rc == 1 and '일부만 적용' in out, out)
+        with io.open(d500, 'w', encoding='utf-8', newline='') as fh:
+            fh.write(keep500)
 
-    # P2 원본은 절대 안 변해야 한다
-    with io.open(os.path.join(tmp, 'Try_P2',
-                              'CSIC_PLAIN_WEAVE_RVE_23C_P2.inp'),
-                 encoding='utf-8', newline='') as fh:
-        p2 = fh.read()
-    check('p2-source-untouched', '421.0' in p2 and '\r\n16,\r\n' in p2)
+        # P2 원본은 절대 안 변해야 한다
+        with io.open(os.path.join(tmp, 'Try_P2',
+                                  'CSIC_PLAIN_WEAVE_RVE_23C_P2.inp'),
+                     encoding='utf-8', newline='') as fh:
+            p2 = fh.read()
+        c('p2-source-untouched', '421.0' in p2 and '\r\n16,\r\n' in p2)
 
-    # 준비물이 없으면 복사 전에 멈춰야 한다
+        shutil.rmtree(tmp)
+
+    # 준비물이 없으면 복사 전에 멈춰야 한다 (덱 모양과 무관)
     empty = tempfile.mkdtemp()
     rc, out = quiet(['--root', empty])
     check('missing-inputs-refused',
           rc == 1 and not os.path.isdir(os.path.join(empty, 'Try_P3')), out)
-
-    shutil.rmtree(tmp)
     shutil.rmtree(empty)
+
     print('')
     if fails:
         print('자체시험 실패: %s' % ', '.join(fails))
         return 1
-    print('자체시험 통과 -- 복사·미리보기·적용·멱등·P2 보존 전부 확인.')
+    print('자체시험 통과 -- 두 덱 모양(31/38) 전부에서 '
+          '복사·미리보기·적용·멱등·P2 보존 확인.')
     return 0
 
 

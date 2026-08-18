@@ -101,7 +101,7 @@ python E:\LTH\patch_material_prop.py --material YARN --slot 11 ^
        Try_P3\*.inp Try_P3T500\*.inp Try_P3T1000\*.inp
 ```
 
-**(b) 미리보기에서 얀만 잡히고 기지 `*Depvar 20` 은 안 잡히는지 눈으로
+**(b) 미리보기에서 얀만 잡히고 기지 `*Depvar 14` 는 안 잡히는지 눈으로
 확인한 뒤 `--apply` 를 돌린다.** `--expect 421.0` 이 있으면 P2 덱이
 아닌 것을 실수로 지정했을 때 멈춘다.
 
@@ -112,7 +112,7 @@ python E:\LTH\patch_depvar_yarn.py   --check Try_P3\*.inp
 python E:\LTH\patch_material_prop.py --material YARN --slot 11 --show Try_P3\*.inp
 ```
 
-얀 `*Depvar 17`, 슬롯 11 = `2835.0`, 기지 `*Depvar 20` 이면 준비 끝.
+얀 `*Depvar 17`, 슬롯 11 = `2835.0`, 기지 `*Depvar 14` 면 준비 끝.
 
 ## 발사 (병렬 가능 — 창 3개, 10코어씩 = 30/32)
 
@@ -138,8 +138,9 @@ type E:\LTH\Try_P3\CSIC_t23_p3.sta
 
 1. 냉각 스텝이 정상 진행하는가 (증분이 1e-7 바닥에 붙지 않는가)
 2. 승온 스텝시간이 의도한 값인가 (1000 덱은 2.05)
-3. `.msg` 에 `GF1T out of range` 가 **없는가** — 있으면 덱 슬롯 32 가
-   잘못된 것이니 즉시 중단
+3. `.msg` 에 `GF1T out of range` 가 **없는가** — P 계열 얀 카드는
+   상수가 31 개라 슬롯 32 자체가 없어 이 경고는 뜰 수 없다. 그래도
+   떴다면 덱이 우리가 아는 그 덱이 아니라는 뜻이니 즉시 중단
 
 이 셋이면 밤새 두고 가도 된다.
 
@@ -163,6 +164,15 @@ abaqus python E:\LTH\extract_cooling_damage.py CSIC_t1000_p3.odb --stride 5 --ta
 
 ## 끝난 뒤 추출 (§5 — 한 odb 에서 뽑을 수 있는 건 전부)
 
+**(0) 완주 확인부터.** `COMPLETED` 배너만 믿지 않는다 — 구 500 °C
+런이 인장 스텝을 `0.7702 / 1.0` 에서 끝낸 전례가 있다 (§5.19B).
+`.sta` 는 스텝시간이 1.0 에 도달했는지와, 증분이 바닥에 붙어 억지로
+끌려갔는지를 같이 보여준다.
+
+```bat
+type E:\LTH\Try_P3\CSIC_t23_p3.sta
+```
+
 ```bat
 :: (1) 인장 곡선 + 강도            (병렬 가능 — 창 3개)
 abaqus python E:\LTH\extract_tension.py CSIC_t23_p3.odb --tag _P3
@@ -178,6 +188,11 @@ abaqus python E:\LTH\extract_damage_histogram.py Try_P3\CSIC_t23_p3.odb ^
 abaqus python E:\LTH\extract_homogenization.py Try_P3\CSIC_t23_p3.odb --tag _P3
 ```
 
+500 / 1000 은 폴더·job·태그만 바꾸면 되지만 **`--paperstage` 는 각각
+`500` / `1000` 으로 바꿔야 한다** — `find_frames.py` 는 23/500/1000
+셋만 받고 나머지는 거부한다. 프레임 번호는 온도마다 다르므로 세 줄을
+따로 적어두고 (3) 에 각각 넣는다.
+
 **(3) 이 이번 배치의 핵심 산출물이다.** `yarn_shear_frac_P3_f<NN>.csv`
 에 개시 기구가 나온다:
 
@@ -190,6 +205,11 @@ abaqus python E:\LTH\extract_homogenization.py Try_P3\CSIC_t23_p3.odb --tag _P3
 **추출기는 항상 `SDV5(=R1T) ≥ 1` 로 먼저 거른다.** `SDV17 = 0` 이
 "σ11 단독"과 "미개시"를 둘 다 뜻하기 때문이다. 안 거르면 미개시 요소가
 전부 σ11 주도로 잡혀 결론이 뒤집힌다.
+
+```bat
+:: (5) 한 폴더에 모아 압축         (순차 — (1)~(4) 가 끝나야)
+powershell -Command "New-Item -ItemType Directory -Force E:\LTH\P3_RESULT | Out-Null; Get-ChildItem E:\LTH\Try_P3,E:\LTH\Try_P3T500,E:\LTH\Try_P3T1000 -Recurse -Include *.csv,*.sta | Copy-Item -Destination E:\LTH\P3_RESULT -Force; Compress-Archive -Path E:\LTH\P3_RESULT\* -DestinationPath E:\LTH\P3_RESULT.zip -Force"
+```
 
 ## 판정표 (§5.23E 사전등록)
 

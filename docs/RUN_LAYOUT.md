@@ -224,7 +224,7 @@ P2 / P2T500 / P2T1000 의 냉각 끝 손상요소율이 **소수점 15 자리까
 | 산출물 | 무엇 |
 |---|---|
 | `src/UMAT_CSIC_RVE_DAMAGE_V2_7D.for` | V2_7P + 얀 SDV17 (전단분율). 물리 무변화 |
-| `verification/patch_depvar_yarn.py` | 얀 `*Depvar` 만 16→17. 기지 20 은 안 건드림 |
+| `verification/patch_depvar_yarn.py` | 얀 `*Depvar` 만 16→17. 기지 14 는 안 건드림 |
 | `verification/verify_diagnostic_inert.sh` | 무해성 + 비공허성 차분시험 |
 
 **SDV17 = `[(τ12/S12)²+(τ13/S13)²] / FI1T²`**, 종방향 인장 개시
