@@ -190,6 +190,69 @@ def main():
     check("no Ch.6 citation is missing from Ch.2's reference table",
           not orphans, ", ".join("[%s]" % k for k in orphans))
 
+    # ------------------------------------------------------------------ F
+    print("\n F. section 6.6.2's inequality is re-derived, not asserted")
+    seg = txt.split("### 6.6.2")[1].split("## 6.7")[0] \
+        if "### 6.6.2" in txt else ""
+    check("section 6.6.2 exists", bool(seg))
+    if seg:
+        sys.path.insert(0, HERE)
+        sys.path.insert(0, os.path.join(ROOT, "postprocess"))
+        sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+        import card_pipeline_rehearsal as R      # noqa: E402
+        import make_macro_thermalshock as MT     # noqa: E402
+
+        zs = MT.graded(12, 3.0, 0.55)
+        dzs = [zs[i + 1] - zs[i] for i in range(len(zs) - 1)]
+        dx, dy = 40.0 / 20.0, 10.0 / 6.0
+        le_hi = (dx * dy * max(dzs)) ** (1.0 / 3.0)
+        le_lo = (dx * dy * min(dzs)) ** (1.0 / 3.0)
+        check("the macro element range is the chapter's %.3f-%.3f mm"
+              % (le_lo, le_hi),
+              "0.781" in seg and "1.231" in seg,
+              "le %.3f - %.3f mm" % (le_lo, le_hi))
+
+        bound = {}
+        for T, fn in R.CURVES:
+            eps, sig = R.read_curve(os.path.join(R.CURVE_DIR, fn))
+            f = R.curve_facts(eps, sig)
+            post = f["inel"] * (1.0 - f["prepeak"])
+            bound[int(round(T))] = (f["g0"] * le_hi, post,
+                                    (2.0 * f["g0"] * le_hi / post)
+                                    if post > 0 else None)
+
+        # RT23 carries NO post-peak evidence -- the chapter must say so and
+        # must not put a bound on it.  This is the one that would be easiest
+        # to sweep in with the other two.
+        check("RT23 has exactly zero post-peak dissipation",
+              abs(bound[23][1]) < 1e-12 and bound[23][2] is None,
+              "post %.4g N/mm" % bound[23][1])
+        check("...and the chapter refuses to bound RT23",
+              "RT23은 예외" in seg and "어느 쪽으로도" in seg)
+
+        # The two temperatures that DO carry evidence: A lands below the
+        # declared 2, so the measured branch is SHALLOWER, not steeper.
+        for T, txt_a in ((500, "0.72"), (1000, "0.25")):
+            g0le, post, A = bound[T]
+            check("T%d: post-peak %.3f N/mm already exceeds g0*le %.3f"
+                  % (T, post, g0le), post > g0le,
+                  "ratio %.1fx" % (post / g0le))
+            check("T%d: therefore A <= %.3f, BELOW the declared 2"
+                  % (T, A), A < 2.0)
+            check("T%d: and the chapter quotes that bound" % T,
+                  txt_a in seg, txt_a)
+
+        # The sign of the conclusion.  a2-0045 proposed the opposite one and
+        # the chapter carried it for one commit; this pins the correction.
+        check("the chapter says residual strength is a LOWER bound",
+              "**하한**" in seg and "**상한**" not in seg)
+        check("...and says softening gets SHALLOWER, not steeper",
+              "더 완만해지며" in seg)
+        check("the closing names M8, and says M7 cannot do it",
+              "M8" in seg and "M7로는 안 된다" in seg)
+        check("the M8 bundle is named by file",
+              "LTH_M8_0818_1231.zip" in seg)
+
     print("\n" + "=" * 78)
     if _BAD:
         print("ROUND 1 (CH.6) FAIL -- %d of %d: %s"
