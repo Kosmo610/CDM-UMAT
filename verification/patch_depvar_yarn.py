@@ -99,6 +99,35 @@ def block_extent(lines, start):
     return a, b
 
 
+
+SLOT2_NEW = '2, DYTT, Yarn transverse tensile damage'
+SLOT3_NEW = '3, DY1C, Yarn longitudinal compressive damage'
+
+
+def fix_slot23(lines, named):
+    """옛 배치 이름줄(2=DY1C, 3=DYTT)을 V2_7P 배치로 바로잡는다.
+
+    V2_7P 가 얀 SV(2)<->SV(3) 을 맞바꿨으므로 이름줄도 따라가야
+    한다. 이름 집합이 같아 odb 만 봐서는 옛/새를 구분할 수 없기
+    때문에, 덱을 손대는 이 시점에 고치는 것이 유일하게 확실하다.
+    바꿨으면 보고용 꼬리말을, 아니면 빈 문자열을 돌려준다.
+    """
+    slot = {}
+    for k in named:
+        bits = [b.strip() for b in lines[k].split(',')]
+        if len(bits) >= 2 and bits[0].isdigit():
+            slot[int(bits[0])] = (k, bits[1].upper())
+    if 2 not in slot or 3 not in slot:
+        return ''
+    k2, n2 = slot[2]
+    k3, n3 = slot[3]
+    if not (n2 == 'DY1C' and n3 == 'DYTT'):
+        return ''
+    lines[k2] = SLOT2_NEW + eol_of(lines[k2])
+    lines[k3] = SLOT3_NEW + eol_of(lines[k3])
+    return ', 슬롯 2/3 이름을 V2_7P 배치로 정정'
+
+
 def patch_one(lines, dv_line, name):
     """한 블록을 손본다. (변경됨?, 메시지) 를 돌려준다. lines 는 제자리 수정."""
     a, b = block_extent(lines, dv_line)
@@ -126,13 +155,19 @@ def patch_one(lines, dv_line, name):
     # 이름줄이 있는 덱에만 17번 설명을 덧붙인다.
     named = [k for k in data[1:] if ',' in lines[k]]
     if named:
+        # 슬롯 2/3 이 V2_7P 이전 배치면 먼저 바로잡는다. 안 고치고
+        # 17번만 붙이면 '옛 이름 + 이름 있는 17번' 이 되어, 추출기가
+        # SDV_DYTT 로 D1C(늘 0)를 읽는데 아무 표식도 남지 않는다.
+        # 2026-08-18 에 P3 t23 에서 실제로 그렇게 됐다 (§5.24D).
+        fixed = fix_slot23(lines, named)
         already = any(lines[k].strip().startswith('17')
                       for k in named)
         if not already:
             lines.insert(named[-1] + 1, SDV17_DESC + eol)
-            return True, ('OK     %s: 16 -> 17, 설명줄 추가' % name)
-        return True, ('OK     %s: 16 -> 17 (17번 설명줄은 이미 있음)'
-                      % name)
+            return True, ('OK     %s: 16 -> 17, 설명줄 추가%s'
+                          % (name, fixed))
+        return True, ('OK     %s: 16 -> 17 (17번 설명줄은 이미 있음)%s'
+                      % (name, fixed))
     return True, ('OK     %s: 16 -> 17 (이름줄 없는 덱 -- 그대로 유지)'
                   % name)
 
@@ -175,6 +210,28 @@ NAMED = """** a comment mentioning *Depvar and YARN, must be ignored
 1, DY1T, Yarn longitudinal tensile damage
 16, YRFAC, Criterion at maximum yarn damage jump
 *User Material, constants=38
+1.0, 254967.0
+"""
+
+STALE23 = """*Material, Name=CSIC_YARN_DAMAGE
+*Depvar
+16,
+1, DY1T, Yarn longitudinal tensile damage
+2, DY1C, Yarn longitudinal compressive damage
+3, DYTT, Yarn transverse tensile damage
+16, YRFAC, Criterion at maximum yarn damage jump
+*User Material, constants=31
+1.0, 254967.0
+"""
+
+FRESH23 = """*Material, Name=CSIC_YARN_DAMAGE
+*Depvar
+16,
+1, DY1T, Yarn longitudinal tensile damage
+2, DYTT, Yarn transverse tensile damage
+3, DY1C, Yarn longitudinal compressive damage
+16, YRFAC, Criterion at maximum yarn damage jump
+*User Material, constants=31
 1.0, 254967.0
 """
 
@@ -221,6 +278,13 @@ def selftest():
     fails = []
     seq = [0]
 
+    def check(tag, cond, extra=''):
+        print('  %-22s %s' % (tag, 'PASS' if cond else 'FAIL'))
+        if not cond:
+            fails.append(tag)
+            if extra:
+                print(extra[-600:])
+
     def run(tag, text, expect_yarn, expect_desc, expect_rc,
             twice=False):
         # 파일명은 tag 가 아니라 일련번호로 짓는다. tag 를 파일명에 쓰면
@@ -262,6 +326,16 @@ def selftest():
 
     print('자체시험')
     named = run('named 16->17', NAMED, 17, True, 0)
+
+    # 옛 배치(2=DY1C, 3=DYTT)는 17번을 붙이면서 같이 바로잡아야 한다.
+    # 안 고치면 '옛 이름 + 이름 있는 17번' 조합이 되어 추출기가
+    # SDV_DYTT 로 D1C(늘 0)를 읽는데 표식이 안 남는다 (§5.24D).
+    st = run('stale-slot23-repaired', STALE23, 17, True, 0)
+    check('stale23-slot2-now-DYTT', '2, DYTT,' in st, st)
+    check('stale23-slot3-now-DY1C', '3, DY1C,' in st, st)
+    fr = run('fresh-slot23-untouched', FRESH23, 17, True, 0)
+    check('fresh23-slot2-still-DYTT', '2, DYTT,' in fr, fr)
+    check('fresh23-slot3-still-DY1C', '3, DY1C,' in fr, fr)
     run('unnamed-no-desc', UNNAMED, 17, False, 0)
     run('idempotent-twice', NAMED, 17, True, 0, twice=True)
     run('odd-count-refused', ODD, 12, False, 1)

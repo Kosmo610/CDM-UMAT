@@ -27,6 +27,7 @@ from __future__ import division
 
 import sys
 import os
+import io
 import re
 import csv
 import glob
@@ -145,27 +146,118 @@ def subset_values(field, elset, labels):
 _SDV_SAID = set()
 
 
-def _stale_swap(names, nm):
-    """옛 이름 덱 + V2_7P 이후 UMAT 짝을 잡아 이름을 맞바꾼다.
+# ---- 얀 SDV 배치 판정 (옛/새) ------------------------------------------
+# V2_7P 가 얀 SV(2)<->SV(3) 을 맞바꿨다. 그런데 옛 덱과 새 덱은
+# *Depvar 이름 '집합'이 같고 '슬롯 번호'만 다르다:
+#     새: 2=DYTT, 3=DY1C        옛: 2=DY1C, 3=DYTT
+# odb 의 필드 키는 이름뿐이라(SDV_DYTT ...) 이름만으로는 구분이
+# 원리적으로 불가능하다. 그래서 덱의 번호줄을 직접 읽는다.
+#
+# 2026-08-18: t23 덱이 '옛 이름 + 17번은 이름 있음' 조합이었다.
+# patch_depvar_yarn.py 가 이름줄 있는 덱에 17번 설명을 붙이기 때문에
+# 'SDV17 이 이름 없이 뜬다'는 신호로는 절대 못 잡는다 (§5.24D).
+SDV_LAYOUT = ['new']
 
-    V2_7P 가 얀 SV(2)<->SV(3) 을 맞바꿨다 (SDV2 = 횡손상 표시).
-    옛 이름 덱(슬롯2=DY1C, 슬롯3=DYTT)으로 V2_7D 를 돌리면 이름이
-    옛 자리를 가리켜 DYTT 가 D1C(냉각·인장 내내 0)를 읽는다 --
-    P3 t23 에서 실제로 일어났다. V2_7D 표식은 이름 없이 덧붙인
-    17번 슬롯이 'SDV17' 로 뜨는 것: 제대로 다시 이름 붙인 덱이라면
-    17번도 이름(SDV_YSHR1T)이라 'SDV17' 필드 자체가 없다."""
-    tgt = 'SDV_' + nm
-    if 'SDV17' in names and any(n == tgt or n.startswith(tgt)
-                                for n in names):
-        if nm == 'DYTT':
-            return 'DY1C', True
-        if nm == 'DY1C':
-            return 'DYTT', True
-    return nm, False
+
+def read_yarn_sdv_layout(deck):
+    """덱의 얀 *Depvar 이름줄을 읽어 'old' / 'new' / None 을 돌려준다."""
+    try:
+        fh = io.open(deck, encoding='utf-8', errors='replace')
+    except Exception:
+        return None
+    try:
+        lines = fh.read().splitlines()
+    finally:
+        fh.close()
+    inyarn = False
+    indv = False
+    slots = {}
+    for ln in lines:
+        s = ln.strip()
+        if s.startswith('*'):
+            u = s.upper()
+            if u.startswith('*MATERIAL'):
+                inyarn = 'YARN' in u
+                indv = False
+                continue
+            if inyarn and u.startswith('*DEPVAR'):
+                indv = True
+                continue
+            if indv:
+                break
+            continue
+        if indv and ',' in s:
+            bits = [b.strip() for b in s.split(',')]
+            if len(bits) >= 2 and bits[0].isdigit() and bits[1]:
+                slots[int(bits[0])] = bits[1].upper()
+    if slots.get(2) == 'DYTT' and slots.get(3) == 'DY1C':
+        return 'new'
+    if slots.get(2) == 'DY1C' and slots.get(3) == 'DYTT':
+        return 'old'
+    return None
+
+
+def find_deck(odb_path):
+    """odb 와 같은 폴더에서 얀 재료가 들어 있는 .inp 를 찾는다."""
+    d = os.path.dirname(os.path.abspath(odb_path)) or '.'
+    try:
+        cand = sorted(f for f in os.listdir(d) if f.lower().endswith('.inp'))
+    except Exception:
+        return None
+    for f in cand:
+        p = os.path.join(d, f)
+        try:
+            fh = io.open(p, encoding='utf-8', errors='replace')
+        except Exception:
+            continue
+        try:
+            head = fh.read()
+        finally:
+            fh.close()
+        if 'YARN' in head.upper() and '*DEPVAR' in head.upper():
+            return p
+    return None
+
+
+def set_sdv_layout(odb_path, forced=None):
+    """--sdv-layout 지정이 있으면 그것을, 없으면 덱에서 읽어 정한다."""
+    if forced in ('old', 'new'):
+        SDV_LAYOUT[0] = forced
+        log('SDV layout: %s (forced by --sdv-layout)' % forced)
+        return
+    deck = find_deck(odb_path)
+    lay = read_yarn_sdv_layout(deck) if deck else None
+    if lay is None:
+        SDV_LAYOUT[0] = 'new'
+        log('SDV layout: new (ASSUMED -- deck not found or unreadable). '
+            'If yarn transverse damage reads 0 everywhere, rerun with '
+            '--sdv-layout old')
+    else:
+        SDV_LAYOUT[0] = lay
+        log('SDV layout: %s (from %s)' % (lay, os.path.basename(deck)))
+        if lay == 'old':
+            log('  -> deck names slots 2/3 the pre-V2_7P way; '
+                'DYTT and DY1C are read swapped')
+
+
+def _stale_swap(names, nm):
+    """옛 배치 덱이면 DYTT <-> DY1C 이름을 맞바꿔 진짜 슬롯을 탄다."""
+    if SDV_LAYOUT[0] != 'old':
+        return nm
+    if nm == 'DYTT':
+        return 'DY1C'
+    if nm == 'DY1C':
+        return 'DYTT'
+    return nm
+
+
+def _stale_swap2(names, nm):
+    n2 = _stale_swap(names, nm)
+    return n2, (n2 != nm)
 
 
 def resolve_sdv(names, idx, nm):
-    nm, swapped = _stale_swap(names, nm)
+    nm, swapped = _stale_swap2(names, nm)
     tgt = 'SDV_' + nm
     for n in names:
         if n == tgt:
@@ -586,6 +678,8 @@ def main():
     args = sys.argv[1:]
     if not args:
         print('usage: extract_tension.py <job>.odb [--stride N] [--tag NAME] [--step STEPNAME]')
+        print('  --sdv-layout auto|old|new   얀 SDV2/SDV3 배치. 기본 auto')
+        print('              (덱의 *Depvar 번호줄을 읽어 판정한다).')
         print('  --tag NAME  writes tension_stress_strainNAME.csv 등으로 파일명을')
         print('              구분한다 (예: --tag _xt500). 병렬 추출 시 덮어쓰기 방지용.')
         print('  --step NAME 인장 Step 이름. 기본 Tension_23C.')
@@ -610,9 +704,15 @@ def main():
         i = args.index('--step')
         if i + 1 < len(args):
             TEN_STEP = args[i + 1]
+    lay_arg = None
+    if '--sdv-layout' in args:
+        i = args.index('--sdv-layout')
+        if i + 1 < len(args):
+            lay_arg = args[i + 1]
     path = [a for a in args if not a.startswith('--') and not a.isdigit()
-            and a != tag and a != TEN_STEP][0]
+            and a != tag and a != TEN_STEP and a != lay_arg][0]
     outdir = os.path.dirname(os.path.abspath(path)) or '.'
+    set_sdv_layout(path, lay_arg)
     log('opening %s ...' % path)
     if not check_odb_path(path):
         return 2
