@@ -213,7 +213,10 @@ CASES = [
      count_bracketed, 40),
     ("check_gf_scale_transfer.py",
      "python3 verification/check_gf_scale_transfer.py",
-     count_plain, 81),
+     count_plain, 82),
+    ("card_pipeline_rehearsal.py --check",
+     "python3 verification/card_pipeline_rehearsal.py --check",
+     count_bracketed, 52),
     ("m6_calibration_plan.py",
      "python3 verification/m6_calibration_plan.py",
      count_plain, 33),
@@ -263,14 +266,14 @@ CASES = [
      count_bracketed, 31),
     ("homogenize.py --selftest",
      "python3 postprocess/homogenize.py --selftest",
-     count_bracketed, 18),
+     count_bracketed, 27),
 ]
 
 
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 68  # 2026-08-16: +reheat_saturation (a2, cause of the reheat ceiling) -- a conscious raise, as designed
+EXPECTED_CASES = 69  # 2026-08-18: +card_pipeline_rehearsal (a2, the RVE-curve -> macro-card seam) -- a conscious raise, as designed
 
 
 def main():

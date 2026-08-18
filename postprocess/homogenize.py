@@ -61,6 +61,49 @@ THERMAL_PROBE_DT = -100.0
 STRESS_FREE_T = 1050.0
 SHEAR_ORDERS = {"xy-xz-yz": (3, 4, 5), "xy-yz-xz": (3, 5, 4)}
 
+
+def _trapz(y, x):
+    """Trapezoidal area, whichever NumPy this Abaqus happens to ship.
+
+    np.trapz was deprecated in NumPy 1.x and REMOVED in 2.0, where the name
+    is np.trapezoid.  This file is the only maker of macro cards in the
+    repository and it runs LAST, after every RVE job has already finished, so
+    an AttributeError here costs the whole set rather than one job.  The name
+    is therefore resolved at call time instead of being trusted.
+    """
+    f = getattr(np, "trapezoid", None)
+    if f is None:
+        f = getattr(np, "trapz")
+    return float(f(y, x))
+
+
+def _rve_dmax(default=0.90):
+    """The damage ceiling in use at the RVE scale (abaqus/retune_deck.D_DMAX)."""
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.join(
+        _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+        "abaqus"))
+    try:
+        import retune_deck as _rt
+        return float(_rt.D_DMAX)
+    except Exception:                       # abaqus python, or a partial tree
+        return default
+
+
+#: Macro-card damage ceiling.  This slot said 0.99 until the card-pipeline
+#: rehearsal of 2026-08-18.  0.99 is the value abaqus/retune_deck.py:22
+#: already REJECTED one scale down -- "a failed matrix element kept 1 % of
+#: 350 GPa = 3.5 GPa" -- and the argument does not weaken going up: 1 % of a
+#: 123 GPa macro card is still 1.2 GPa of stiffness in an element that has
+#: failed.  It also split the repository against itself.  postprocess/
+#: damage_map.py takes its cap from retune_deck.D_DMAX, and RUN_MANIFEST.md
+#: points damage_map at the MACRO jobs, so every macro damage map would have
+#: judged "at cap" against a ceiling the macro card did not have -- reporting
+#: caps at 0.90 that were not caps and missing the real ones at 0.99.  One
+#: constant now, pinned by a check in both files.
+MACRO_DMAX = _rve_dmax()
+
 #: strength mode -> (macro component, sign, macro-card slot name)
 MODE_TO_SLOT = {
     "1t": (0, +1, "Xt"), "1c": (0, -1, "Xc"),
@@ -339,10 +382,20 @@ def strength_curve(path, mode, sig_sign=+1):
     # along the loading direction.  For shear modes the length is ambiguous;
     # the in-plane size is used and the choice is recorded in the CSV.
     Lchar = (Lx, Ly, Lz, Lx, Lx, Ly)[comp]
-    area = float(np.trapz(sig, eps))
+    area = _trapz(sig, eps)
     Gf = area * Lchar
+
+    # How much of that curve is actually a softening branch.  split_fracture
+    # _energy() refuses to hand up a Gf without these two, and it could not
+    # ask for them before they were measured here.  A curve that stops at its
+    # own peak still produces a positive "dissipated" part, purely out of
+    # pre-peak nonlinearity, and nothing downstream can tell the difference.
+    area_pre = _trapz(sig[:ipk + 1], eps[:ipk + 1]) if ipk > 0 else 0.0
+    soft = (1.0 - float(sig[-1]) / peak) if peak > 0.0 else 0.0
     return dict(peak=peak, eps_peak=float(eps[ipk]), Gf=Gf,
-                Lchar=Lchar, npts=len(eps))
+                Lchar=Lchar, npts=len(eps),
+                soft=soft, Gfpre=area_pre * Lchar,
+                eps_end=float(eps[-1]), sig_end=float(sig[-1]))
 
 
 # ==========================================================================
@@ -397,9 +450,39 @@ def conductivity(path, dT=1.0):
 MODE_G0_KEYS = {"1t": ("Xt", "E1"), "1c": ("Xc", "E1"),
                 "2t": ("Yt", "E2"), "2c": ("Yc", "E2")}
 
+#: A crack-band Gf is the area under a COMPLETED softening branch.  Two things
+#: must hold before an RVE curve can supply one, and neither was checked until
+#: the card-pipeline rehearsal (verification/card_pipeline_rehearsal.py) ran
+#: the three real M6 curves through this file on 2026-08-18:
+#:
+#:   1. the branch has to have SOFTENED.  M6's RT23 curve peaks at its very
+#:      last point -- it fell 0.0 % -- and T500 fell 0.3 %.  `inel` came out
+#:      positive for both anyway, because pre-peak nonlinearity alone makes it
+#:      positive, and the card carried the result as a fracture energy.
+#:   2. what survives the g0 subtraction has to be mostly POST-peak.  Of what
+#:      would have shipped, RT23 was 100 % pre-peak, T500 70 %, T1000 22 %.
+#:
+#: Direction of the error, on the record: too large a |Gf| makes KABAND's
+#: A = 2*g0*le/|Gf| too SMALL, which is a shallower softening branch, an
+#: element that sheds load too slowly, and an OVER-predicted residual
+#: strength -- the quantity Ch.6 reports.  Non-conservative, and the same
+#: direction as the positive-Gf convention error the card validator already
+#: refuses (make_macro_thermalshock.check_macro_card).
+#:
+#: Failing the gate is not fatal: slot 32-35 stays 0.0, which KABAND reads as
+#: "crack band off, use the fixed exponent".  That is a declared assumption
+#: instead of a measurement dressed up as one.
+SOFT_MIN = 0.50
+PREPEAK_MAX = 0.50
+
 
 def _unit_of(key):
     """Unit for one strength-block CSV row."""
+    # soft_/prepk_ are fractions and must not be labelled N/mm just because
+    # they were derived from an area -- they are the gate's own evidence and
+    # a reader has to be able to see they are dimensionless.
+    if key.startswith("soft_") or key.startswith("prepk_"):
+        return "-"
     if key.startswith("Gf") or key.startswith("Gfin") or key.startswith("Gfel"):
         return "N/mm"
     if key.startswith("g0_"):
@@ -416,7 +499,9 @@ def split_fracture_energy(strength, eng):
     A mode whose dissipated part is not positive is reported and left out:
     that means the RVE response itself was inside the snap-back region, so
     there is no dissipation to hand upward and the macro must fall back to
-    the fixed exponent.
+    the fixed exponent.  A mode whose curve never softened, or whose
+    "dissipated" part is mostly pre-peak nonlinearity, is left out for the
+    same reason and by the same route -- see SOFT_MIN / PREPEAK_MAX above.
     """
     for mode, (xkey, ekey) in sorted(MODE_G0_KEYS.items()):
         gkey, lkey = "Gf_" + mode, "Lchar_" + mode
@@ -440,6 +525,32 @@ def split_fracture_energy(strength, eng):
                   " curve is inside snap-back;" % (mode, inel))
             print("        nothing is handed upward and the macro will use"
                   " the fixed exponent.")
+            continue
+
+        # Is this a softening branch, or a curve that merely stopped?
+        why = []
+        soft = strength.get("soft_" + mode)
+        if soft is not None:
+            strength["soft_" + mode] = soft
+            if soft < SOFT_MIN:
+                why.append("it fell only %.1f %% below peak (need %.0f %%)"
+                           % (100.0 * soft, 100.0 * SOFT_MIN))
+        pre = strength.get("Gfpre_" + mode)
+        if pre is not None:
+            share = max(0.0, pre - elastic) / inel
+            strength["prepk_" + mode] = share
+            if share > PREPEAK_MAX:
+                why.append("%.0f %% of what would ship is PRE-peak "
+                           "nonlinearity (allow %.0f %%)"
+                           % (100.0 * share, 100.0 * PREPEAK_MAX))
+        if why:
+            print("     ** Gf %s REFUSED: %s." % (mode, "; and ".join(why)))
+            print("        A curve that stopped is not a curve that softened."
+                  "  Slot stays 0.0 (fixed")
+            print("        exponent).  Shipping it would make |Gf| too large,"
+                  " A too small, the")
+            print("        branch too shallow and residual strength"
+                  " OVER-predicted -- non-conservative.")
             continue
         strength["Gfin_" + mode] = inel
 
@@ -470,7 +581,7 @@ def macro_card(props_by_T, cyc, temps, nprops_note=True, crit=None):
     for i, key in enumerate(("Xt", "Xc", "Yt", "Yc", "S12", "S13", "S23")):
         slots[10 + i] = s.get(key, 0.0)
     slots[17] = slots[18] = slots[19] = slots[20] = 2.0   # A1t A1c Att Atc
-    slots[21] = slots[22] = 0.99                          # dmax
+    slots[21] = slots[22] = MACRO_DMAX                    # dmax; see above
     slots[23] = cyc["eta"]
     slots[24] = cyc["max_djump"]
     slots[25] = cyc["freeze"]
@@ -647,8 +758,12 @@ def main(argv):
             if mode in ("1t", "1c", "2t", "2c"):
                 strength["Gf_" + mode] = r["Gf"]
                 strength["Lchar_" + mode] = r["Lchar"]
+                strength["soft_" + mode] = r["soft"]
+                strength["Gfpre_" + mode] = r["Gfpre"]
             print("  %-4s peak = %8.2f MPa at eps = %.4f %%   Gf = %.4g N/mm"
-                  % (mode, r["peak"], 100.0 * r["eps_peak"], r["Gf"]))
+                  "   softened %.1f %% by eps = %.4f %%"
+                  % (mode, r["peak"], 100.0 * r["eps_peak"], r["Gf"],
+                     100.0 * r["soft"], 100.0 * r["eps_end"]))
         split_fracture_energy(strength, eng)
         props_by_T[T] = dict(C=C, alpha=alpha, elastic=eng, strength=strength)
 
@@ -854,6 +969,51 @@ def selftest():
     ck("alphabar is invariant when C and the stresses flip together",
        np.allclose(a_clean, a_flip),
        "alpha1 = %.4e /K both ways" % a_clean[0])
+
+    # ---- G. a Gf may only come off a curve that actually softened.
+    #         Every one of these was silently wrong until the card-pipeline
+    #         rehearsal walked the three real M6 curves through this file.
+    ck("the area helper survives NumPy 2, where np.trapz was REMOVED",
+       abs(_trapz([0.0, 2.0], [0.0, 1.0]) - 1.0) < 1e-12,
+       "this file runs LAST, after every RVE job -- one rename would cost "
+       "the whole set")
+
+    def _gate(soft, gf_tot, pre, X=100.0, E=1.0e5, L=3.5):
+        st = {"Xt": X, "Gf_1t": gf_tot, "Lchar_1t": L,
+              "soft_1t": soft, "Gfpre_1t": pre}
+        split_fracture_energy(st, dict(E1=E))
+        return st
+    g0L = 100.0 * 100.0 / (2.0 * 1.0e5) * 3.5          # = 0.175 N/mm
+    ck("a fully softened, mostly post-peak curve ships its Gf",
+       "Gfin_1t" in _gate(0.95, g0L + 1.0, g0L + 0.05),
+       "the gate is not merely an off switch")
+    ck("a curve that stopped AT its peak is refused",
+       "Gfin_1t" not in _gate(0.0, g0L + 1.0, g0L + 1.0),
+       "M6 RT23: softened 0.0 %, and 100 % of the would-be Gf is pre-peak")
+    ck("a curve that fell 16.6 % is still refused (M6 T1000)",
+       "Gfin_1t" not in _gate(0.166, g0L + 1.0, g0L + 0.2),
+       "SOFT_MIN = %.2f; 16.6 %% is a curve that was interrupted" % SOFT_MIN)
+    ck("softening alone is not enough -- a mostly PRE-peak area is refused",
+       "Gfin_1t" not in _gate(0.95, g0L + 1.0, g0L + 0.9),
+       "the two conditions are independent")
+    st = _gate(0.0, g0L + 1.0, g0L + 1.0)
+    ck("a refused mode still records WHY, so the CSV can be audited",
+       abs(st.get("soft_1t", -1) - 0.0) < 1e-12
+       and abs(st.get("prepk_1t", -1) - 1.0) < 1e-9,
+       "soft and prepk are kept beside the slot that stayed 0.0")
+    ck("  and those two are reported as fractions, not as N/mm",
+       _unit_of("soft_1t") == "-" and _unit_of("prepk_1t") == "-"
+       and _unit_of("Gfpre_1t") == "N/mm")
+    # The refusal has to be a refusal, not a small number: KABAND reads 0.0
+    # as "off", but it reads 0.001 as an almost-vertical softening branch.
+    ck("a refused mode leaves the slot at 0.0, which KABAND reads as OFF",
+       _gate(0.0, g0L + 1.0, g0L + 1.0).get("Gfin_1t", 0.0) == 0.0)
+
+    # ---- H. one damage ceiling across both scales
+    ck("the macro card's dmax is the RVE constant, not a second opinion",
+       abs(MACRO_DMAX - _rve_dmax(default=-1.0)) < 1e-12 and MACRO_DMAX > 0,
+       "MACRO_DMAX = %.2f; it read 0.99 until 2026-08-18 while every RVE "
+       "card and damage_map.py used 0.90" % MACRO_DMAX)
 
     print("\n  %d passed, %d failed" % (len(ok), len(bad)))
     return 1 if bad else 0
