@@ -9,64 +9,85 @@
 
 ---
 
-## Q1. ★ M7 — **묶음이 도착했다. 지금 돌릴 수 있다.** ✅
+## Q1. ★ **M8** — M7 을 대체한다. **M7 은 돌리지 말 것.**
 
 | | |
 |---|---|
-| 묶음 | **`dist/LTH_M7_0816_2022.zip`** (a2 `3cdb308`) — a3 가 열어 확인했다 |
-| 여는 것 | S1 완결 → **S3·S4·S5 전부** |
-| 비용 | 잡 3개, 서로 **독립 → 창 3개로 병렬** |
+| 묶음 | **`dist/LTH_M8_0818_1231.zip`** (a2 `4b3b21d`) |
+| 폐기 | ~~`LTH_M7_0816_2022.zip`~~ — 아래 이유로 **답을 낼 수 없다** |
+| 비용 | 잡 3개, 서로 독립 → **창 3개 병렬** |
 
-**M6 덱과의 차이는 정확히 두 줄뿐**이고 저장소 검사가 바이트로 고정한다:
+### ⛔ 왜 M7 이 폐기됐나 — **수렴은 하는데 답이 안 나온다**
 
-| | M6 | **M7** | 성격 |
+M7 은 M6 에서 재튜닝됐고, 재튜닝기가 **원본 덱에서 인장 변형률을 그대로
+읽어 온다.** 그것이 옳은 기본값이지만 **여기서는 틀린 답**이었다.
+M6 곡선으로 실측한 인장 스텝 구간:
+
+| | 스텝 구간 | 피크 위치 | 피크 이후 |
 |---|---|---|---|
-| 얀 슬롯 35 ($G_{tc}$) | 0.107 | **0** | 적법성 수정. 이 하중경로에서 모드 24 손상부피 0 → **결과 무해** |
-| `*Static stabilize` | 2e-4 | **1e-3** | **거동을 바꾸는 유일한 항목.** 한 단계만 |
+| RT23 | 0.4679 % | 0.4679 % | **0.0000 %** ← 스텝이 **자기 피크에서 끝난다** |
+| T500 | 0.4828 % | 0.2979 % | 스텝의 75.2 % 에서 사망 |
+| T1000 | 0.4816 % | 0.2295 % | 0.2522 %, 16.6 % 하강 |
 
-`ftol` 은 그대로 0.02 다 — **소진 판정**이며(T500 잔차가 그 기준의 73배였다)
-덱이 매 실행마다 그것을 소리 내어 적는다.
+**RT23 은 수렴하고 완주하고 성공을 보고하면서 파괴에너지를 0 으로 준다.**
+감쇠를 아무리 올려도 안 바뀐다 — **스텝이 그냥 짧다.**
+M7 3잡은 「수렴하는가」라는 답을 사 오고, **지금 필요한 답은 못 사 온다.**
 
-**a3 가 덱을 열어 확인한 것:** 세 스텝 전부
-`*Static, stabilize=0.001, allsdtol=0.05` 이고 `*Energy Output` 에
-`ALLIE, ALLSD, ALLWK, ALLPD` 가 들어 있다. **감쇠 관문이 실제로 걸려 있다.**
+### M8 은 M7 과 **정확히 3줄** 다르다 (전부 인장 스텝 안)
 
-### 명령 — 압축을 `E:\LTH\` 에 풀면 폴더가 그대로 실행 폴더가 된다
+| 항목 | M7 | **M8** | 이유 |
+|---|---|---|---|
+| 드라이버 변형률 | 0.0015 / 0.0032 / 0.0048 | **0.010858 / 0.012856 / 0.014432** | 구간 **×3** |
+| 최대 시간증분 | 0.0025 | **0.000833333** | 3으로 나눔 → **증분당 변형률은 M6 와 동일** |
+| 증분 예산 | 2000 | **4000** | 경로가 길어졌고 연화에는 컷백이 붙는다 |
+
+메시·PBC·`.ori`·모든 카드·냉각/재가열 스텝은 **M7 과 바이트 동일**이며
+`abaqus/lengthen_tension.py --check`(21항목)가 **실제 배포 덱에 대고** 고정한다.
+
+**×3 의 근거:** 믿을 수 있는 유일한 연화 가지(T1000)에 지수 감쇠를 맞추면
+$k$ = 84.1/strain, 피크의 절반까지 0.824 % 가 필요하다. ×3 이면 세 경우 모두
+(0.94 / 1.15 / 1.22 %) 그것을 넘긴다. **T500 의 겉보기 $k$ = 4.0 은 쓰지 않았다** —
+0.3 % 밖에 안 떨어진 0.065 % 짜리 평평한 꼭대기에 맞춘 값이라 감쇠율이 아니다.
+
+### 명령 — `E:\LTH\` 에 풀면 폴더가 그대로 실행 폴더
 
 **① 해석 (Abaqus Command 창 3개, 서로 독립)**
 
 ```
 E:
-cd \LTH\LTH_M7_0816_2022
-abaqus job=LTH_M7_RT23  input=LTH_M7_RT23.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
-abaqus job=LTH_M7_T500  input=LTH_M7_T500.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
-abaqus job=LTH_M7_T1000 input=LTH_M7_T1000.inp user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
+cd \LTH\LTH_M8_0818_1231
+abaqus job=LTH_M8_RT23  input=LTH_M8_RT23.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
+abaqus job=LTH_M8_T500  input=LTH_M8_T500.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
+abaqus job=LTH_M8_T1000 input=LTH_M8_T1000.inp user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
 ```
 
-**② 잡 하나가 끝날 때마다 그 잡부터 바로** (수 초, `cpus`/`memory` 불필요)
+**② 잡 하나가 끝날 때마다 그 잡부터 바로** (수 초)
 
 ```
-abaqus python extract_ss_curve.py LTH_M7_RT23.odb
-abaqus python damage_map.py       LTH_M7_RT23.odb
-abaqus python driver_audit.py     LTH_M7_RT23.odb
-abaqus python reheat_frames.py    LTH_M7_T500.odb
+abaqus python extract_ss_curve.py LTH_M8_RT23.odb
+abaqus python damage_map.py       LTH_M8_RT23.odb
+abaqus python driver_audit.py     LTH_M8_RT23.odb
+abaqus python reheat_frames.py    LTH_M8_T500.odb
 ```
 
-`driver_audit` 가 **ALLSD/ALLIE 5 % 관문**이다 — **이것 없이는 피크를 논문에
-못 싣는다.** `reheat_frames` 는 T500·T1000 만(RT23 에는 재가열 스텝이 없다).
+`driver_audit` 가 **ALLSD/ALLIE 5 % 관문**이다 — 없으면 피크를 논문에 못 싣는다.
+`reheat_frames` 는 T500·T1000 만.
 
 **③ 세 잡이 다 끝나면**
 
 ```
-python m6_verdict.py     LTH_M7_RT23_ss.csv LTH_M7_T500_ss.csv LTH_M7_T1000_ss.csv
-python damage_ceiling.py LTH_M7_RT23_damage_map.csv LTH_M7_T500_damage_map.csv LTH_M7_T1000_damage_map.csv
+python m6_verdict.py     LTH_M8_RT23_ss.csv LTH_M8_T500_ss.csv LTH_M8_T1000_ss.csv
+python damage_ceiling.py LTH_M8_RT23_damage_map.csv LTH_M8_T500_damage_map.csv LTH_M8_T1000_damage_map.csv
 ```
 
-죽은 잡이 있으면: `python msg_residual_census.py LTH_M7_T500.msg LTH_M7_T500.inp`
+`m6_verdict` 4b 절이 **곡선마다 「$G_f$ 를 공급할 수 있는가 / 거부」** 를 CSV 에 적는다.
+죽은 잡이 있으면: `python msg_residual_census.py LTH_M8_T500.msg LTH_M8_T500.inp`
 
 **채팅에 올릴 것:** `m6_verdict_summary.csv` · `damage_ceiling_summary.csv` ·
-`LTH_M7_*_ss.csv`(3) · `LTH_M7_*_damage_map.csv`(3) ·
-`LTH_M7_*_drivers.csv`(3, 감쇠 판정 포함) · `LTH_M7_{T500,T1000}_reheat_frames.csv`
+`LTH_M8_*_ss.csv`(3) · `LTH_M8_*_damage_map.csv`(3) · `LTH_M8_*_drivers.csv`(3)
+
+> **이미 M7 을 돌리셨다면 버리지 마세요.** 수렴 판정(감쇠 한 단계가 T500 을
+> 살리는가)은 그 결과로 답이 됩니다. **다만 파괴에너지는 그 잡에서 못 나옵니다.**
 
 ---
 
@@ -169,13 +190,13 @@ S0 선행검증의 마지막 항목이다. **9케이스 매트릭스 전에** �
 
 ---
 
-## Q6. (M7 이후) S3 거시 역학 9잡 + S4 대조 3잡
+## Q6. (M8 이후) S3 거시 역학 9잡 + S4 대조 3잡
 
 **아직 시키면 안 된다.** 거시 역학 카드가 여전히 자리표(placeholder)다.
 카드가 자리표면 손상이 안 걸려 세 TRS 케이스가 똑같이 나오고, 그러면
 "차이가 작다"가 결과가 아니라 인공물이 된다 (prerun_gate S3 관문).
 
-**순서: Q1(M7) → 유효물성 확정 → 거시 카드 재생성 → 그때 S3.**
+**순서: Q1(M8) → 유효물성 확정 → 거시 카드 재생성 → 그때 S3.**
 
 ---
 
@@ -196,7 +217,7 @@ S0 선행검증의 마지막 항목이다. **9케이스 매트릭스 전에** �
 | Q4 | CAE 캡처 3장 + 죽은 M5 ODB | 10분 | ✅ Q3-c 와 같은 자리 |
 | Q2 | ITAN·취성 봉 9잡 | 30분 | ✅ |
 | Q5 | 사이클 점프 5덱 | 1시간 | ✅ |
-| **Q1** | **M7 — 창 3개 병렬** | 큼 | ✅ **묶음 도착. 지금 가능** |
+| **Q1** | **M8 — 창 3개 병렬** | 큼 | ✅ **M7 은 폐기. M8 을 돌린다** |
 | Q6 | S3 9잡 | 큼 | ⛔ 카드 자리표 — 금지 |
 
 **Q3-c 의 값이 8/16 에 올라갔다.** 처음에는 「강도 절대값의 잠정 딱지」만
