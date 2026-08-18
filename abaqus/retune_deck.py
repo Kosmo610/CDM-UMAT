@@ -105,6 +105,50 @@ D_STABILIZE = 2.0e-4
 D_ALLSDTOL = 0.05
 D_DISPCTRL = 1.0
 D_MININC = 1.0e-8
+D_MAXINC = 0.0025     # max TIME increment; strain per increment = this x span
+
+#: Applied macro strain (the *Boundary on ConstraintsDriver0).  detect_case()
+#: normally reads it out of the deck being retuned, so a retune preserves the
+#: case -- which is why M7 inherited M6's strain exactly.  --eps overrides it.
+#:
+#: Why it needed overriding, 2026-08-18: a crack-band Gf is the area under a
+#: COMPLETED softening branch, and M6's steps do not reach one.  Measured
+#: from the three M6 odbs, the tension step spans (post-cooldown driver state
+#: to the prescribed value):
+#:
+#:   RT23   span 0.4679 %   peak at 0.4679 %   ->  0.0000 % past peak
+#:   T500   span 0.4828 %   peak at 0.2979 %   ->  died at 75.2 % of the step
+#:   T1000  span 0.4816 %   peak at 0.2295 %   ->  0.2522 % past peak, fell 16.6 %
+#:
+#: RT23's step ends EXACTLY at its own peak: it converges, completes, looks
+#: like a success and yields zero softening.  That is not a solver problem and
+#: no amount of stabilisation touches it -- the step is too short.
+#:
+#: Fitting sigma = X exp(-k (eps - eps_pk)) to the only trustworthy branch
+#: (T1000, 0.25 % long, 16.6 % fall) gives k = 84.1 /strain, so falling to
+#: half of peak needs ln2/k = 0.824 % past the peak.  T500's apparent
+#: k = 4.0 is fitted to a 0.065 % arc that fell 0.3 % -- that is the flat top
+#: of the curve, where the slope is near zero by construction, so it is not
+#: a decay rate and is not designed to.
+#:
+#: Tripling each span puts every case past that requirement:
+#:   RT23  1.404 %  -> 0.936 % past peak     T500  1.448 % -> 1.150 %
+#:   T1000 1.445 %  -> 1.216 % past peak
+#: and the max time increment is divided by the same factor so that the
+#: strain resolution ON the softening branch does not get coarser.
+EPS_SPAN_FACTOR = 3.0
+
+#: post-cooldown driver strain, read from data/results/M6/*_ss.csv (U1_raw at
+#: the first frame of the tension step).  The prescribed value is ABSOLUTE, so
+#: the span is (prescribed - this).
+M6_POST_COOLDOWN = {23: -0.003179, 500: -0.001628, 1000: -0.0000161}
+
+
+def eps_for_span(test_T, span, post_cooldown=None):
+    """Absolute *Boundary value that makes the tension step cover `span`."""
+    u0 = (M6_POST_COOLDOWN.get(int(test_T), 0.0) if post_cooldown is None
+          else post_cooldown)
+    return u0 + span
 D_ZERO = 1050.0
 D_HSMO = 0.0                           # V3_0 only; 0 = published sign(I1) step
 D_IR = 16                              # log-rate divergence check
@@ -645,7 +689,8 @@ def static_line(a, dt0, minc):
                 % (a.stabilize, a.allsdtol))
     else:
         head = "*Static"
-    return "%s\n%g, 1.0, %g, 0.0025" % (head, dt0, minc)
+    return "%s\n%g, 1.0, %g, %g" % (head, dt0, minc, getattr(a, "maxinc",
+                                                             D_MAXINC))
 
 
 def thermal_bc(a, T):
@@ -717,6 +762,12 @@ def retune(text, a):
         raise ValueError("anchor %r not found -- deck was not produced by "
                          "assemble_inp.py" % MAT_ANCHOR)
     case = detect_case(text)
+    # detect_case exists so a retune cannot silently change the case.  --eps
+    # is the one way to change it ON PURPOSE, and the old value is kept beside
+    # the new one so the console line says what moved.
+    if getattr(a, "eps", None) is not None:
+        case["eps_source"] = case["eps"]
+        case["eps"] = float(a.eps)
     head = text[:i].rstrip("\n")
 
     # keep the *Solid Section lines verbatim: they name the real ElSets and
@@ -1438,6 +1489,44 @@ def check():
     t("  and the preset says so instead of discarding it silently",
       "reported rather than silently discarded" in apply_m7.__doc__)
 
+    # ---- M8: the tension step has to reach a softening branch -------------
+    # M7 inherited M6's applied strain, because detect_case reads it out of
+    # the source deck.  That is right for a retune and wrong for this: RT23's
+    # step ends AT its own peak, so it converges, completes, and yields a
+    # fracture energy of zero.  --eps is the deliberate override.
+    print("\n M8: --eps and --maxinc (the softening branch)")
+    t("RT23's M6 step ends exactly at its peak, so no stabilisation helps",
+      abs((0.0015 - M6_POST_COOLDOWN[23]) - 0.004679) < 1.0e-5,
+      "span %.4f %% and the peak is at 0.4679 %%"
+      % (100 * (0.0015 - M6_POST_COOLDOWN[23])))
+    for T, presc in ((23, 0.0015), (500, 0.0032), (1000, 0.0048)):
+        span = presc - M6_POST_COOLDOWN[T]
+        want = eps_for_span(T, EPS_SPAN_FACTOR * span)
+        t("  T%-4d: x%.0f span -> eps = %.6f" % (T, EPS_SPAN_FACTOR, want),
+          abs((want - M6_POST_COOLDOWN[T]) - EPS_SPAN_FACTOR * span) < 1e-12,
+          "%.4f %% -> %.4f %%" % (100 * span,
+                                  100 * EPS_SPAN_FACTOR * span))
+    # 0.824 % past the peak is what the only trustworthy decay fit asks for.
+    for T, presc, epk in ((23, 0.0015, 0.004679), (500, 0.0032, 0.002979),
+                          (1000, 0.0048, 0.002295)):
+        span3 = EPS_SPAN_FACTOR * (presc - M6_POST_COOLDOWN[T])
+        t("  T%-4d clears the 0.824 %% the T1000 decay fit needs" % T,
+          span3 - epk > 0.00824,
+          "%.4f %% past peak" % (100 * (span3 - epk)))
+
+    class _M8Args(object):
+        stabilize, allsdtol, mininc = 1.0e-3, 0.05, 1.0e-8
+    a8 = _M8Args()
+    a8.maxinc = D_MAXINC
+    t("static_line still emits the default max time increment",
+      static_line(a8, 0.0005, 1e-8).endswith(", %g" % D_MAXINC),
+      static_line(a8, 0.0005, 1e-8).splitlines()[-1])
+    a8.maxinc = D_MAXINC / EPS_SPAN_FACTOR
+    line = static_line(a8, 0.0005, 1e-8).splitlines()[-1]
+    t("  and a shrunken one when the span grows, so resolution is held",
+      line.endswith(", %g" % (D_MAXINC / EPS_SPAN_FACTOR)),
+      "%s -- strain per increment stays where M6 had it" % line)
+
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     return 0 if bad[0] == 0 else 1
 
@@ -1501,6 +1590,12 @@ def main():
     ap.add_argument("--dispctrl", type=float, default=D_DISPCTRL,
                     help="displacement-correction tolerance (default %g)"
                          % D_DISPCTRL)
+    ap.add_argument("--eps", type=float, default=None,
+                    help="absolute macro strain on ConstraintsDriver0 in the "
+                         "tension step; default keeps the source deck's value")
+    ap.add_argument("--maxinc", type=float, default=D_MAXINC,
+                    help="max TIME increment (strain per increment = this x "
+                         "the step's span); shrink it when --eps grows")
     ap.add_argument("--mininc", type=float, default=D_MININC,
                     help="minimum time increment (default %g)" % D_MININC)
     ap.add_argument("--zero", type=float, default=D_ZERO,
@@ -1618,8 +1713,19 @@ def main():
     with open(dest, "w") as f:
         f.write(out)
     print("%s -> %s" % (a.deck, dest))
-    print("  case      test=%d C, heat=%s, eps_xx=%.6f"
-          % (case["test"], case["heat"], case["eps"]))
+    print("  case      test=%d C, heat=%s, eps_xx=%.6f%s"
+          % (case["test"], case["heat"], case["eps"],
+             "" if "eps_source" not in case else
+             "   (--eps; deck said %.6f)" % case["eps_source"]))
+    if "eps_source" in case:
+        u0 = M6_POST_COOLDOWN.get(int(case["test"]))
+        if u0 is not None:
+            print("  span      %.4f %% -> %.4f %% of macro strain "
+                  "(post-cooldown driver %.6f)"
+                  % (100.0 * (case["eps_source"] - u0),
+                     100.0 * (case["eps"] - u0), u0))
+            print("            strain per increment %.3e (max time inc %g)"
+                  % (a.maxinc * (case["eps"] - u0), a.maxinc))
     print("  sections  %d *Solid Section lines carried over" % nsec)
     print("  cards     dmax=%g  eta=%g  djump=%g" % (a.dmax, a.eta, a.djump))
     print("  steps     stabilize=%s  min inc=%g  disp tol=%g  I_R=%d  I_A=%d"
