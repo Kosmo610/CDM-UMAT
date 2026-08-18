@@ -177,7 +177,7 @@ CASES = [
      count_bracketed, 44),
     ("pending_slots.py --check",
      "python3 verification/pending_slots.py --check",
-     count_bracketed, 27),
+     count_bracketed, 41),
     ("digitize.py --check",
      "python3 data/literature/digitize.py --check",
      count_bracketed, 5),
