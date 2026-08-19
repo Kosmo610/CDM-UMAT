@@ -185,6 +185,11 @@ def write_csv(path=None):
 # --------------------------------------------------------------------------
 KNOB_CSV = os.path.join(HERE, "knob_sensitivity.csv")
 
+#: The crack-band row measures against a DECLARATION, not against a
+#: card value, so it cannot borrow the Jacobian's base point.
+CRACK_BAND_BASELINE = ("선언된 고정 A=2, 곧 |Gf_inel| = g0*le "
+                       "— 앞으로의 측정에 견준 방향이다")
+
 #: obs key -> short label, so the report reads without opening the CSV
 OBS_LABEL = {
     "y1t_peak": "얀 종인장 피크", "y1t_eps_pk": "얀 종인장 피크변형률",
@@ -216,23 +221,32 @@ NO_DIRECTION = {
 
 
 def knob_directions():
-    """{knob: (verdict, [(obs, S), ...])} from the measured Jacobian."""
+    """{knob: (verdict, [(obs, S), ...], baseline)} from the measured Jacobian.
+
+    a3 R18-1: a direction does not exist without the thing it is measured
+    against.  R16-2 and §6.6.2 disagreed in sign for one round only because
+    one was measured against shipping M6's unqualified value and the other
+    against the declared fixed A = 2.  So every direction here carries the
+    point the derivative was taken at, in the same row.
+    """
     out = {}
     if not os.path.exists(KNOB_CSV):
         return out
     with open(KNOB_CSV) as fh:
         rows = list(csv.DictReader(fh))
     for knob in sorted(set(r["knob"] for r in rows)):
-        live = [(r["obs"], float(r["S_h1em3"])) for r in rows
-                if r["knob"] == knob and r["structure"] == "LIVE"]
+        mine = [r for r in rows if r["knob"] == knob]
+        live = [(r["obs"], float(r["S_h1em3"])) for r in mine
+                if r["structure"] == "LIVE"]
+        base = "현재 카드값 %s 에서의 중심차분" % mine[0]["p_base"]
         if not live:
-            out[knob] = ("미정", [])
+            out[knob] = ("미정", [], base)
         elif all(s > 0 for _o, s in live):
-            out[knob] = ("올라간다", live)
+            out[knob] = ("올라간다", live, base)
         elif all(s < 0 for _o, s in live):
-            out[knob] = ("내려간다", live)
+            out[knob] = ("내려간다", live, base)
         else:
-            out[knob] = ("양방향", live)
+            out[knob] = ("양방향", live, base)
     return out
 
 
@@ -272,10 +286,11 @@ def placeholder_rows():
     for phase, slot, val, grade, _why in CG.TRIAGE:
         if grade == "DERIVED":
             continue                      # not a placeholder: computed
-        verdict, live = dirs.get(slot, ("미정", []))
+        verdict, live, base = dirs.get(
+            slot, ("미정", [], "자코비안 관측량 집합 밖 — 기준선 자체가 없다"))
         out.append(dict(
             where="card:%s" % phase, slot=slot, value=val, grade=grade,
-            direction=verdict,
+            direction=verdict, baseline=base,
             evidence="; ".join("%s %+.3g" % (OBS_LABEL.get(o, o), s)
                                for o, s in live) or "LIVE 행 없음",
             why=NO_DIRECTION.get(slot, "") if verdict == "미정" else ""))
@@ -292,11 +307,13 @@ def placeholder_report():
     for r in rows:
         print("  %-14s %-7s %-10s %s"
               % (r["where"], r["slot"], r["direction"], r["evidence"]))
+        print("        기준선: %s" % r["baseline"])
         if r["why"]:
             print("        미정 이유: %s" % r["why"])
     print("\n  %-14s %-7s %-10s %s"
           % ("card:macro", "32-35", "올라간다",
              "고정 A=2 는 |Gf_inel| = g0*le 라는 선언이다"))
+    print("        기준선: %s" % CRACK_BAND_BASELINE)
     for T in sorted(cb):
         g0le, post, A = cb[T]
         if A is None:
@@ -316,17 +333,18 @@ def write_placeholder_csv(path=None):
     rows = placeholder_rows()
     cb = crack_band_direction()
     out = [[r["where"], r["slot"], r["value"], r["grade"], r["direction"],
-            r["evidence"], r["why"]] for r in rows]
+            r["baseline"], r["evidence"], r["why"]] for r in rows]
     for T in sorted(cb):
         g0le, post, A = cb[T]
         out.append(["card:macro", "32-35 (A=2) @%dC" % T, 0.0, "KNOB",
                     "미정" if A is None else "올라간다",
+                    CRACK_BAND_BASELINE,
                     "g0*le %.4f vs 피크 이후 %.4f" % (g0le, post),
                     "피크 이후 소산이 0 이라 부등호를 세울 수 없다"
                     if A is None else ""])
     return _write_csv(path,
                       ["where", "slot", "value", "grade", "direction",
-                       "evidence", "why_undetermined"], out)
+                       "baseline", "evidence", "why_undetermined"], out)
 
 
 def report():
@@ -467,6 +485,23 @@ def check():
     t("S23 is reported as 양방향, not collapsed to one sign",
       s23 and s23[0]["direction"] == "양방향",
       s23[0]["evidence"] if s23 else "missing")
+
+    # a3 R18-1.  R16-2 and §6.6.2 read as a contradiction for one round
+    # because neither said what its direction was measured against.  A
+    # direction without a baseline is not a weaker statement -- it is an
+    # ambiguous one, and the next reader resolves the ambiguity by guessing.
+    t("every direction names the baseline it is measured against",
+      all(len(r["baseline"]) > 10 for r in ph),
+      "%d행" % len(ph))
+    t("card knobs are measured against their own card value",
+      all("현재 카드값" in r["baseline"] for r in ph
+          if r["slot"] not in ("dmax_t", "eta")))
+    t("...and the two outside the Jacobian say so instead of borrowing one",
+      all("기준선 자체가 없다" in r["baseline"] for r in ph
+          if r["slot"] in ("dmax_t", "eta")))
+    t("the crack-band row measures against the DECLARATION, not a card value",
+      "선언된 고정 A=2" in CRACK_BAND_BASELINE
+      and "현재 카드값" not in CRACK_BAND_BASELINE)
 
     print("\n H. the worked example -- the crack-band exponent")
     cb = crack_band_direction()
