@@ -1,6 +1,6 @@
 # 해석 대기열 — 워크스테이션에 앉으면 이 순서대로
 
-**a3(총괄)가 유지한다. 2026-08-13 기준.** 솔버가 필요한 것만 모았다.
+**a3(총괄)가 유지한다. 2026-08-21 갱신.** 솔버가 필요한 것만 모았다.
 솔버 없이 되는 일은 `paper/review/TO_A1.md` R4 로 이미 발행되어 두 에이전트가
 돌리고 있으므로, **여기 있는 것만 사람이 하면 된다.**
 
@@ -49,39 +49,35 @@ $k$ = 84.1/strain, 피크의 절반까지 0.824 % 가 필요하다. ×3 이면 �
 (0.94 / 1.15 / 1.22 %) 그것을 넘긴다. **T500 의 겉보기 $k$ = 4.0 은 쓰지 않았다** —
 0.3 % 밖에 안 떨어진 0.065 % 짜리 평평한 꼭대기에 맞춘 값이라 감쇠율이 아니다.
 
-### 명령 — `E:\LTH\` 에 풀면 폴더가 그대로 실행 폴더
+### ⚠️ 명령 — **한 단계씩 준다** (CLAUDE.md 2026-08-18 규칙)
 
-**① 해석 (Abaqus Command 창 3개, 서로 독립)**
+**아래 명령을 한꺼번에 옮겨 적지 않는다.** 8/18 에 같은 날 두 번 헛돌았고,
+원인은 **작업 폴더를 `E:\LTH\...` 로 가정한 것**이었다 — 실제는 `C:\temp` 였다.
+**M8 의 실제 폴더도 아직 확인되지 않았다.**
 
-```
-E:
-cd \LTH\LTH_M8_0818_1231
-abaqus job=LTH_M8_RT23  input=LTH_M8_RT23.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
-abaqus job=LTH_M8_T500  input=LTH_M8_T500.inp  user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
-abaqus job=LTH_M8_T1000 input=LTH_M8_T1000.inp user=UMAT_CSIC_THERMSHOCK_V3_0.for double interactive cpus=10 memory="70gb"
-```
-
-**② 잡 하나가 끝날 때마다 그 잡부터 바로** (수 초)
+#### 0단계 — **먼저 이것만.** 푼 자리를 확인한다
 
 ```
-abaqus python extract_ss_curve.py LTH_M8_RT23.odb
-abaqus python damage_map.py       LTH_M8_RT23.odb
-abaqus python driver_audit.py     LTH_M8_RT23.odb
-abaqus python reheat_frames.py    LTH_M8_T500.odb
+dir /s /b LTH_M8_RT23.inp
 ```
 
-`driver_audit` 가 **ALLSD/ALLIE 5 % 관문**이다 — 없으면 피크를 논문에 못 싣는다.
-`reheat_frames` 는 T500·T1000 만.
+(`C:\` 에서 안 나오면 **같은 명령을 `E:` 로 옮겨** 한 번 더 — 이것은
+나누기가 아니라 한 단계다.)
 
-**③ 세 잡이 다 끝나면**
+→ **나온 경로를 그대로 알려 주시면 다음 단계를 드립니다.**
 
-```
-python m6_verdict.py     LTH_M8_RT23_ss.csv LTH_M8_T500_ss.csv LTH_M8_T1000_ss.csv
-python damage_ceiling.py LTH_M8_RT23_damage_map.csv LTH_M8_T500_damage_map.csv LTH_M8_T1000_damage_map.csv
-```
+#### 그 다음에 오는 것 (요약만 — 명령은 경로 확인 후)
 
-`m6_verdict` 4b 절이 **곡선마다 「$G_f$ 를 공급할 수 있는가 / 거부」** 를 CSV 에 적는다.
-죽은 잡이 있으면: `python msg_residual_census.py LTH_M8_T500.msg LTH_M8_T500.inp`
+1. 해석 3잡, 서로 독립 → **Abaqus Command 창 3개 병렬**, 잡당 `cpus=10 memory="70gb"`
+2. 잡 하나가 끝날 때마다 그 잡의 후처리 4줄 (수 초)
+3. 세 잡이 끝나면 판정 2줄
+
+**② 안에 `driver_audit` 가 들어간다 — `ALLSD/ALLIE` 5 % 관문이며 이것 없이는
+피크를 논문에 못 싣는다.** `stabilize` 를 켠 덱이므로 생략할 수 없다.
+
+**나올 CSV 는 두 군데로 갈린다** — `damage_map` 은 **ODB 옆**에, 나머지는
+**현재 폴더**에 쓴다. 8/18 에 사용자가 이것 때문에 경로를 다시 조립했으므로,
+후처리 단계를 줄 때 **어디에 생기는지 함께** 적는다.
 
 **채팅에 올릴 것:** `m6_verdict_summary.csv` · `damage_ceiling_summary.csv` ·
 `LTH_M8_*_ss.csv`(3) · `LTH_M8_*_damage_map.csv`(3) · `LTH_M8_*_drivers.csv`(3)
@@ -120,7 +116,9 @@ python damage_ceiling.py LTH_M8_RT23_damage_map.csv LTH_M8_T500_damage_map.csv L
 | 안 하면 | prerun_gate 의 유일한 차단 항목이 계속 열려 있다 |
 | 비용 | 5분 (없으면 `LTH_RUN2` 재실행, 짧다) |
 
-`E:\LTH\LTH_RUN2_0807_1830\` 에서 `*_summary.csv` 를 찾아 커밋하면 끝난다.
+**경로를 가정하지 않는다**(8/18 규칙) — 먼저 `dir /s /b *kbar*summary*.csv` 로
+찾고, **나온 경로를 알려 주시면** 그 다음을 드린다. 예전에 `E:\LTH\LTH_RUN2_0807_1830\`
+으로 적어 두었으나 **확인된 적이 없다.**
 
 ### ~~Q3-b. M6 응력-변형률 곡선 3개~~ — ✅ **2026-08-14 해소, 사용자 할 일 없음**
 
@@ -207,7 +205,7 @@ S0 선행검증의 마지막 항목이다. **9케이스 매트릭스 전에** �
 솔버 필요 (사람 대기)            ░░░░░░░░░░  Q1~Q5 **전부 실행 가능** — 차단 없음
 ```
 
-**2026-08-16 기준 — 앉으면 바로 되는 순서**
+**2026-08-21 기준 — 앉으면 바로 되는 순서**
 
 | | 할 일 | 비용 | 지금 되나 |
 |---|---|---|---|
@@ -217,7 +215,7 @@ S0 선행검증의 마지막 항목이다. **9케이스 매트릭스 전에** �
 | Q4 | CAE 캡처 3장 + 죽은 M5 ODB | 10분 | ✅ Q3-c 와 같은 자리 |
 | Q2 | ITAN·취성 봉 9잡 | 30분 | ✅ |
 | Q5 | 사이클 점프 5덱 | 1시간 | ✅ |
-| **Q1** | **M8 — 창 3개 병렬** | 큼 | ✅ **M7 은 폐기. M8 을 돌린다** |
+| **Q1** | **M8 — 창 3개 병렬** | 큼 | ✅ **먼저 0단계(경로 확인)부터** |
 | Q6 | S3 9잡 | 큼 | ⛔ 카드 자리표 — 금지 |
 
 **Q3-c 의 값이 8/16 에 올라갔다.** 처음에는 「강도 절대값의 잠정 딱지」만
