@@ -120,7 +120,7 @@ CASES = [
      count_bracketed, 18),
     ("damage_ceiling.py --selftest",
      "python3 postprocess/damage_ceiling.py --selftest",
-     count_plain, 22),
+     count_plain, 26),
     ("m6_report.py --selftest",
      "python3 postprocess/m6_report.py --selftest",
      count_plain, 26),

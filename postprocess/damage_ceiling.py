@@ -46,6 +46,15 @@ import math
 import os
 import sys
 
+#: The command this file tells the user to run when a map predates
+#: volfrac_at_cap.  It said "damage_map.py <job>.odb <job>.inp" until
+#: 2026-08-18 -- damage_map.py takes ONE positional argument, so argparse
+#: would have answered "unrecognized arguments" and the user would have been
+#: stuck at a dead end printed by us.  A command we print has to be a command
+#: that runs; the selftest below checks this string against damage_map.py's
+#: real parser rather than trusting it.
+RERUN_HINT = "abaqus python damage_map.py <job>.odb"
+
 #: what damage_map.py ranks per step; a full list is a censored count
 RANK_LIMIT = 30
 #: the card ceiling and the tolerance the map itself uses
@@ -305,8 +314,10 @@ def report(paths, out_path=None):
         print("  lower bounds, not counts.")
     if need:
         print("  The inflation bound needs volfrac_at_cap, which these maps do")
-        print("  not carry.  Re-run the reader on the SAME odb -- no solver:")
-        print("    abaqus python damage_map.py <job>.odb <job>.inp")
+        print("  not carry -- they were written before damage_map.py counted")
+        print("  the cap on COMPONENTS.  Re-run the reader on the SAME odb;")
+        print("  there is no solver in this and it takes seconds:")
+        print("    %s" % RERUN_HINT)
         print("  then run this file again on the new <job>_damage_map.csv.")
     if not need and not censored:
         print("  Counts are exact and the bound is computed.  A strength may")
@@ -423,6 +434,39 @@ def selftest():
       all(k in CSV_HEADER for k in ("value", "basis", "verdict")))
     t("and a row keeps them on one line",
       "22" in body and "why" in body and "exact" in body)
+
+    print("\n  G. a command we PRINT has to be a command that RUNS")
+    # This file's only instruction to the user named a second positional
+    # argument that damage_map.py's parser does not have.  Anyone who
+    # followed it got "unrecognized arguments" -- a dead end we printed
+    # ourselves.  Checked against the real parser, not against a copy of it.
+    here = os.path.dirname(os.path.abspath(__file__))
+    dm = os.path.join(here, "damage_map.py")
+    if not os.path.exists(dm):
+        t("damage_map.py is beside this file", False, dm)
+    else:
+        src = open(dm).read()
+        positional = [ln for ln in src.splitlines()
+                      if "add_argument(" in ln and '"-' not in ln]
+        n_pos = len(positional)
+        args = RERUN_HINT.split()
+        # "abaqus python damage_map.py <job>.odb" -> the arguments after the
+        # script name are what the parser has to accept.
+        after = args[args.index("damage_map.py") + 1:]
+        t("the hint passes exactly as many positionals as the parser has",
+          len(after) == n_pos,
+          "hint passes %d (%s), parser declares %d (%s)"
+          % (len(after), " ".join(after), n_pos,
+             ", ".join(p.split('"')[1] for p in positional)))
+        t("  and the one it passes is the odb, which is what is declared",
+          n_pos == 1 and 'add_argument("odb"' in src
+          and after and after[0].endswith(".odb"),
+          "damage_map.py takes an odb and nothing else")
+        t("  the hint names the tool that actually exists",
+          "damage_map.py" in RERUN_HINT and os.path.exists(dm))
+        t("  and runs it under abaqus python, since it opens an odb",
+          RERUN_HINT.startswith("abaqus python "),
+          "odbAccess is not importable from plain python")
 
     print("\n%s" % ("ALL %d SELFTESTS PASS" % len(ok) if all(ok)
                     else "FAILED %d of %d" % (ok.count(False), len(ok))))
