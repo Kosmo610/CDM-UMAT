@@ -205,11 +205,14 @@ OBS_LABEL = {
 #: slot -> why no direction can be stated.  Only for slots the Jacobian
 #: cannot move; a slot WITH live sensitivities must not appear here.
 NO_DIRECTION = {
-    "Gtt": "카드값이 0 이라 균열대가 꺼져 있다. p=0 에서의 차분은 구조적으로 "
-           "0 이므로 자코비안이 방향을 만들 수 없다 — 값이 없어서가 아니라 "
-           "(Shi refs/[31] 0.107 N/mm 이 있다) 켜져 있지 않아서다",
-    "Gtc": "같은 이유로 p=0 이고, 그 위에 값 자체도 없다. 24번 모드의 손상 "
-           "부피가 0 이라 이 슬롯을 움직일 관측량 자체가 아직 생기지 않는다",
+    "Gtt": "자코비안의 기준 카드(V2_0 드라이버)에서는 0 이라 균열대가 꺼져 있고 "
+           "p=0 의 차분은 구조적으로 0 이다. 단 이것은 그 기준 카드 이야기다 — "
+           "실행 덱은 M6(0812)부터 Shi refs/[31] 0.107 N/mm 을 싣고 돈다 "
+           "(yarn_fracture_energy §6, 등급 DEV). 자코비안을 실행 카드에서 다시 "
+           "재면 이 행은 미정에서 벗어난다",
+    "Gtc": "기준 카드에서 p=0 이고, 실행 덱도 M7 부터 도로 0 이다(M6 이 0.107 로 "
+           "켰다가 메시 부적법 + census 모드 24 부피 0.6 % 이하로 철회, "
+           "yarn_fracture_energy RULING 2). 값 자체가 문헌에 없다(한계 13)",
     "X_PO": "13개 관측량 전부 NEAR_NULL 또는 상 간 구조적 0 이다. Ge Eq.16-17 "
             "의 보조변수라 rF 를 통해서만 들어가며, rF 는 이 카드에서 유도량이다",
     "dmax_t": "자코비안 관측량 집합에 들어 있지 않다. 손상 상한의 방향은 "
@@ -502,6 +505,21 @@ def check():
     t("the crack-band row measures against the DECLARATION, not a card value",
       "선언된 고정 A=2" in CRACK_BAND_BASELINE
       and "현재 카드값" not in CRACK_BAND_BASELINE)
+
+    # The Gtt/Gtc rows talk about TWO cards -- the Jacobian's baseline and
+    # the shipped run decks.  Read the run deck so the text cannot rot.
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    import yarn_fracture_energy as yf
+    gtt_run, gtc_run = yf.run_deck_slots(*yf.RUN_DECKS[-1][1:])
+    t("the Gtt row's run-deck claim matches the shipped M8 deck",
+      abs(gtt_run - 0.107) < 1e-12 and "0.107" in NO_DIRECTION["Gtt"],
+      "M8 slot 34 = %.3f" % gtt_run)
+    t("the Gtc row's run-deck claim matches too (withdrawn to 0)",
+      gtc_run == 0.0 and "M7 부터 도로 0" in NO_DIRECTION["Gtc"],
+      "M8 slot 35 = %.3f" % gtc_run)
+    t("both rows name the two baselines apart -- R18-1 applied to itself",
+      "기준 카드" in NO_DIRECTION["Gtt"] and "실행 덱" in NO_DIRECTION["Gtt"]
+      and "기준 카드" in NO_DIRECTION["Gtc"] and "실행 덱" in NO_DIRECTION["Gtc"])
 
     print("\n H. the worked example -- the crack-band exponent")
     cb = crack_band_direction()
