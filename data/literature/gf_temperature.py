@@ -147,6 +147,15 @@ YANG_T1 = [
 MODEL_E = (92.1, 235.2)             # GPa, a2-0003
 ZHANG_X = (128.45, 199.15)          # MPa, Zhang Table 3
 
+#: The RE-SOURCED card, measured off the three committed M6 curves
+#: (data/results/M6/LTH_M6_*_ss.csv): initial tangent by the settled
+#: definition, peak by the maximum.  Section 2(b) above was computed on the
+#: Zhang card and stays true OF THAT CARD; this is what the deck now carries,
+#: and it does not behave the same way.
+M6_CARD = {23: (122.9189, 199.830),
+           500: (169.400, 226.830),
+           1000: (179.000, 284.710)}     # (E [GPa], X [MPa])
+
 GM_T = 0.031                        # N/mm, matrix card
 SNEAD_GF_AXIS_MAX = 30.0            # J/m^2, Fig. 14 fracture-energy axis
 
@@ -267,6 +276,79 @@ def check():
           (YANG_T1[2][1] / YANG_T1[0][1] - 1.0) - 4.5) < 0.4,
       "%.2fx" % ((MODEL_E[1] / MODEL_E[0] - 1.0) /
                  (YANG_T1[2][1] / YANG_T1[0][1] - 1.0)))
+
+    print("\n C2. the RE-SOURCED card does NOT land in the same place")
+    # The cancellation in C is not a law -- it is a property of the Zhang
+    # card, where E rose 2.55x against X's 1.55x.  M6 re-sourced both (the
+    # porosity correction lowered E at RT, the in-situ yarn Xt raised X at
+    # temperature) and the cancellation is gone.
+    b6 = g0(*M6_CARD[23])
+    r6 = g0(*M6_CARD[1000]) / b6
+    t("M6 card g0 rises 39.4 % to 1000 C, where the Zhang card FELL 5.9 %",
+      abs(r6 - 1.3940) < 0.002, "ratio %.4f" % r6)
+    t("  the two cards disagree in SIGN, so 'bounded at 5-6 %' is a "
+      "statement about the old one", (r_model - 1.0) * (r6 - 1.0) < 0.0,
+      "%.3f vs %.3f" % (r_model, r6))
+    t("  and the measurement says flat: refs/[10] moves 5.1 % to 1273 K",
+      abs(meas - 1.0) < 0.06, "%.4f" % meas)
+    t("  so the card overstates the rise by about 8x",
+      6.0 < (r6 - 1.0) / abs(meas - 1.0) < 9.0,
+      "%.1fx the measured excursion" % ((r6 - 1.0) / abs(meas - 1.0)))
+
+    print("\n C3. with Gf REFUSED, the sign of the temperature error flips")
+    # Since 2026-08-18 homogenize.py refuses a Gf from a curve that never
+    # softened, so slots 32-35 are 0.0 and KABAND returns the FIXED exponent.
+    # A is then exactly constant -- gf_temperature_drift has nothing to
+    # report -- but the Gf the model is implicitly using is not.
+    #     A = 2*g0*le/|Gf|   =>   with A fixed,  Gf_implied  ~  g0(T)
+    t("with Gf = 0 the exponent is exactly constant, so A does not drift",
+      True, "A = afix; the drift question moves to the IMPLIED Gf")
+    t("  but the implied Gf then tracks g0, so it RISES 39.4 %",
+      abs(r6 - 1.3940) < 0.002,
+      "Gf_implied(1000)/Gf_implied(23) = g0 ratio = %.4f" % r6)
+    t("  Snead's direction (constant-to-rising) is not contradicted",
+      r6 >= 1.0, "a rise is inside the sourced direction; the SIZE is not")
+    # Direction of the consequence.  Under the old regime a constant card Gf
+    # against a rising true Gf over-estimated A -- too-abrupt softening, more
+    # damage, conservative.  Under the fixed exponent the model behaves as if
+    # 39 % TOUGHER at 1000 C than the measurement supports, which softens too
+    # slowly and over-predicts residual strength.
+    t("  and the consequence is NON-conservative, unlike the old regime",
+      r6 > 1.0 + abs(meas - 1.0),
+      "too tough at temperature -> softens too slowly -> residual strength "
+      "OVER-predicted, the quantity Ch.6 reports")
+    t("the two regimes are therefore not interchangeable",
+      (r_model < 1.0) and (r6 > 1.0),
+      "Gf-on-card erred conservatively; fixed-exponent does not")
+
+    print("\n C4. WHICH factor carries the 39 % -- X(T), not E(T)")
+    # g0 = X^2/(2E) has two inputs and the card is wrong in both, but not
+    # equally.  Swapping one at a time against refs/[10]'s measured pair
+    # (300 K -> 1273 K, the nearest measured bracket to 23 -> 1000 C) says
+    # which one to go and fix.
+    fE_c = M6_CARD[1000][0] / M6_CARD[23][0]
+    fX_c = M6_CARD[1000][1] / M6_CARD[23][1]
+    fE_y = YANG_T1[2][1] / YANG_T1[0][1]
+    fX_y = YANG_T1[2][2] / YANG_T1[0][2]
+    r_of = lambda fx, fe: fx * fx / fe                        # noqa: E731
+    t("the card's X(T) is 2.26x steeper than the measurement",
+      abs((fX_c - 1) / (fX_y - 1) - 2.26) < 0.05,
+      "%.1f %% rise against %.1f %%" % (100 * (fX_c - 1), 100 * (fX_y - 1)))
+    t("  while its E(T) is only 1.33x steeper",
+      abs((fE_c - 1) / (fE_y - 1) - 1.33) < 0.05,
+      "%.1f %% rise against %.1f %%" % (100 * (fE_c - 1), 100 * (fE_y - 1)))
+    r_xy = r_of(fX_y, fE_c)
+    t("swapping X(T) alone for the measured slope lands g0 FLAT",
+      abs(r_xy - 0.9688) < 0.002 and abs(r_xy - 1.0) < 0.06,
+      "%+.1f %% -- inside refs/[10]'s own 5.1 %% band"
+      % (100 * (r_xy - 1)))
+    r_ey = r_of(fX_c, fE_y)
+    t("  swapping E(T) alone makes it WORSE, so E is not the culprit",
+      r_ey > r6, "%+.1f %% against the card's %+.1f %%"
+      % (100 * (r_ey - 1), 100 * (r6 - 1)))
+    t("so the 39 % is a single-factor defect: X(T)",
+      abs(r_xy - 1.0) < abs(r6 - 1.0) / 5.0,
+      "fixing X(T) removes it; fixing E(T) does not")
 
     print("\n D. the matrix card sits inside Snead's own band")
     t("Gm_t = 0.031 N/mm is 31 J/m2", abs(GM_T * 1000.0 - 31.0) < 0.5,
