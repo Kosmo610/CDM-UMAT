@@ -321,6 +321,35 @@ def check():
       (r_model < 1.0) and (r6 > 1.0),
       "Gf-on-card erred conservatively; fixed-exponent does not")
 
+    print("\n C4. WHICH factor carries the 39 % -- X(T), not E(T)")
+    # g0 = X^2/(2E) has two inputs and the card is wrong in both, but not
+    # equally.  Swapping one at a time against refs/[10]'s measured pair
+    # (300 K -> 1273 K, the nearest measured bracket to 23 -> 1000 C) says
+    # which one to go and fix.
+    fE_c = M6_CARD[1000][0] / M6_CARD[23][0]
+    fX_c = M6_CARD[1000][1] / M6_CARD[23][1]
+    fE_y = YANG_T1[2][1] / YANG_T1[0][1]
+    fX_y = YANG_T1[2][2] / YANG_T1[0][2]
+    r_of = lambda fx, fe: fx * fx / fe                        # noqa: E731
+    t("the card's X(T) is 2.26x steeper than the measurement",
+      abs((fX_c - 1) / (fX_y - 1) - 2.26) < 0.05,
+      "%.1f %% rise against %.1f %%" % (100 * (fX_c - 1), 100 * (fX_y - 1)))
+    t("  while its E(T) is only 1.33x steeper",
+      abs((fE_c - 1) / (fE_y - 1) - 1.33) < 0.05,
+      "%.1f %% rise against %.1f %%" % (100 * (fE_c - 1), 100 * (fE_y - 1)))
+    r_xy = r_of(fX_y, fE_c)
+    t("swapping X(T) alone for the measured slope lands g0 FLAT",
+      abs(r_xy - 0.9688) < 0.002 and abs(r_xy - 1.0) < 0.06,
+      "%+.1f %% -- inside refs/[10]'s own 5.1 %% band"
+      % (100 * (r_xy - 1)))
+    r_ey = r_of(fX_c, fE_y)
+    t("  swapping E(T) alone makes it WORSE, so E is not the culprit",
+      r_ey > r6, "%+.1f %% against the card's %+.1f %%"
+      % (100 * (r_ey - 1), 100 * (r6 - 1)))
+    t("so the 39 % is a single-factor defect: X(T)",
+      abs(r_xy - 1.0) < abs(r6 - 1.0) / 5.0,
+      "fixing X(T) removes it; fixing E(T) does not")
+
     print("\n D. the matrix card sits inside Snead's own band")
     t("Gm_t = 0.031 N/mm is 31 J/m2", abs(GM_T * 1000.0 - 31.0) < 0.5,
       "%.0f J/m2" % (GM_T * 1000.0))
