@@ -377,6 +377,36 @@ E:\LTH\LTH_RUN1_0807_1712\UMAT_CSIC_THERMSHOCK_V3_0.for
 - 실패 가능성이 보이면 **그 단계 안에서 대안을 같이 준다**("C에서 안 나오면
   같은 명령을 E에서"). 이것은 나누기가 아니라 한 단계다.
 
+**작업 폴더 규칙(`E:\LTH\`, §1-2)은 맞았다.** 2026-08-18의 혼선은 규칙이
+틀려서가 아니라 **내가 확인하지 않아서**였다 — 사용자는 `C:\temp` 에서
+치고 있었고 파일은 규칙대로 `E:\LTH\LTH_M6_0812_1411` 에 있었다. 그러니
+규칙을 바꾸지 말고 **확인 단계를 앞에 붙인다**:
+
+```
+dir /s /b <파일패턴>          ← 첫 단계는 언제나 이것
+```
+
+- **`dir` 은 아무것도 바꾸지 않는다.** 먼저 돌리는 비용이 0이므로 항상 먼저 돌린다.
+- 드라이브가 여러 개면 **한 단계 안에서 둘 다** 준다(`C:` 에서 안 나오면 `E:`).
+- 확인된 폴더가 규칙과 다르면 **명령을 그 폴더에 맞춘다.** 파일을 옮기라고
+  하지 않는다 — 이미 있는 것을 다시 만지게 하는 쪽이 실수가 크다.
+
+#### ★ 사용자에게 **인쇄되는 명령**도 검증 대상이다 (2026-08-18)
+
+`verification/check_printed_commands.py` 가 저장소 전체의 스크립트가
+**화면에 찍는 명령**을 검사한다. 세 가지를 본다: 그 파일이 실제로 있는가,
+`abaqus python` / 일반 `python` 이 맞는가(`odbAccess` vs `matplotlib`),
+**인자 개수가 상대 파서가 선언한 것을 넘지 않는가.**
+
+왜 생겼나 — `damage_ceiling.py` 가 `abaqus python damage_map.py <job>.odb
+<job>.inp` 를 안내하고 있었는데 `damage_map.py` 는 위치인자를 **하나만**
+받는다. 그대로 치면 `unrecognized arguments` 로 죽는다. 게다가 그 안내는
+**"예전 CSV라 다시 뽑아야 한다"** 는 상황에서만 뜨므로, 이미 막힌 사용자가
+**우리가 인쇄한 막다른 길**을 하나 더 만나는 구조였다.
+
+- **문서(`RUN_ME.md`)와 채팅에 적는 명령도 같은 잣대로 본다.** 다만 자동
+  검사가 닿는 것은 `.py` 안의 문자열이므로, 나머지는 내가 직접 확인한다.
+
 #### ★ 고친 스크립트는 **묻기 전에** 보낸다 (사용자 지정, 2026-08-10)
 
 **사용자가 이미 갖고 있는 파일을 내가 고쳤고 그것을 다시 돌려야 한다면,
@@ -595,6 +625,7 @@ python3 verification/check_chapter_claims.py          # 장이 부른 파일·�
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
 python3 verification/review_inbox.py --check           # 리뷰 브랜치 수신·원문 대조 (a3)
 python3 verification/check_manuscript_citations.py     # 제출본(CH1~7) 인용 전수 (고아·허공·무인용 주장)
+python3 verification/check_printed_commands.py         # 스크립트가 인쇄하는 명령이 실제로 실행되는가
 python3 verification/prerun_gate.py --check            # 최소 해석 계획·단계별 관문 (a1 몫)
 python3 verification/pending_slots.py --check          # [결과 대기] 슬롯 8개 — 단계·소유자·차단/부분
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)

@@ -189,7 +189,10 @@ CASES = [
      count_bracketed, 134),
     ("gf_temperature.py --check",
      "python3 data/literature/gf_temperature.py --check",
-     count_bracketed, 30),
+     count_bracketed, 39),
+    ("check_printed_commands.py",
+     "python3 verification/check_printed_commands.py",
+     count_bracketed, 25),
     ("pls_validation.py --check",
      "python3 data/literature/pls_validation.py --check",
      count_bracketed, 43),
@@ -276,7 +279,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 70  # 2026-08-18: +lengthen_tension (a2, the tension step that ended at its own peak) -- a conscious raise, as designed
+EXPECTED_CASES = 71  # 2026-08-18: +check_printed_commands (a2, instructions we print must run) -- a conscious raise, as designed
 
 
 def main():

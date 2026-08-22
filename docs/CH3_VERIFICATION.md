@@ -63,7 +63,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
 | `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 + 고아 분류 + [S12]·[S13]·C5–C7 미보유 검증 | 134 |
-| `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 | 30 |
+| `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 + **재소싱된 M6 카드는 g0가 39.4 % 상승**(옛 카드는 5.9 % 하락 — 부호가 반대)·**Gf 거부 시 오차 방향이 비보수적으로 뒤집힘** | 39 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도·정의 취약성·선형구간 비 | 43 |
 | `cte_composite_targets.py --check` | refs/[61]의 복합재 CTE 4점과 그 한계 | 32 |
 | `cte_rve_verdict.py --check` | RVE 실물 $\bar\alpha$ 대 절대 표적 — 4단 사다리·상별 상하한·남은 세 어긋남 | 38 |
@@ -103,7 +103,8 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `extract_thermal_profile.py --selftest` | 급랭 HEAT odb 판독 — 열경계층이 요소로 풀렸나 · 첫 프레임이 구배 피크 전인가 · **odb에서 되읽은 열확산율이 카드와 맞나**(1000배 단위오차 탐지) · **저Bi 고유값·욕조온도·alpha(T) 창** | 31 |
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정·**연화 관문(멈춘 곡선 ≠ 연화한 곡선)**·**손상 상한 단일 상수** | 27 |
 | `lengthen_tension.py --check` | 인장 스텝 연장 — **3줄만 바뀌는가**(변형률·최대증분·증분예산, 전부 인장 스텝 안), 냉각 블록 바이트 동일, 실제 M7 덱 3개에 대한 대조 | 21 |
-| **합계** | | **3437** |
+| `check_printed_commands.py` | 스크립트가 **인쇄하는 명령**의 실행 가능성 — 파일 존재·`abaqus python`/일반 `python` 적합성·상대 파서 대비 인자 개수 (자기 예외는 1개로 고정) | 25 |
+| **합계** | | **3471** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
