@@ -137,8 +137,11 @@ def main():
     # band and stays proportional to l_e, so the TOTAL is mesh-dependent
     # even when the band is perfect.  Measured by
     # verification/plastic_dissipation_audit.py.
-    check("thirteen numbered limitations", len(
-        re.findall(r"(?m)^\d+\. ", L)) == 13)
+    # 2026-08-19: 13 -> 14.  §6.6.2's floor inequality reached the
+    # conclusions chapter -- residual-strength absolutes are a FLOOR under
+    # the declared fixed exponent, with RT23 left deliberately unbounded.
+    check("fourteen numbered limitations", len(
+        re.findall(r"(?m)^\d+\. ", L)) == 14)
     for needle, why in (
             ("분위기 변수가 없다", "one-atmosphere model"),
             ("미측정", "the 900-1200 hole"),
@@ -152,7 +155,8 @@ def main():
             ("PIP인데", "process mismatch"),
             ("독립성이 완전하지 않다", "target independence"),
             ("공개되어 있지 않다", "transverse compression: absent, not unfound"),
-            ("소성 소산은 놓아준다", "plastic work is outside the crack band")):
+            ("소성 소산은 놓아준다", "plastic work is outside the crack band"),
+            ("하한이다 — 상한이 아니다", "residual strength is a floor")):
         check("  covers: %s" % why, needle in L)
     check("the two unresolved 6.2.3 rows surface here too",
           "굽힘" in L)
@@ -166,6 +170,31 @@ def main():
           "손상 부피가 0" in L and "4.9-0c" in L)
     check("limitation 13 does not promote the slot out of GUESS",
           "GUESS" in L and "재판정" in L)
+    # Limitation 14 must carry the same bounds Ch.6 re-derives (F section of
+    # check_ch6_numbers recomputes them from the curves; here we only pin
+    # that Ch.7 quotes those, not fresh numbers), the declaration it is
+    # measured against, and the RT23 refusal.
+    check("limitation 14 quotes both A bounds",
+          "\\le 0.72" in L and "\\le 0.25" in L)
+    check("limitation 14 names the declaration as its baseline",
+          "선언" in L and "g_0\\ell_e" in L)
+    check("limitation 14 refuses to bound RT23",
+          "RT23은 피크 이후 소산이 정확히 0" in L)
+    check("limitation 14 names M8 as what replaces it",
+          "LTH_M8_0818_1231.zip" in L)
+    check("limitation 14 says which way the value moves (a floor)",
+          "올라간다" in L and "하한" in L)
+    # Cross-chapter: the bounds Ch.7 quotes must be the very strings Ch.6
+    # carries (Ch.6 is outside check_chapter_consistency's net, so the
+    # agreement is pinned here).  The sign of this conclusion flipped once;
+    # a re-flip in one chapter but not the other must fail a gate.
+    ch6 = open(os.path.join(DOCS, "CH6_RESULTS_DISCUSSION.md"),
+               encoding="utf-8").read()
+    for b in ("\\le 0.72", "\\le 0.25"):
+        check("Ch.6 and Ch.7 quote the same bound %s" % b,
+              b in ch6 and b in L)
+    check("both chapters refuse RT23 the same way",
+          "RT23은 예외" in ch6 and "RT23은 피크 이후 소산이 정확히 0" in L)
     # The plastic-share numbers must be the audit's, not typed ones.
     sys.path.insert(0, HERE)
     import plastic_dissipation_audit as pda

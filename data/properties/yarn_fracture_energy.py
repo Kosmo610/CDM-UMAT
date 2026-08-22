@@ -65,6 +65,20 @@ Transverse compression has Yc = 350 MPa against Yt = 80 MPa, so g0 is
 admissible element.  On this mesh that is the difference between a 17x safety
 margin and 4 % of elements past the snap-back limit.
 
+POSTSCRIPT (2026-08-19) -- what the decks then DID, and the two rulings
+------------------------------------------------------------------------
+M6 (0812) adopted Shi's 0.107 into BOTH transverse slots -- exactly option
+(a) below.  The audit then found what section 5 predicts: at Yc the mesh
+cannot resolve that band (le_max 0.0759 mm < CELENT max 0.0845 mm), and the
+M6 damage census measured the transverse-compression mode at <= 0.6 % of
+damaged yarn volume while transverse TENSION carried 83-100 %.  M7 (0816)
+withdrew Gtc to 0 and kept Gtt; M8 inherits both.  So the open question is
+no longer "turn it on?" -- it is (1) was adopting a COMPOSITE-measured
+interlaminar value into a constituent card legal, and (2) is the Gtc
+withdrawal the settled answer.  Both rulings are recorded and pinned below:
+Gtt stays, graded DEV, never IN; Gtc = 0 is CONFIRMED, superseding this
+file's own earlier "(a) as the main case" recommendation.
+
 Run:  python3 data/properties/yarn_fracture_energy.py
       python3 data/properties/yarn_fracture_energy.py --check
 """
@@ -121,6 +135,82 @@ SNEAD2007 = dict(key="SNEAD2007", ref="refs/[06]",
 
 OUR_MATRIX_E = 350000.0     # MPa, PIP SiC matrix in our card
 OUR_MATRIX_GF = 0.031       # N/mm, already in the matrix card
+
+# --------------------------------------------------------------------------
+# what the shipped decks actually carry (read from the committed zips)
+# --------------------------------------------------------------------------
+RUN_DECKS = [
+    ("M6", "dist/LTH_M6_0812_1411.zip", "LTH_M6_0812_1411/LTH_M6_RT23.inp"),
+    ("M7", "dist/LTH_M7_0816_2022.zip", "LTH_M7_0816_2022/LTH_M7_RT23.inp"),
+    ("M8", "dist/LTH_M8_0818_1231.zip", "LTH_M8_0818_1231/LTH_M8_RT23.inp"),
+]
+
+#: committed M6 damage maps -- the measurement that settles which transverse
+#: mode is ACTIVE (T1000's map is not committed yet; two suffice).
+CENSUS = ["data/results/M6/LTH_M6_RT23_damage_map.csv",
+          "data/results/M6/LTH_M6_T500_damage_map.csv"]
+
+#: RULING 1 (a1, 2026-08-19) -- legality of a composite-measured value in a
+#: constituent card.  The card rule says constituent data only, because a
+#: composite-scale STIFFNESS / STRENGTH / CTE measurement already contains
+#: the thermal residual stress state, and simulating the cooldown on top of
+#: it counts TRS twice.  That mechanism is ADDITIVE superposition on a
+#: load-bearing quantity.  A propagating-crack energy is not such a quantity:
+#: Shi measure G_Ic over propagation with no bridging and LEFM valid, so the
+#: number is the work of separating the matrix/interface -- TRS can touch it
+#: only second-order, through crack path and closure.  A constituent-scale
+#: alternative does not exist (limitation 13's negative result, three dated
+#: searches), and the true constituent FLOOR (monolithic SiC via Snead
+#: K->G = 0.031 N/mm) is retained as the sensitivity anchor, with the whole
+#: band floor..+1sd admissible on this mesh in tension.  Hence: usable, but
+#: as DEV -- an analogue transfer, cited with the interlaminar caveat every
+#: time -- and never promotable to IN, because the second-order TRS residue
+#: in the measured value cannot be bounded from the paper.
+GTT_RULING = dict(
+    grade="DEV",
+    never="IN",
+    mechanism="additive-TRS double count does not operate on a "
+              "propagation energy; residual influence is second-order "
+              "(crack path / closure), recorded as the residual risk",
+    fallback_anchor=0.031,
+    date="2026-08-19")
+
+#: RULING 2 (a1, 2026-08-19) -- Gtc.  This file recommended "(a) Gtc = Gtt
+#: as the main case" before M6 ran.  M6 ran (a); two measurements reversed
+#: it: the mesh cannot resolve the compressive band (le_max < CELENT max,
+#: section 5), and the damage census puts the mode at <= 0.6 % of damaged
+#: yarn volume -- there is nothing to regularise, only clamp noise to buy.
+#: M7 withdrew it (code side); this ruling CONFIRMS the withdrawal (card
+#: side) and supersedes option (a).  Limitation 13 stands.
+GTC_VERDICT = dict(
+    choice="(c) keep 0",
+    supersedes="(a) Gtc = Gtt, this file's pre-M6 recommendation",
+    evidence_mesh="le_max at Yc is below the largest element",
+    evidence_census="mode 24 carries <= 0.6 % of damaged yarn volume",
+    date="2026-08-19")
+
+
+def run_deck_slots(zip_rel, inp_name):
+    """(Gtt, Gtc) = yarn-card slots 34/35 of a shipped deck."""
+    import re
+    import zipfile
+    with zipfile.ZipFile(os.path.join(ROOT, zip_rel)) as z:
+        txt = z.read(inp_name).decode("utf-8", "replace")
+    m = re.search(r"\*User Material, constants=38\n(.*?)(?=\*[A-Za-z])",
+                  txt, re.S | re.I)
+    vals = [float(v) for v in re.split(r"[,\n]", m.group(1)) if v.strip()]
+    return vals[33], vals[34]
+
+
+def census_modefrac(path, mode):
+    """Largest volume fraction DMODE <mode> reaches in any tension step."""
+    import csv
+    with open(os.path.join(ROOT, path)) as fh:
+        rows = list(csv.DictReader(fh))
+    vals = [float(r["value"]) for r in rows
+            if r["item"].startswith("modefrac_%d" % mode)
+            and "Tension" in r["step"]]
+    return max(vals) if vals else 0.0
 
 
 def g_from_k(kic_mpa_rootm, e_mpa):
@@ -228,29 +318,45 @@ def report():
     print("       compression le_max = %.4f mm  -> BELOW the largest element"
           % Lc)
     print("   No measurement of TRANSVERSE COMPRESSIVE fracture energy in")
-    print("   C/SiC was found. Three options, none of them free:")
-    print("     (a) Gtc = Gtt = 0.107 (Ge's own convention: they set them")
-    print("         equal). Some elements clamp to brittle; ATEFF reports it.")
+    print("   C/SiC was found. Three options were on the table:")
+    print("     (a) Gtc = Gtt = 0.107 (Ge's convention).  Clamp risk.")
     scaled = SHI2023["GIc"] * ratio
     Ls, _ = le_max(scaled, YC, E2)
-    print("     (b) Gtc = Gtt*(Yc/Yt)^2 = %.3f N/mm, which equalises the" % scaled)
-    print("         admissible length at %.4f mm. Defensible as a numerical" % Ls)
-    print("         choice, but it is NOT a measurement -- say so if used.")
-    print("     (c) leave Gtc = 0 (status quo): not mesh objective at all.")
-    print("   Recommended: (a) as the main case, (b) as a sensitivity, and")
-    print("   the absence of data stated as a limitation. Transverse")
-    print("   compression fails by crushing rather than by opening a crack,")
-    print("   so a mode-I crack band is already an approximation there.")
+    print("     (b) Gtc = Gtt*(Yc/Yt)^2 = %.3f N/mm (equalises le_max at"
+          % scaled)
+    print("         %.4f mm) -- a numerical choice, NOT a measurement." % Ls)
+    print("     (c) Gtc = 0: that mode not regularised, by declaration.")
+    print("   This file ONCE recommended (a).  M6 ran (a), and two")
+    print("   measurements reversed it -- see section 6.")
 
-    print("\n6. WHAT TO PUT IN THE CARD")
-    print("   slot 34  Gtt = %.3f   N/mm   (%s, %s)"
-          % (SHI2023["GIc"], SHI2023["key"], SHI2023["ref"]))
-    print("   slot 35  Gtc = %.3f   N/mm   (same value, Ge's convention)"
-          % SHI2023["GIc"])
-    print("   slots 20/21 Att/Atc then become IGNORED -- KABAND derives A")
-    print("   from Gf and CELENT whenever Gf > 0.")
-    print("   THIS CHANGES THE DECK. Do not fold it into a running job;")
-    print("   it needs a fresh deck and a note in Ch.4.")
+    print("\n6. WHAT THE DECKS DID, AND THE TWO RULINGS (2026-08-19)")
+    print("   deck   slot 34 Gtt   slot 35 Gtc")
+    for tag, zrel, inp in RUN_DECKS:
+        try:
+            gtt, gtc = run_deck_slots(zrel, inp)
+            print("   %-5s  %8.3f      %8.3f" % (tag, gtt, gtc))
+        except Exception as e:                          # noqa: BLE001
+            print("   %-5s  (unreadable: %s)" % (tag, e))
+    print("   M6 adopted (a); M7 withdrew Gtc to 0; M8 inherits 0.107 / 0.")
+    print()
+    print("   RULING 1 -- Gtt = 0.107 STAYS, graded %s (never %s)."
+          % (GTT_RULING["grade"], GTT_RULING["never"]))
+    print("   A composite-measured interlaminar energy in a constituent")
+    print("   card: %s." % GTT_RULING["mechanism"])
+    print("   Constituent floor %.3f N/mm stays as the sensitivity anchor."
+          % GTT_RULING["fallback_anchor"])
+    print()
+    m23 = max(census_modefrac(c, 23) for c in CENSUS)
+    m24 = max(census_modefrac(c, 24) for c in CENSUS)
+    print("   RULING 2 -- Gtc: %s, superseding %s."
+          % (GTC_VERDICT["choice"], GTC_VERDICT["supersedes"]))
+    print("   evidence: %s (%.4f < %.4f mm);"
+          % (GTC_VERDICT["evidence_mesh"], Lc, CELENT_MAX))
+    print("             %s (census max %.4f; tension mode 23 reaches %.3f)"
+          % (GTC_VERDICT["evidence_census"], m24, m23))
+    print("   Crushing, not crack opening -- a mode-I band was already an")
+    print("   approximation there.  Limitation 13 stands.")
+    print("   slots 20/21 Att/Atc are IGNORED wherever Gf > 0 (KABAND).")
     print("=" * 74)
     return 0
 
@@ -360,6 +466,72 @@ def check():
     t("mesh element count matches the coarse RVE", NELEM == 26452)
     t("recorded median CELENT is below the max",
       CELENT_P50 < CELENT_MAX)
+
+    # --- what the shipped decks carry: the adoption timeline --------------
+    slots = {}
+    for tag, zrel, inp in RUN_DECKS:
+        try:
+            slots[tag] = run_deck_slots(zrel, inp)
+        except Exception as e:                          # noqa: BLE001
+            t("run deck %s is readable" % tag, False, str(e))
+    if len(slots) == 3:
+        t("M6 adopted Shi's value in BOTH transverse slots (option a)",
+          abs(slots["M6"][0] - SHI2023["GIc"]) < 1e-12
+          and abs(slots["M6"][1] - SHI2023["GIc"]) < 1e-12,
+          "%.3f / %.3f" % slots["M6"])
+        t("M7 kept Gtt at Shi's value",
+          abs(slots["M7"][0] - SHI2023["GIc"]) < 1e-12)
+        t("M7 withdrew Gtc to 0",
+          slots["M7"][1] == 0.0, "%.3f -> %.3f"
+          % (slots["M6"][1], slots["M7"][1]))
+        t("M8 inherits M7's transverse slots unchanged",
+          slots["M8"] == slots["M7"], "%.3f / %.3f" % slots["M8"])
+        Lc2, _ = le_max(SHI2023["GIc"], YC, E2)
+        t("the withdrawal agrees with this file's admissibility verdict",
+          slots["M7"][1] == 0.0 and Lc2 < CELENT_MAX,
+          "le_max %.4f < CELENT %.4f" % (Lc2, CELENT_MAX))
+
+    # --- the census: which transverse mode is actually ACTIVE -------------
+    have = [c for c in CENSUS if os.path.exists(os.path.join(ROOT, c))]
+    t("both committed M6 damage maps are present", len(have) == 2,
+      "%d of %d" % (len(have), len(CENSUS)))
+    if len(have) == 2:
+        m23 = max(census_modefrac(c, 23) for c in CENSUS)
+        m24 = max(census_modefrac(c, 24) for c in CENSUS)
+        t("transverse TENSION (mode 23) dominates the tension step",
+          m23 >= 0.8, "max modefrac %.3f" % m23)
+        t("transverse COMPRESSION (mode 24) is inert (<= 1 %)",
+          m24 <= 0.01, "max modefrac %.4f" % m24)
+        t("so the regularised mode is the active one and the",
+          slots.get("M8", (0, 1))[0] > 0.0
+          and slots.get("M8", (1, 1))[1] == 0.0,
+          "unregularised one is the inert one -- not the reverse")
+
+    # --- RULING 1: legality of the composite-measured value ---------------
+    t("Gtt ruling: grade is DEV, promotion to IN is barred",
+      GTT_RULING["grade"] == "DEV" and GTT_RULING["never"] == "IN")
+    t("the ruling states WHY the TRS double-count rule does not bar it",
+      "additive" in GTT_RULING["mechanism"]
+      and "second-order" in GTT_RULING["mechanism"])
+    t("...and records the residual risk instead of denying it",
+      "residual risk" in GTT_RULING["mechanism"])
+    t("the constituent floor is the declared sensitivity anchor",
+      abs(GTT_RULING["fallback_anchor"] - OUR_MATRIX_GF) < 1e-12)
+    t("the whole sensitivity band floor..+1sd is admissible in tension",
+      le_max(GTT_RULING["fallback_anchor"], YT, E2)[0] > CELENT_MAX
+      and le_max(SHI2023["GIc"] + SHI2023["GIc_sd"], YT, E2)[0] > CELENT_MAX)
+
+    # --- RULING 2: the Gtc withdrawal is confirmed, (a) is superseded -----
+    t("Gtc verdict: keep 0, and it names what it supersedes",
+      GTC_VERDICT["choice"].startswith("(c)")
+      and "(a)" in GTC_VERDICT["supersedes"])
+    t("the verdict carries BOTH legs of evidence, mesh and census",
+      "le_max" in GTC_VERDICT["evidence_mesh"]
+      and "0.6 %" in GTC_VERDICT["evidence_census"])
+    t("the census leg is true of the committed data",
+      len(have) == 2 and max(census_modefrac(c, 24) for c in CENSUS) <= 0.006,
+      "max %.4f <= 0.006" % (max(census_modefrac(c, 24) for c in CENSUS)
+                             if len(have) == 2 else -1))
 
     print("\n%d passed, %d failed" % (ok[0], bad[0]))
     print("=" * 74)
