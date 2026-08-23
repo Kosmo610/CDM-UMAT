@@ -208,6 +208,9 @@ CASES = [
     ("crack_band_simplex.py --check",
      "python3 data/literature/crack_band_simplex.py --check",
      count_bracketed, 56),
+    ("atmosphere_census.py --check",
+     "python3 data/literature/atmosphere_census.py --check",
+     count_bracketed, 26),
     ("thermal_cycling_dataset.py --check",
      "python3 data/literature/thermal_cycling_dataset.py --check",
      count_bracketed, 59),
@@ -279,7 +282,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 71  # 2026-08-18: +check_printed_commands (a2, instructions we print must run) -- a conscious raise, as designed
+EXPECTED_CASES = 72  # 2026-08-18: +atmosphere_census (a2, the test atmosphere of every load-bearing source) -- a conscious raise, as designed
 
 
 def main():
