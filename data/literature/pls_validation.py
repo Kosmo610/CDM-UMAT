@@ -40,6 +40,29 @@ which refs/[15] lists as its [9] and which we do not hold.  Acquiring it
 turns this whole argument from secondary to primary.  It is the single
 highest-value acquisition on the list.
 
+UPGRADE (2026-08-23).  The open network delivered a held, citable PRIMARY for
+the C/SiC branch of this mechanism: refs/[74] Li Longbiao, Ceramics-Silikaty
+63(3) (2019) 330-337, grade fulltext.  It derives PLS(T) for 2D C/SiC by an
+energy balance and states the chain in its own conclusions:
+
+    "the proportional limit stress of C/SiC composite increases with
+     temperature, due to the increasing of fiber/matrix interface shear
+     stress and decreasing of the thermal residual stress."
+
+So the thesis no longer leans on the secondary Liu sentence for the C/SiC
+claim -- [74] carries it at grade fulltext, with numbers (973 -> 1273 K,
+PLS 48 -> 82 MPa, ld/rf 2.7 -> 6.3; its absolute values stay out of cards
+and targets, see refs_74_75.py).  The Liu acquisition stays on the list but
+drops from "single highest-value" to covering the 3D SiC/SiC variant only.
+
+SCOPE (same date).  The premise "PLS rises with temperature" is a statement
+about C/SiC, not about CMCs.  refs/[75] Table 1 measures the OPPOSITE sign
+for SiC/SiC (247 -> 170 MPa over 25 -> 900 C, -31 %): the small fibre-matrix
+CTE mismatch leaves little TRS to relax, and interface degradation wins.  So
+this metric must never be validated against SiC/SiC PLS data -- the sign
+itself is material-system-specific.  refs_74_75.py section D pins the trap;
+this file's premise is hereby bounded to the C/SiC system.
+
 The data we already hold
 ------------------------
   refs/[10] Yang, J. Eur. Ceram. Soc. 37 (2017) 1281, Table 1.
@@ -394,10 +417,55 @@ def check():
       "CORRECTS a statement in data/properties/card_gap_triage.py" in __doc__)
 
 
+def _pdf74():
+    import glob
+    hits = sorted(glob.glob(os.path.join(ROOT, "refs", "[[]74[]]*.pdf")))
+    if not hits:
+        return None
+    try:
+        out = subprocess.run(["pdftotext", "-q", hits[0], "-"],
+                             capture_output=True, text=True).stdout
+        return " ".join(out.split())
+    except OSError:
+        return None
+
+
+def check_g():
+    print("\n G. the premise now has a held primary -- refs/[74] (2026-08-23)")
+    txt = _pdf74()
+    t("refs/[74] is on disk and readable", bool(txt),
+      "%d chars" % len(txt) if txt else "missing")
+    if txt:
+        t("the mechanism sentence is verbatim in [74]",
+          "proportional limit stress of C/SiC composite increases with "
+          "temperature" in txt)
+        t("  naming interface shear stress rising",
+          "increasing of fiber/matrix interface shear stress" in txt)
+        t("  and thermal residual stress falling",
+          "decreasing of the thermal residual stress" in txt)
+        t("its 2D C/SiC numbers are in the text",
+          "48 MPa at T = 973 K" in txt and "82 MPa" in txt)
+    t("the docstring records the upgrade, dated",
+      "UPGRADE (2026-08-23)" in __doc__ and "refs/[74]" in __doc__)
+    t("  and the Liu acquisition is demoted, not deleted",
+      "drops from \"single highest-value\"" in __doc__,
+      "it still covers the 3D SiC/SiC variant")
+    t("the secondary Liu sentence stays refused for citation",
+      "MUST NOT be cited" in __doc__,
+      "[74] does not launder the grade of [15]'s quotation")
+    t("the premise is bounded to C/SiC, with [75]'s opposite sign named",
+      "SCOPE (same date)" in __doc__ and "refs/[75]" in __doc__
+      and "-31 %" in __doc__,
+      "PLS(T) sign is material-system-specific")
+    t("  and [74]'s absolutes are still fenced out of cards and targets",
+      "absolute values stay out of cards" in __doc__)
+
+
 def main():
     report()
     if "--check" in sys.argv:
         check()
+        check_g()
         print("\n" + "=" * 76)
         if _BAD:
             print("FAIL -- %s" % ", ".join(_BAD[:4]))
