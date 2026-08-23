@@ -538,6 +538,64 @@ def selftest():
     ck("the sigma_0 shape is closer to the measurement than sigma_R",
        abs(b0 / a0 - 199.15 / 128.45) < abs(r_sr - 199.15 / 128.45))
 
+    print("\n J. the Yang counterfactual -- ripple computed BEFORE the verdict")
+    # gf_temperature.py C2-C4 (2026-08-18) judged the card's X(T) 2.26x too
+    # steep against refs/[10] Yang and traced the M6 card's +39.4 % g0
+    # excursion to it.  Section H above anchors the same temperature shape on
+    # Zhang Table 3's 55 % instead.  The two composite sources disagree on
+    # the slope by 2.9x, the card (42.5 %) sits between them, and WHICH
+    # anchor is right -- material, atmosphere, method -- is a1's judgement.
+    # This section does not make that call.  It computes what moves under
+    # each branch, so the verdict can be applied the day it arrives.
+    yang = {23.0: 225.8, 500.0: 225.8 + (240.5 - 225.8) * (500.0 - 26.9)
+            / (699.9 - 26.9), 1000.0: 268.2}
+    fx5 = yang[500.0] / yang[23.0]
+    fx10 = yang[1000.0] / yang[23.0]
+    ck("Yang interpolated to OUR temperatures: 1.046 / 1.188",
+       abs(fx5 - 1.0458) < 0.002 and abs(fx10 - 1.1878) < 0.002,
+       "973 K is 700 C, not 500 C -- interpolation, not row-borrowing")
+    # macro peak response to the yarn card value, two-point linear
+    # (M6: yXt 474.71 -> peak 199.83 at 23 C; yXt 694.43 -> 284.71 at 1000 C)
+    c_lin = (284.71 - 199.83) / (694.4297 - 474.7105)
+    m_lin = 199.83 - c_lin * 474.7105
+    ck("macro peak ~ 0.386*yXt + 16.4 (matrix share is small and constant)",
+       abs(c_lin - 0.3863) < 0.001 and abs(m_lin - 16.4) < 0.3,
+       "T500 back-check misses by 6.3 %% -- quote the ripple to 2 digits only")
+    need5 = (199.83 * fx5 - m_lin) / c_lin
+    need10 = (199.83 * fx10 - m_lin) / c_lin
+    ck("Branch A (Yang right): yarn card would need 498 / 572 MPa",
+       abs(need5 - 498.4) < 2.0 and abs(need10 - 571.8) < 2.0,
+       "%.1f / %.1f" % (need5, need10))
+    lo5, _hi5 = admissible_band(500.0)
+    lo10, _hi10 = admissible_band(1000.0)
+    ck("  those are OUTSIDE the sourced band -- 83 and 123 MPa below its "
+       "LOW end", lo5 - need5 > 80.0 and lo10 - need10 > 120.0,
+       "band %.0f-%.0f / %.0f-%.0f: not a walk, a re-sourcing"
+       % (lo5, _hi5, lo10, _hi10))
+    ck("  so Branch A cannot be executed as a knob move at all",
+       need5 < lo5 and need10 < lo10,
+       "Sauder's fibre data itself would have to be re-transferred "
+       "(interface/in-situ mechanism at T), which is a1's area")
+    ck("  its forecast peaks 209 / 237 MPa IMPROVE the Zhang ratios",
+       abs(199.83 * fx5 / 179.42 - 1.16) < 0.01
+       and abs(199.83 * fx10 / 199.15 - 1.19) < 0.01,
+       "1.26x -> 1.16x at 500, 1.43x -> 1.19x at 1000")
+    ck("  and the crack band only gets SAFER: le_max grows 1.36x / 1.47x",
+       abs((581.401 / need5) ** 2 - 1.36) < 0.02
+       and abs((694.4297 / need10) ** 2 - 1.47) < 0.02,
+       "le_max ~ 1/Xt^2, so no admissibility is lost by adopting it")
+    # Branch B: Zhang's slope is the anchor.  The card is then UNDER, not
+    # over, and section H's sigma_0 rationale stands as written.
+    ck("Branch B (Zhang right): the card UNDER-shoots the 55 % rise",
+       (694.4297 / 474.7105 - 1.0) < (199.15 / 128.45 - 1.0),
+       "card 46.3 %% vs Zhang 55.0 %% -- the a2-0047 '2.26x too steep' "
+       "verdict was single-source and is qualified, not withdrawn")
+    ck("the two composite anchors disagree on the slope by 2.9x",
+       abs((199.15 / 128.45 - 1.0) / (fx10 - 1.0) - 2.9) < 0.1,
+       "Zhang 55.0 %% vs Yang 18.8 %% on nominally the same material class")
+    ck("  and the card sits BETWEEN them, nearer Zhang",
+       (fx10 - 1.0) < (694.4297 / 474.7105 - 1.0) < (199.15 / 128.45 - 1.0))
+
     print("\n I. the rules this file must not break")
     src = open(os.path.join(HERE, "insitu_yarn_strength.py")).read()
     for phrase, why in (

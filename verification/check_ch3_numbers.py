@@ -99,7 +99,7 @@ CASES = [
      count_bracketed, 27),
     ("insitu_yarn_strength.py --check",
      "python3 data/properties/insitu_yarn_strength.py --check",
-     count_bracketed, 51),
+     count_bracketed, 61),
     ("porosity_stiffness.py --check",
      "python3 data/properties/porosity_stiffness.py --check",
      count_bracketed, 56),
@@ -120,7 +120,7 @@ CASES = [
      count_bracketed, 18),
     ("damage_ceiling.py --selftest",
      "python3 postprocess/damage_ceiling.py --selftest",
-     count_plain, 22),
+     count_plain, 26),
     ("m6_report.py --selftest",
      "python3 postprocess/m6_report.py --selftest",
      count_plain, 26),
@@ -165,7 +165,7 @@ CASES = [
      count_plain, 54),
     ("check_chapter_flow.py",
      "python3 verification/check_chapter_flow.py",
-     count_plain, 218),
+     count_plain, 219),
     ("review_inbox.py --check",
      "python3 verification/review_inbox.py --check",
      count_bracketed, 29),
@@ -189,7 +189,10 @@ CASES = [
      count_bracketed, 134),
     ("gf_temperature.py --check",
      "python3 data/literature/gf_temperature.py --check",
-     count_bracketed, 30),
+     count_bracketed, 60),
+    ("check_printed_commands.py",
+     "python3 verification/check_printed_commands.py",
+     count_bracketed, 25),
     ("pls_validation.py --check",
      "python3 data/literature/pls_validation.py --check",
      count_bracketed, 43),
@@ -205,9 +208,12 @@ CASES = [
     ("crack_band_simplex.py --check",
      "python3 data/literature/crack_band_simplex.py --check",
      count_bracketed, 56),
+    ("atmosphere_census.py --check",
+     "python3 data/literature/atmosphere_census.py --check",
+     count_bracketed, 30),
     ("thermal_cycling_dataset.py --check",
      "python3 data/literature/thermal_cycling_dataset.py --check",
-     count_bracketed, 51),
+     count_bracketed, 59),
     ("cycle_jump_provenance.py --check",
      "python3 data/literature/cycle_jump_provenance.py --check",
      count_bracketed, 40),
@@ -276,7 +282,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 70  # 2026-08-18: +lengthen_tension (a2, the tension step that ended at its own peak) -- a conscious raise, as designed
+EXPECTED_CASES = 72  # 2026-08-18: +atmosphere_census (a2, the test atmosphere of every load-bearing source) -- a conscious raise, as designed
 
 
 def main():

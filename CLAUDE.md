@@ -342,6 +342,71 @@ E:\LTH\LTH_RUN1_0807_1712\UMAT_CSIC_THERMSHOCK_V3_0.for
 - 파일을 보내는 메시지와 **같은 답변 안에** 적는다. "다음 메시지에서
   알려드리겠다" 로 나누지 않는다.
 
+#### ★ 경로가 걸린 명령은 **한 단계씩** 준다 (사용자 지정, 2026-08-18)
+
+**주소(경로)를 쳐야 하는 것이 있으면 명령을 한꺼번에 주지 않는다.**
+한 단계를 주고 → **사용자가 그 결과(주소)를 알려주면** → 그것을 받아
+다음 단계를 준다.
+
+```
+✅  "먼저 이것만 치고 나온 주소를 알려주세요.  →  그 다음 단계를 드리겠습니다."
+❌  "<M6경로> 자리에 넣어서 이 6줄을 치세요."
+```
+
+**왜 이 규칙이 생겼나 (2026-08-18, 같은 날 두 번 헛돌았다).**
+
+1. 1차 — 작업 폴더를 `E:\LTH\LTH_M6_0812_1411` 로 **가정**하고 6줄을 줬는데
+   실제로는 `C:\temp` 였다. 여섯 줄이 전부 `can't open file` 로 죽었다.
+2. 2차 — 고쳐 준 명령에서 이번에는 **결과 CSV가 두 군데로 갈라지는 것**이
+   드러났다(`damage_map` 은 ODB 옆, 나머지 둘은 현재 폴더). 사용자가 또
+   경로를 조립해야 했다.
+
+**빈칸(`<...>`)을 남겨 사용자가 채우게 하는 것이 문제의 핵심이다.** 내가
+모르는 것을 사용자에게 조립시키면, 틀렸을 때 그 값이 뒤 명령 전부로
+번진다. 한 단계씩 가면 **틀린 지점에서 바로 멈춘다.**
+
+지켜야 할 것:
+
+- **한 답변에 「지금 칠 명령」은 하나**다. 여러 줄이어도 **한 가지 일**이어야 한다.
+- 그 명령의 끝에 **무엇을 알려 달라고 할지** 명시한다("나온 경로를 그대로
+  붙여넣어 주세요").
+- 다음 단계를 **미리 요약해 두는 것은 좋다**("이게 확인되면 후처리 5줄입니다").
+  하지만 **명령 자체를 미리 주지는 않는다.**
+- 경로가 이미 **확정된** 뒤에는 이 규칙이 풀린다 — 그때는 §3-1대로
+  ①실행·②완료 후를 한꺼번에 준다.
+- 실패 가능성이 보이면 **그 단계 안에서 대안을 같이 준다**("C에서 안 나오면
+  같은 명령을 E에서"). 이것은 나누기가 아니라 한 단계다.
+
+**작업 폴더 규칙(`E:\LTH\`, §1-2)은 맞았다.** 2026-08-18의 혼선은 규칙이
+틀려서가 아니라 **내가 확인하지 않아서**였다 — 사용자는 `C:\temp` 에서
+치고 있었고 파일은 규칙대로 `E:\LTH\LTH_M6_0812_1411` 에 있었다. 그러니
+규칙을 바꾸지 말고 **확인 단계를 앞에 붙인다**:
+
+```
+dir /s /b <파일패턴>          ← 첫 단계는 언제나 이것
+```
+
+- **`dir` 은 아무것도 바꾸지 않는다.** 먼저 돌리는 비용이 0이므로 항상 먼저 돌린다.
+- 드라이브가 여러 개면 **한 단계 안에서 둘 다** 준다(`C:` 에서 안 나오면 `E:`).
+- 확인된 폴더가 규칙과 다르면 **명령을 그 폴더에 맞춘다.** 파일을 옮기라고
+  하지 않는다 — 이미 있는 것을 다시 만지게 하는 쪽이 실수가 크다.
+
+#### ★ 사용자에게 **인쇄되는 명령**도 검증 대상이다 (2026-08-18)
+
+`verification/check_printed_commands.py` 가 저장소 전체의 스크립트가
+**화면에 찍는 명령**을 검사한다. 세 가지를 본다: 그 파일이 실제로 있는가,
+`abaqus python` / 일반 `python` 이 맞는가(`odbAccess` vs `matplotlib`),
+**인자 개수가 상대 파서가 선언한 것을 넘지 않는가.**
+
+왜 생겼나 — `damage_ceiling.py` 가 `abaqus python damage_map.py <job>.odb
+<job>.inp` 를 안내하고 있었는데 `damage_map.py` 는 위치인자를 **하나만**
+받는다. 그대로 치면 `unrecognized arguments` 로 죽는다. 게다가 그 안내는
+**"예전 CSV라 다시 뽑아야 한다"** 는 상황에서만 뜨므로, 이미 막힌 사용자가
+**우리가 인쇄한 막다른 길**을 하나 더 만나는 구조였다.
+
+- **문서(`RUN_ME.md`)와 채팅에 적는 명령도 같은 잣대로 본다.** 다만 자동
+  검사가 닿는 것은 `.py` 안의 문자열이므로, 나머지는 내가 직접 확인한다.
+
 #### ★ 고친 스크립트는 **묻기 전에** 보낸다 (사용자 지정, 2026-08-10)
 
 **사용자가 이미 갖고 있는 파일을 내가 고쳤고 그것을 다시 돌려야 한다면,
@@ -542,6 +607,7 @@ python3 data/literature/cte_rve_verdict.py --check    # RVE 실물 CTE 대 절�
 python3 data/literature/modulus_definition.py --check  # 대조 모듈러스 정의 (접선 vs 할선)
 python3 data/literature/crack_band_simplex.py --check   # refs/[47]의 2D 사면체 배수 (a2 kappa 검증)
 python3 data/literature/thermal_cycling_dataset.py --check # 반복 열충격 전 데이터 + 심각도 역설
+python3 data/literature/atmosphere_census.py --check   # 하중지지 출처 전수의 시험 분위기 (인용 고정)
 python3 data/literature/cycle_jump_provenance.py --check # cycle jump 기준 출처 [57]/[58]
 python3 data/literature/digitize_ref28_fig17.py --check # refs/[28] Fig.17 TRS (Table 1로 검산)
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지
@@ -560,6 +626,7 @@ python3 verification/check_chapter_claims.py          # 장이 부른 파일·�
 python3 verification/check_chapter_flow.py            # 1~5장 유기적 연결성 (검증 4회차)
 python3 verification/review_inbox.py --check           # 리뷰 브랜치 수신·원문 대조 (a3)
 python3 verification/check_manuscript_citations.py     # 제출본(CH1~7) 인용 전수 (고아·허공·무인용 주장)
+python3 verification/check_printed_commands.py         # 스크립트가 인쇄하는 명령이 실제로 실행되는가
 python3 verification/prerun_gate.py --check            # 최소 해석 계획·단계별 관문 (a1 몫)
 python3 verification/pending_slots.py --check          # [결과 대기] 슬롯 8개 + 자리표 방향 (a3 R17-2)
 python3 verification/check_card_ranges.py             # 카드 입력 vs 독립 문헌 범위 (실행 전 관문)
@@ -592,7 +659,7 @@ python3 sync/sync_check.py --selftest                 # 두 에이전트 우편�
 python3 sync/sync_check.py                            # ★ 상대 브랜치 새 메시지 (네트워크)
 ```
 
-**커밋 전에 위 78개를 전부 통과시킨다.**
+**커밋 전에 위 80개를 전부 통과시킨다.**
 
 > `sync/sync_check.py`(인자 없음)는 **상대 에이전트 브랜치를 fetch** 한다.
 > `blocking` 메시지가 미처리면 **exit 1** 이므로 커밋이 막힌다 — 이것이
