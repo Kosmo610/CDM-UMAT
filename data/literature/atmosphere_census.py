@@ -237,6 +237,43 @@ def check():
       "yarn Xt(T)'s source is vacuum, so the card's slope is "
       "vacuum-coherent end to end")
 
+    print("\n F. refs/README.md's atmosphere column agrees with this file")
+    # The index carries the column so a source can be picked with its
+    # atmosphere in view.  THIS file is the source of truth; the column is a
+    # rendering of it, and the two must not drift.  A row this census never
+    # covered says 미조사 -- never blank, because a blank cell in a table of
+    # atmospheres reads as a claim that there was none.
+    readme = os.path.join(REFS, "README.md")
+    if not os.path.exists(readme):
+        t("refs/README.md exists", False, readme)
+    else:
+        import re as _re
+        rows = {}
+        for ln in open(readme, encoding="utf-8"):
+            m = _re.match(r"^\| (\d\d) \|", ln)
+            if m:
+                cells = [c.strip() for c in ln.strip().strip("|").split("|")]
+                rows[m.group(1)] = cells[-1]
+        t("the index tables carry an atmosphere cell on every numbered row",
+          len(rows) >= 11 and all(v for v in rows.values()),
+          "%d rows" % len(rows))
+        censused = dict((c[0].strip("[]").zfill(2), c) for c in CENSUS)
+        bad = []
+        for no, cell in sorted(rows.items()):
+            if no in censused:
+                if cell == "미조사":
+                    bad.append("%s censused but marked 미조사" % no)
+            elif cell != "미조사":
+                bad.append("%s NOT censused but claims %r" % (no, cell))
+        t("  every cell is either censused-and-filled or marked 미조사",
+          not bad, "; ".join(bad[:3]))
+        t("  an inferred atmosphere is labelled as inferred in the index",
+          all("추론" in rows[n] for n in ("07", "09") if n in rows),
+          "[7] and [9] never state it; the index must not imply they did")
+        t("  and [12]'s unstated one is shown as 미기재, not guessed",
+          "12" not in rows or "미기재" in rows["12"],
+          "its vacuum mentions are fabrication, not measurement")
+
 
 def main(argv):
     if "--check" in argv or "--selftest" in argv:
