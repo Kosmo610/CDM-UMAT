@@ -476,6 +476,70 @@ def write_workbook(path):
 _OK, _BAD = [], []
 
 
+def render_ch4_table():
+    """Markdown body of thesis Table 4.1 -- the MATERIAL slots only.
+
+    A curated projection of the workbook: solver-setting slots (NUMERICAL),
+    phase ids and unclassified padding stay in the workbook; the thesis table
+    carries only rows a reader would look a source up for.  The source column
+    is compressed to refs numbers where the audit names one, and to a short
+    honest label where it does not -- the full sentences live in the workbook
+    and in check_card_ranges.  The section-G selftest check compares the CH4
+    block against this function, so the chapter cannot drift from the audit.
+    """
+    import re as _re
+    sheets = build_rows()
+    by = dict((n, (h, rs)) for n, h, rs in sheets)
+
+    def src_short(source, status):
+        source = str(source)
+        refs = _re.findall(r"refs/\[(\d+)\]", source)
+        if refs:
+            return " ".join("[%s]" % r for r in dict.fromkeys(refs))
+        if "Chamis" in source or "micromech" in source:
+            return "유도 — Chamis/Schapery ([05] Tables 1–2)"
+        if "no independent" in source or "no C/SiC" in source:
+            return "독립 출처 없음"
+        if source.startswith("same as Xt"):
+            return "= Xt (Zhang 2022 동일 설정)"
+        if source.startswith("same conversion"):
+            return "= Gm_t (동일 환산)"
+        if source.startswith("Zhang 2022 공정온도"):
+            return "[05] 공정온도 (CONFIG_P=782는 보정값)"
+        if source.startswith("Zhang 2022") or source.startswith("Zhang Table"):
+            return "[05]"
+        return source.split(",")[0].split(".")[0][:34]
+
+    def fmt(v):
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return str(v)
+        if f == int(f) and abs(f) < 1e7:
+            return "%d" % int(f)
+        return "%.4g" % f
+
+    lines = ["| 슬롯 | 기호 | 역할 | 값 | 단위 | 출처 | 등급 |",
+             "|---|---|---|---|---|---|---|"]
+    for sheet, slots, numerical in (
+            ("기지카드_25슬롯", MATRIX_SLOTS, NUMERICAL["matrix"]),
+            ("얀카드_38슬롯", YARN_SLOTS, NUMERICAL["yarn"])):
+        _h, rows = by[sheet]
+        for (slot, name, role, unit), r in zip(slots, rows):
+            if slot in numerical or name in ("phase id", "reserved"):
+                continue
+            tagged = "기지 %d" % slot if sheet.startswith("기지") else "얀 %d" % slot
+            lines.append("| %s | %s | %s | %s | %s | %s | %s |"
+                         % (tagged, name, role, fmt(r[2]), unit,
+                            src_short(r[4], r[5]), r[5]))
+    _h, cte = by["열팽창_무응력온도"]
+    for r in cte:
+        lines.append("| — | %s | %s | %s | %s | %s | %s |"
+                     % (r[0], r[1].split(" — ")[0], fmt(r[2]), r[3],
+                        src_short(r[4], r[5]), r[5]))
+    return "\n".join(lines)
+
+
 def ck(name, cond, detail=""):
     (_OK if cond else _BAD).append(name)
     print("  [%s] %-58s %s" % ("PASS" if cond else "FAIL", name, detail))
@@ -567,6 +631,25 @@ def selftest():
     ck("mesh convergence is named as not done",
        any("메시 수렴성 검증은 미수행" in r[6] for r in by["형상_공극률"]))
 
+    print("\n G. thesis Table 4.1 is this file's rendering, verified (R24)")
+    ch4 = open(os.path.join(ROOT, "docs", "CH4_RVE_HOMOGENISATION.md"),
+               encoding="utf-8").read()
+    ck("Ch.4 carries the table between its markers",
+       "<!-- TABLE41:BEGIN -->" in ch4 and "<!-- TABLE41:END -->" in ch4)
+    if "<!-- TABLE41:BEGIN -->" in ch4:
+        block = ch4.split("<!-- TABLE41:BEGIN -->")[1] \
+                   .split("<!-- TABLE41:END -->")[0].strip()
+        ck("the chapter block equals render_ch4_table() exactly",
+           block == render_ch4_table(),
+           "a hand edit to either side kills this check")
+    ck("the caption sits on the table, numbered", "**표 4.1**" in ch4)
+    ck("  and the body calls it by number at least once",
+       ch4.count("표 4.1") >= 2, "caption + reference")
+    ck("the table stays a projection -- solver slots are not in it",
+       "min_PNEWDT" not in render_ch4_table()
+       and "cut_trigger" not in render_ch4_table(),
+       "sources live in the workbook; the thesis carries material rows")
+
     print("\n" + "=" * 78)
     if _BAD:
         print("FAIL -- %d of %d: %s"
@@ -579,6 +662,9 @@ def selftest():
 
 
 if __name__ == "__main__":
+    if "--markdown" in sys.argv:
+        print(render_ch4_table())
+        sys.exit(0)
     if "--check" in sys.argv:
         sys.exit(selftest())
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(

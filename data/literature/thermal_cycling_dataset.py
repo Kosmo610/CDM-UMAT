@@ -265,6 +265,26 @@ def per_cycle_per_K(loss_pct, n, dT):
     return loss_pct / n / dT
 
 
+#: Korean labels for the chapter rendering of Table 2.1.  The DATA rows stay
+#: in English (they are quoted terms); the chapter table renders through this
+#: map so the thesis reads in one language.  The section-J check compares the
+#: chapter block against render_table21(), so the two cannot drift.
+_KO = {"air": "공기", "argon": "아르곤", "dry O2": "건조 O2",
+       "water vapour": "수증기", "wet O2": "습윤 O2",
+       "flexural strength": "굽힘강도", "bending strength": "굽힘강도",
+       "tensile strength": "인장강도", "tensile modulus": "인장 탄성계수"}
+
+
+def render_table21():
+    """Markdown body of thesis Table 2.1, straight from DATA."""
+    lines = ["| 출처 | 재료 | 사이클 [°C] | 분위기 | N | 잔존율 [%] | 측정량 |",
+             "|---|---|---|---|---|---|---|"]
+    for ref, mat, tlo, thi, atm, n, ret, qty in DATA:
+        lines.append("| %s | %s | %d ↔ %d | %s | %d | %.2f | %s |"
+                     % (ref, mat, tlo, thi, _KO[atm], n, ret, _KO[qty]))
+    return "\n".join(lines)
+
+
 def report():
     print("=" * 78)
     print("thermal_cycling_dataset.py -- every cycle measurement we hold")
@@ -564,11 +584,30 @@ def check_i():
       "refs_74_75.py section D")
 
 
+def check_j():
+    print("\n J. thesis Table 2.1 is this file's rendering, verified (R24)")
+    ch2 = open(os.path.join(ROOT, "docs/CH2_LITERATURE_REVIEW.md"),
+               encoding="utf-8").read()
+    t("Ch.2 carries the table between its markers",
+      "<!-- TABLE21:BEGIN -->" in ch2 and "<!-- TABLE21:END -->" in ch2)
+    if "<!-- TABLE21:BEGIN -->" in ch2:
+        block = ch2.split("<!-- TABLE21:BEGIN -->")[1]                    .split("<!-- TABLE21:END -->")[0].strip()
+        want = render_table21()
+        t("the chapter block equals render_table21() exactly",
+          block == want,
+          "a hand edit to either side kills this check")
+    t("the caption sits on the table, numbered",
+      "**표 2.1**" in ch2)
+    t("  and the body calls it by number at least once",
+      ch2.count("표 2.1") >= 2, "caption + reference")
+
+
 def main():
     report()
     if "--check" in sys.argv:
         check()
         check_i()
+        check_j()
         print("\n" + "=" * 78)
         if _BAD:
             print("FAIL -- %s" % ", ".join(_BAD[:4]))

@@ -587,8 +587,11 @@ def check():
 
     print("\n E. the [43] entry is a real reference now, not a description")
     txt = open(CH2, encoding="utf-8").read()
+    # The BIBLIOGRAPHY row, in bold -- Table 2.1's data rows also start
+    # with "| [43]" (they sit earlier in the file since R24) and would
+    # shadow it under the loose pattern this check originally used.
     row = [l for l in txt.splitlines()
-           if re.match(r"^\|\s*\*{0,2}\[43\]", l)]
+           if re.match(r"^\|\s*\*\*\[43\]\*\*", l)]
     t("a [43] row exists", bool(row))
     row = row[0] if row else ""
     for needle, label in (("Mei", "author"), ("4261", "page"),
