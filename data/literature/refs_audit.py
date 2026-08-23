@@ -221,9 +221,9 @@ MUST_BE_LISTED = {
           "4261-4265",
 }
 
-N_PDF = 73
-N_DISTINCT = 73
-N_NUMBERS = 71   # [01] and [05] each carry two different papers
+N_PDF = 75      # 2026-08-23: +[74] Li 2019, +[75] Xu 2023 (the two OA papers)
+N_DISTINCT = 75
+N_NUMBERS = 73   # [01] and [05] each carry two different papers
 NEXT_FREE = 74   # 21 and 39 are retired, never reused
 
 # Third batch, 2026-08-06.  Four of the five close [S*] gaps -- method primary

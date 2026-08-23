@@ -184,6 +184,9 @@ CASES = [
     ("zhang5_provenance.py --check",
      "python3 data/literature/zhang5_provenance.py --check",
      count_bracketed, 30),
+    ("refs_74_75.py --check",
+     "python3 data/literature/refs_74_75.py --check",
+     count_bracketed, 33),
     ("refs_audit.py --check",
      "python3 data/literature/refs_audit.py --check",
      count_bracketed, 134),
@@ -285,7 +288,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 73  # 2026-08-23: +atmosphere_verdicts (a1's classification verdicts on a2's census) -- a conscious raise, as designed
+EXPECTED_CASES = 74  # 2026-08-23: +atmosphere_verdicts (a1's classification verdicts on a2's census) -- a conscious raise, as designed
 
 
 def main():

@@ -74,6 +74,17 @@ matrix composite, CMC)로, 1000 °C를 넘는 산화 분위기에서 비강도�
    균열을 편향시켜 섬유 파단을 지연시킨다. C/SiC가 취성 파괴하지 않는 이유이다.
 3. **섬유 파단 및 인발(fibre failure and pull-out)** — 최종 파괴.
 
+**비례한도는 온도에 따라 올라가며, 그 원인이 TRS다.** Li[74]가 에너지 평형
+접근으로 2D C/SiC의 PLS를 온도의 함수로 풀어, **973 K의 48 MPa에서 1273 K의
+82 MPa로 71 % 상승**하고 계면 박리길이 $l_d/r_f$가 2.7에서 6.3으로 늘어남을
+보였다. 저자가 원인을 본문에 명시한다 — *"the proportional limit stress of
+C/SiC composite increases with temperature, due to the increasing of
+fiber/matrix interface shear stress and decreasing of the thermal residual
+stress."* **본 연구가 PLS를 TRS 검증 지표로 쓰는 근거가 이것이다**(제6장
+§6.4, `postprocess/extract_pls.py`). 다만 그 48/82 MPa는 Li의 시편 값이고
+이론 곡선이 섞여 있으므로 **카드로도 표적으로도 쓰지 않는다** — 우리가 받는
+것은 **방향과 기구**다(`docs/REFS_74_75_ASSESSMENT.md` §1).
+
 Niu 등[4]은 2D C/SiC의 기계적 반복 하중/제하 실험에서 이 세 단계가 각각 잔류변형률과
 제하 탄성계수의 서로 다른 진전으로 나타남을 보였다. **본 연구의 구성모델은 1과 3을
 손상변수로 표현하나, 2의 계면 미끄럼이 만드는 잔류변형률은 표현하지 않는다.**
@@ -238,6 +249,25 @@ $Bi \gtrsim 1$이면 구배가 지배한다. **즉 "열충격을 푼다"는 주�
 
 임계 사이클 수는 약 50회이며, **그 이후 강도가 더 이상 감소하지 않는다.** 저자들은
 이를 **균열밀도 포화(crack density saturation)** 로 귀속한다.
+
+> **대조 — 포화하지 않는 계열도 있다.** Xu 등[75]은 SiC/SiC 편조관을 석영램프로
+> 반복 열충격한 뒤 C-ring으로 원주방향 인장강도를 재어, **1000 사이클까지
+> 포화 없이 선형으로** 떨어지는 것을 보고한다:
+> $\sigma_{CTS} = 597.0 \pm 20.0 - (0.224 \pm 0.026)N$ MPa (**1000회에 잔존
+> 62.5 %**). 파괴 양상도 500회를 넘기며 취성에서 **의사소성**으로 바뀌고,
+> 1000회에서 바깥 섬유 다발이 완전히 산화된다.
+> **[2]의 포화와 [75]의 무포화가 갈리는 자리가 「산화가 계면까지 닿는가」**이며,
+> 이것이 제6장 §6.3의 사이클 손상 지수 $k$가 만들어야 할 곡선 모양을 좁힌다.
+> ⚠️ **[75]는 SiC/SiC·편조관·C-ring이라 숫자를 옮기지 않는다** — 경향 대조
+> 전용이며, 특히 그 Table 1의 **PLS(T) 방향은 우리와 반대**다(아래 주의).
+>
+> **⚠️ PLS(T)의 부호는 재료계마다 다르다.** [74]의 C/SiC는 온도가 오르면 PLS가
+> **+71 %** 오르는데, [75] Table 1의 SiC/SiC는 25→900 °C에서 247→170 MPa로
+> **−31 %** 내린다. C/SiC는 섬유·기지의 CTE 차가 커서 가열하면 기지의 인장
+> TRS가 풀리지만, SiC/SiC는 그 이득이 작아 계면 열화가 이긴다. **[75]를
+> 사이클 곡선 때문에 들여오면서 그 PLS 방향까지 들여오면 부호가 뒤집힌 검증
+> 표적을 세우게 된다.** 판정기가 이것을 막는다:
+> `python3 data/literature/refs_74_75.py --check`
 
 **Zhang 등[3] — 2D C/SiC (CVI), 공기 급랭 900 → 300 °C**
 
@@ -1097,6 +1127,8 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | **[54]** | **J.-L. Chaboche, P.-M. Lesne, J.-F. Maire**, *Continuum damage mechanics, anisotropy and damage deactivation for brittle materials like concrete and ceramic composites*, **Int. J. Damage Mech. 4(1) (1995) 5–22**, doi:`10.1177/105678959500400102` — 균열 닫힘(damage deactivation)을 **CMC에 적용한** 편. 스캔본을 **OCR로 전문 판독**(2026-08-06, 18면): ① 닫힘 시 **부호가 바뀐 수직 변형률의 대각 강성항만** 수정해야 연속성이 보장된다(식 16) — 본 연구가 전단 손상을 회복시키지 않는 선택의 원전. ② 닫힘 가중계수 **η ∈ [0,1] 전 범위**가 출판된 형태 — `HCLO` 슬롯의 직접 근거. ③ 닫힘점은 0이 아니라 **C/SiC에서 관측되는 잔류변형률**에 묶인다 — 본 연구는 $\varepsilon_n=0$에서 닫으며 이는 기록된 한계. C/SiC 인장-압축 실측 재현 포함 |
 | **[46]** | **Z. P. Bažant, B. H. Oh**, *Crack band theory for fracture of concrete*, **Mater. Struct. 16(93) (1983) 155–177** — 균열대 이론 원전(구 키 `[S1]`, 보유 `refs/[46]`). $w_c \approx 3d_a$를 "about the minimum admissible from the viewpoint of continuum smoothing"으로 규정 — §2.5.2, 제6장 §6.6.1의 공정영역 폭 논거 |
 | **[47]** | **M. Jirásek, M. Bauer**, *Numerical aspects of the crack band approach*, **Comput. Struct. 110–111 (2012) 60–78**, doi:`10.1016/j.compstruc.2012.06.006` — ⚠️ **요소 체적의 세제곱근으로 균열대 폭을 잡는 방식(Abaqus `CELENT`)이 파괴에너지를 50 % 이상 어긋나게 할 수 있다**고 명시. 제4장 §4.9 균열대 정규화의 한계 근거 |
+| **[74]** | **Li Longbiao**, *Temperature-dependent proportional limit stress of carbon fiber-reinforced silicon carbide ceramic-matrix composites*, **Ceramics-Silikáty 63(3) (2019) 330–337**, doi:`10.13168/cs.2019.0028` (오픈액세스) — **본 연구가 PLS를 TRS 지표로 쓰는 논리의 방법론 원전.** 에너지 평형 접근으로 2D C/SiC의 PLS(T)를 풀고, 상승의 원인이 **계면 전단응력 증가 + TRS 완화**임을 원문에 명시(973→1273 K, 48→82 MPa, $l_d/r_f$ 2.7→6.3). **절대값은 카드·표적 어느 쪽으로도 쓰지 않는다** — 방향과 기구만 받는다(§2.2, `docs/REFS_74_75_ASSESSMENT.md`) |
+| **[75]** | **Q. Xu, X. Jin, L. Liu, C. Hou, N. Hu, J. Chen, S. Zhao, T. J. Marrow, X. Fan**, *Thermal shock and residual strength testing of SiC/SiC composite braided tubes*, **Exp. Mech. 63(5) (2023) 955–964**, doi:`10.1007/s11340-023-00962-x` — 사이클 대 잔여강도의 **경향 대조 전용**. 선형 열화식 $\sigma_{CTS}=597.0-0.224N$ MPa, 1000회 잔존 62.5 %, 취성→의사소성 전이(§2.4.2). ⚠️ **SiC/SiC·편조관·C-ring**이므로 숫자 이전 금지이며, Table 1의 **PLS(T) 방향은 C/SiC와 반대**다. 발행처(Springer)는 이 논문에 `access: No`를 돌려주므로 **Oxford ORA 저자수용본**을 보유 — 쪽번호는 발행본, 인용 문장은 ORA 사본 |
 | **[43]** | **H. Mei, L. Cheng, L. Zhang, X. Luan, P. Fang, J. Zhang**, *Thermal shock behavior of two-dimensional C/SiC composites in controlled atmospheres*, **J. Mater. Sci. 40 (2005) 4261–4265** — §2.5.4의 산화 대조군. 초록이 아르곤 50회 후 **98.90 %** 유지를 명시한다 |
 
 **기법 원전 — 본 논문이 이름으로 부르는 문헌 (전 장 공통 `[S*]` 목록).**
