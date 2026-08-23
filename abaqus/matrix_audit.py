@@ -197,12 +197,85 @@ def audit(d, t):
       "5 checkpoints per case, restart-continued, never recomputed")
 
 
+UMAT = "UMAT_CSIC_THERMSHOCK_V3_0.for"
+
+#: CLAUDE.md's own ceiling on concurrent Abaqus memory, and the RVE the
+#: M-series wall-clock figures belong to.  Both are here so the manifest can
+#: state a cost honestly instead of inventing hours.
+MEM_BUDGET_GB = 200
+RVE_ELEMENTS = 26452
+
+
+def deck_size(path):
+    """(nodes, elements, steps, increment budget) counted from a deck.
+
+    Counted, never assumed: the manifest quotes these so a reader can size
+    the run, and a quoted number that drifts from the deck is worse than
+    none.
+    """
+    nodes = elems = 0
+    inb = None
+    steps = []
+    for ln in open(path):
+        if ln.startswith("*"):
+            low = ln.lower()
+            inb = ("n" if low.startswith("*node") else
+                   "e" if low.startswith("*element") else None)
+            m = re.match(r"\*Step, Name=([A-Za-z0-9_]+)[^\n]*inc=(\d+)", ln)
+            if m:
+                steps.append((m.group(1), int(m.group(2))))
+            continue
+        if inb and ln.strip():
+            nodes += (inb == "n")
+            elems += (inb == "e")
+    return nodes, elems, len(steps), sum(i for _n, i in steps)
+
+
+def mem_note(n_jobs, per_job_gb):
+    """Total concurrent memory and whether it clears CLAUDE.md's ceiling."""
+    total = n_jobs * per_job_gb
+    return total, total <= MEM_BUDGET_GB
+
+#: The CSVs the post-processing writes and the user is asked to upload.
+#: CLAUDE.md 3-2: the CSV is the deliverable, not a screenshot of a console.
+#: Per-job entries are written as real globs against the real prefix, not as
+#: "<잡>_probe.csv" -- a placeholder is something the user has to resolve,
+#: and a glob is something they can paste.
+UPLOAD_GLOB = ("_probe.csv", "_damage_map.csv", "_drivers.csv")
+UPLOAD_ONCE = ("damage_ceiling_summary.csv", "cyclejump_summary.csv")
+
+
+def restart_parent(path):
+    """The MECH job a RESID deck restarts from, read from the deck itself.
+
+    The name is recoverable from the filename too, but the deck states it --
+    "(restart from TSM_MECH_SL_TRSA)" -- and reading the statement means a
+    renamed file cannot desync the command from the deck it describes.
+    """
+    m = re.search(r"restart from ([A-Za-z0-9_]+)", open(path).read())
+    return m.group(1) if m else None
+
+
 def manifest(d):
-    """RUN_MANIFEST.md -- generated from the decks that are actually there."""
+    """RUN_MANIFEST.md -- generated from the decks that are actually there.
+
+    Every command is COMPLETE.  It used to hand over `<RESID이름>` and
+    `<부모MECH이름>` for the user to fill in, which is the blank-filling that
+    CLAUDE.md forbids as of 2026-08-18: a value I do not supply is one the
+    user has to derive, and if they derive it wrong it propagates through
+    every following command.  The generator knows all 45 parent pairs -- it
+    reads them out of the decks -- so it prints them.
+    """
     files = sorted(os.listdir(d))
     heats = [f[:-4] for f in files if "_HEAT_" in f and f.endswith(".inp")]
     mechs = [f[:-4] for f in files if "_MECH_" in f and f.endswith(".inp")]
     resids = [f[:-4] for f in files if "_RESID_" in f and f.endswith(".inp")]
+    # N5 must come before N10.  Sorting the names alphabetically puts N10,
+    # N20, N40, N5, N60 -- a list of checkpoints out of cycle order, which
+    # is the one property a reader scans it for.
+    resids.sort(key=lambda n: (n.rsplit("_N", 1)[0],
+                               int(n.rsplit("_N", 1)[1])
+                               if n.rsplit("_N", 1)[-1].isdigit() else 0))
     L = ["# RUN_MANIFEST — 9케이스 매트릭스 실행 계획 (이 파일은 생성물이다)",
          "",
          "의존성: **열 잡 → 같은 심각도의 역학 잡** (역학이 열 ODB를 읽음).",
@@ -221,30 +294,100 @@ def manifest(d):
           "",
           "**자기 심각도의 열 잡이 끝난 것부터 바로 시작한다** — 셋 다 기다릴 "
           "필요 없다.", ""]
-    for j in mechs:
-        L.append("    abaqus job=%s input=%s.inp user=%s double "
-                 "cpus=%d memory=\"%s\""
-                 % (j, j, "UMAT_CSIC_THERMSHOCK_V3_0.for",
-                    ALLOC_9["cpus"], ALLOC_9["memory"]))
+    # Grouped by severity, because the dependency is per severity: the
+    # three TRS cases of one severity become runnable the moment THAT
+    # severity's heat job lands.  An alphabetical list hides that.
+    for sev in SEVS:
+        mine = [j for j in mechs if ("_S%s_" % sev) in j]
+        if not mine:
+            continue
+        L += ["", "**%s_HEAT_S%s 가 끝나면 이 셋**:" % (PREFIX, sev)]
+        for j in mine:
+            L.append("    abaqus job=%s input=%s.inp user=%s double "
+                     "cpus=%d memory=\"%s\""
+                     % (j, j, UMAT, ALLOC_9["cpus"], ALLOC_9["memory"]))
     L += ["",
           "## 3단계 — 잔여강도 (restart, 부모 역학 잡 **이후**, 필요한 "
           "체크포인트만)",
           "",
-          "%d개가 준비되어 있으나 전부 돌리는 것이 아니다 — E(N) 프로브 "
+          "%d개가 준비되어 있으나 **전부 돌리는 것이 아니다** — E(N) 프로브 "
           "곡선을 보고 고른다." % len(resids),
-          "",
-          "    abaqus job=<RESID이름> input=<RESID이름>.inp "
-          "user=UMAT_CSIC_THERMSHOCK_V3_0.for double oldjob=<부모MECH이름> "
-          "cpus=%d memory=\"%s\"" % (ALLOC_3["cpus"], ALLOC_3["memory"]),
-          "",
-          "## 완료 후 (후처리는 cpus/memory 불필요)",
-          "",
-          "    abaqus python extract_probe.py <MECH잡>.odb",
-          "    abaqus python damage_map.py <MECH잡>.odb",
-          "    abaqus python driver_audit.py <MECH잡>.odb   ← ALLSD/ALLIE "
-          "5 % 관문",
-          "    python compare_cyclejump.py ...              ← 점프 오차 판정",
+          "아래는 **완성된 명령**이다. 고른 줄만 그대로 복사하면 된다 — "
+          "부모 잡 이름은 각 덱이 스스로 적어 둔 것을 읽어 채웠다.",
           ""]
+    for j in resids:
+        parent = restart_parent(os.path.join(d, j + ".inp"))
+        if parent is None:
+            L.append("    ** %s: 부모 잡을 덱에서 찾지 못했다 — 확인 필요" % j)
+            continue
+        L.append("    abaqus job=%s input=%s.inp user=%s double oldjob=%s "
+                 "cpus=%d memory=\"%s\""
+                 % (j, j, UMAT, parent, ALLOC_3["cpus"], ALLOC_3["memory"]))
+    # ---- what this run costs, in numbers that are counted, not guessed ----
+    if mechs and heats:
+        hn, he, hs, hi = deck_size(os.path.join(d, heats[0] + ".inp"))
+        mn, me, ms, mi = deck_size(os.path.join(d, mechs[0] + ".inp"))
+        gb = int(re.sub(r"[^0-9]", "", ALLOC_9["memory"]))
+        total_gb, ok = mem_note(len(mechs), gb)
+        L += ["",
+              "## 규모와 비용 — **세어 본 것만** 적는다",
+              "",
+              "| | 절점 | 요소 | 스텝 | `inc=` 예산 합 |",
+              "|---|---|---|---|---|",
+              "| 열 잡 | %d | %d | %d | %d |" % (hn, he, hs, hi),
+              "| 역학 잡 | %d | %d | %d | %d |" % (mn, me, ms, mi),
+              "",
+              "- **`inc=` 예산은 상한이지 예상 증분수가 아니다.** 실제 증분은 "
+              "수렴이 정한다.",
+              "- 거시 메시는 RVE(%d 요소)보다 **%.1f배 작다**. 다만 M-시리즈의 "
+              "벽시계(23분 ~ 15.6시간)는 **메시 크기가 아니라 컷백 병리**가 "
+              "지배했으므로, 그 시간을 여기에 옮겨 적지 않는다 — 그것은 추정이 "
+              "아니라 창작이다." % (RVE_ELEMENTS, RVE_ELEMENTS / float(me)),
+              "- **처리량은 정확히 말할 수 있다**: 역학 %d개가 동시에 도므로 "
+              "총 벽시계 ≈ **한 잡의 벽시계**다(9배가 아니다)." % len(mechs),
+              "",
+              "> **첫 잡이 끝나면 그 벽시계를 적어 두십시오.** 아홉 잡은 같은 "
+              "메시·같은 스텝 골격이므로, 나머지 여덟의 예상치는 그 한 개의 "
+              "실측에서 나옵니다. 지금 제가 드릴 수 있는 시간 추정은 없습니다.",
+              "",
+              "**메모리 검산**: 잡당 %d GB × %d = **%d GB**. CLAUDE.md 의 동시 "
+              "실행 한도는 **%d GB**이므로 %s"
+              % (gb, len(mechs), total_gb, MEM_BUDGET_GB,
+                 "여유가 있다." if ok else
+                 "**%d GB 초과다.** 물리 메모리 256 GB 안에는 들어가지만 규칙이 "
+                 "정한 한도를 넘으므로, 잡당 `memory` 를 내리거나(예 `\"20gb\"` "
+                 "→ 180 GB) 동시 잡 수를 줄이는 판단이 필요하다. "
+                 "**이 계획서는 배분표대로 적었고 바꾸지 않았다.**"
+                 % (total_gb - MEM_BUDGET_GB)),
+              ]
+    L += ["",
+          "## 완료 후 (후처리는 cpus/memory 불필요, 잡 하나 끝날 때마다 바로)",
+          "",
+          "역학 잡 하나가 끝나면 그 잡에 대해 세 줄. 아래는 첫 잡의 완성 "
+          "명령이고, 나머지 %d개는 **잡 이름만** 바꾸면 된다."
+          % max(0, len(mechs) - 1),
+          ""]
+    if mechs:
+        j0 = mechs[0]
+        L += ["    abaqus python extract_probe.py %s.odb" % j0,
+              "    abaqus python damage_map.py %s.odb" % j0,
+              "    abaqus python driver_audit.py %s.odb"
+              "   ← ALLSD/ALLIE 5 %% 관문. 이거 없이는 피크 인용 불가" % j0,
+              ""]
+    L += ["", "%d개가 다 끝난 뒤 한 번씩:" % len(mechs), ""]
+    if len(mechs) >= 2:
+        L.append("    python compare_cyclejump.py %s_probe.csv %s_probe.csv"
+                 "   ← 점프 오차 판정 (기준, 점프 두 개를 받는다)"
+                 % (mechs[0], mechs[1]))
+    L += ["    python damage_ceiling.py %s_MECH_*_damage_map.csv" % PREFIX,
+          "",
+          "## 채팅에 올릴 파일 (콘솔 캡처가 아니라 **CSV**)",
+          ""]
+    for g in UPLOAD_GLOB:
+        L.append("- `%s_MECH_*%s`  (%d개)" % (PREFIX, g, len(mechs)))
+    for u in UPLOAD_ONCE:
+        L.append("- `%s`" % u)
+    L.append("")
     path = os.path.join(d, "RUN_MANIFEST.md")
     with open(path, "w") as f:
         f.write("\n".join(L))
@@ -307,6 +450,70 @@ def check():
       "ALLSD/ALLIE" in m)
     t("  restarts are marked choose-after-probing, not run-all",
       "전부 돌리는 것이 아니다" in m)
+
+    print("\n D2. the manifest hands over NO blanks (CLAUDE.md, 2026-08-18)")
+    # It used to print `<RESID이름>`, `<부모MECH이름>`, `<MECH잡>.odb` and a
+    # bare `...` for the user to resolve.  A value I do not supply is one
+    # they have to derive, and a wrong derivation propagates through every
+    # command after it -- which is exactly the rule the user added today.
+    blanks = re.findall(r"<[^>\n]{1,20}>", m)
+    t("no <placeholder> survives anywhere in the manifest", not blanks,
+      "found %s" % blanks[:4])
+    t("  every restart line names its real parent job", m.count("oldjob=") == 45
+      and "oldjob=<" not in m,
+      "%d oldjob= lines, all resolved from the decks themselves"
+      % m.count("oldjob="))
+    t("  and the parent really is that deck's own MECH job",
+      all(("oldjob=%s_MECH_S%s_TRS%s" % (PREFIX, s, r)) in m
+          for s in SEVS for r in TRS),
+      "read from '(restart from ...)' in the deck, not guessed from the name")
+    t("  checkpoints are listed in CYCLE order, not alphabetical",
+      m.find("_TRSA_N5 ") < m.find("_TRSA_N10 ") < m.find("_TRSA_N20 "),
+      "N5 before N10; sorting names alphabetically hid the ordering")
+    t("  the mech jobs are grouped by the heat job they wait for",
+      all(("%s_HEAT_S%s 가 끝나면" % (PREFIX, s)) in m for s in SEVS),
+      "the dependency is per severity, so the list is too")
+    t("  the post-run example is a real job name, not <잡>",
+      ("extract_probe.py %s_MECH_" % PREFIX) in m)
+    t("  and compare_cyclejump gets the two inputs its parser wants",
+      len([ln for ln in m.splitlines()
+           if "compare_cyclejump.py" in ln and ln.count("_probe.csv") == 2]),
+      "it reads argv[0] and argv[1]; one argument would crash")
+    t("the upload list is globs against the real prefix, not placeholders",
+      ("%s_MECH_*_probe.csv" % PREFIX) in m and "<잡>" not in m,
+      "a glob can be pasted; a placeholder has to be resolved")
+
+    print("\n D3. the cost section counts, and refuses to invent hours")
+    n, e, s, i = deck_size(os.path.join(d, "%s_MECH_SL_TRSA.inp" % PREFIX))
+    t("deck_size counts a real deck", e > 1000 and s > 20 and i > 0,
+      "%d nodes, %d elements, %d steps, inc budget %d" % (n, e, s, i))
+    t("  and the manifest quotes those same counts",
+      str(e) in m and str(i) in m,
+      "quoted from the deck, so the table cannot drift from it")
+    t("the increment budget is labelled a CEILING, not an expectation",
+      "예산은 상한이지 예상 증분수가 아니다" in m)
+    t("no wall-clock hours are invented for a mesh never run",
+      "추정이 아니라 창작이다" in m,
+      "M-series times were cutback-dominated; they do not transfer")
+    t("  and the throughput statement that IS exact is made",
+      "총 벽시계 ≈" in m,
+      "9 concurrent jobs -> total is one job's wall clock, not nine")
+    t("  with a slot for the first measurement to replace the estimate",
+      "첫 잡이 끝나면 그 벽시계를 적어" in m)
+    # The memory arithmetic is the point: 9 x 25 GB overruns CLAUDE.md's own
+    # 200 GB ceiling by 25 GB.  The manifest must SAY so on every emit -- a
+    # number the reader has to compute themselves is one they will not.
+    gb = int(re.sub(r"[^0-9]", "", ALLOC_9["memory"]))
+    total, ok = mem_note(9, gb)
+    t("the memory total is stated, not left to the reader", "225 GB" in m,
+      "9 x %d = %d GB" % (gb, total))
+    t("  and the overrun against CLAUDE.md's %d GB is named" % MEM_BUDGET_GB,
+      (not ok) and "초과다" in m,
+      "%d GB over; physical is 256 GB, so it fits the machine but not the "
+      "rule" % (total - MEM_BUDGET_GB))
+    t("  while the allocation itself is left for the user to decide",
+      "바꾸지 않았다" in m,
+      "the table is theirs; the manifest reports, it does not overrule")
 
     print("\n E. a broken matrix would actually be caught")
     # sabotage: give one severity's C deck a different cycle count, the way a
