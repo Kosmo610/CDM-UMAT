@@ -199,6 +199,43 @@ def audit(d, t):
 
 UMAT = "UMAT_CSIC_THERMSHOCK_V3_0.for"
 
+#: CLAUDE.md's own ceiling on concurrent Abaqus memory, and the RVE the
+#: M-series wall-clock figures belong to.  Both are here so the manifest can
+#: state a cost honestly instead of inventing hours.
+MEM_BUDGET_GB = 200
+RVE_ELEMENTS = 26452
+
+
+def deck_size(path):
+    """(nodes, elements, steps, increment budget) counted from a deck.
+
+    Counted, never assumed: the manifest quotes these so a reader can size
+    the run, and a quoted number that drifts from the deck is worse than
+    none.
+    """
+    nodes = elems = 0
+    inb = None
+    steps = []
+    for ln in open(path):
+        if ln.startswith("*"):
+            low = ln.lower()
+            inb = ("n" if low.startswith("*node") else
+                   "e" if low.startswith("*element") else None)
+            m = re.match(r"\*Step, Name=([A-Za-z0-9_]+)[^\n]*inc=(\d+)", ln)
+            if m:
+                steps.append((m.group(1), int(m.group(2))))
+            continue
+        if inb and ln.strip():
+            nodes += (inb == "n")
+            elems += (inb == "e")
+    return nodes, elems, len(steps), sum(i for _n, i in steps)
+
+
+def mem_note(n_jobs, per_job_gb):
+    """Total concurrent memory and whether it clears CLAUDE.md's ceiling."""
+    total = n_jobs * per_job_gb
+    return total, total <= MEM_BUDGET_GB
+
 #: The CSVs the post-processing writes and the user is asked to upload.
 #: CLAUDE.md 3-2: the CSV is the deliverable, not a screenshot of a console.
 #: Per-job entries are written as real globs against the real prefix, not as
@@ -286,6 +323,43 @@ def manifest(d):
         L.append("    abaqus job=%s input=%s.inp user=%s double oldjob=%s "
                  "cpus=%d memory=\"%s\""
                  % (j, j, UMAT, parent, ALLOC_3["cpus"], ALLOC_3["memory"]))
+    # ---- what this run costs, in numbers that are counted, not guessed ----
+    if mechs and heats:
+        hn, he, hs, hi = deck_size(os.path.join(d, heats[0] + ".inp"))
+        mn, me, ms, mi = deck_size(os.path.join(d, mechs[0] + ".inp"))
+        gb = int(re.sub(r"[^0-9]", "", ALLOC_9["memory"]))
+        total_gb, ok = mem_note(len(mechs), gb)
+        L += ["",
+              "## 규모와 비용 — **세어 본 것만** 적는다",
+              "",
+              "| | 절점 | 요소 | 스텝 | `inc=` 예산 합 |",
+              "|---|---|---|---|---|",
+              "| 열 잡 | %d | %d | %d | %d |" % (hn, he, hs, hi),
+              "| 역학 잡 | %d | %d | %d | %d |" % (mn, me, ms, mi),
+              "",
+              "- **`inc=` 예산은 상한이지 예상 증분수가 아니다.** 실제 증분은 "
+              "수렴이 정한다.",
+              "- 거시 메시는 RVE(%d 요소)보다 **%.1f배 작다**. 다만 M-시리즈의 "
+              "벽시계(23분 ~ 15.6시간)는 **메시 크기가 아니라 컷백 병리**가 "
+              "지배했으므로, 그 시간을 여기에 옮겨 적지 않는다 — 그것은 추정이 "
+              "아니라 창작이다." % (RVE_ELEMENTS, RVE_ELEMENTS / float(me)),
+              "- **처리량은 정확히 말할 수 있다**: 역학 %d개가 동시에 도므로 "
+              "총 벽시계 ≈ **한 잡의 벽시계**다(9배가 아니다)." % len(mechs),
+              "",
+              "> **첫 잡이 끝나면 그 벽시계를 적어 두십시오.** 아홉 잡은 같은 "
+              "메시·같은 스텝 골격이므로, 나머지 여덟의 예상치는 그 한 개의 "
+              "실측에서 나옵니다. 지금 제가 드릴 수 있는 시간 추정은 없습니다.",
+              "",
+              "**메모리 검산**: 잡당 %d GB × %d = **%d GB**. CLAUDE.md 의 동시 "
+              "실행 한도는 **%d GB**이므로 %s"
+              % (gb, len(mechs), total_gb, MEM_BUDGET_GB,
+                 "여유가 있다." if ok else
+                 "**%d GB 초과다.** 물리 메모리 256 GB 안에는 들어가지만 규칙이 "
+                 "정한 한도를 넘으므로, 잡당 `memory` 를 내리거나(예 `\"20gb\"` "
+                 "→ 180 GB) 동시 잡 수를 줄이는 판단이 필요하다. "
+                 "**이 계획서는 배분표대로 적었고 바꾸지 않았다.**"
+                 % (total_gb - MEM_BUDGET_GB)),
+              ]
     L += ["",
           "## 완료 후 (후처리는 cpus/memory 불필요, 잡 하나 끝날 때마다 바로)",
           "",
@@ -408,6 +482,38 @@ def check():
     t("the upload list is globs against the real prefix, not placeholders",
       ("%s_MECH_*_probe.csv" % PREFIX) in m and "<잡>" not in m,
       "a glob can be pasted; a placeholder has to be resolved")
+
+    print("\n D3. the cost section counts, and refuses to invent hours")
+    n, e, s, i = deck_size(os.path.join(d, "%s_MECH_SL_TRSA.inp" % PREFIX))
+    t("deck_size counts a real deck", e > 1000 and s > 20 and i > 0,
+      "%d nodes, %d elements, %d steps, inc budget %d" % (n, e, s, i))
+    t("  and the manifest quotes those same counts",
+      str(e) in m and str(i) in m,
+      "quoted from the deck, so the table cannot drift from it")
+    t("the increment budget is labelled a CEILING, not an expectation",
+      "예산은 상한이지 예상 증분수가 아니다" in m)
+    t("no wall-clock hours are invented for a mesh never run",
+      "추정이 아니라 창작이다" in m,
+      "M-series times were cutback-dominated; they do not transfer")
+    t("  and the throughput statement that IS exact is made",
+      "총 벽시계 ≈" in m,
+      "9 concurrent jobs -> total is one job's wall clock, not nine")
+    t("  with a slot for the first measurement to replace the estimate",
+      "첫 잡이 끝나면 그 벽시계를 적어" in m)
+    # The memory arithmetic is the point: 9 x 25 GB overruns CLAUDE.md's own
+    # 200 GB ceiling by 25 GB.  The manifest must SAY so on every emit -- a
+    # number the reader has to compute themselves is one they will not.
+    gb = int(re.sub(r"[^0-9]", "", ALLOC_9["memory"]))
+    total, ok = mem_note(9, gb)
+    t("the memory total is stated, not left to the reader", "225 GB" in m,
+      "9 x %d = %d GB" % (gb, total))
+    t("  and the overrun against CLAUDE.md's %d GB is named" % MEM_BUDGET_GB,
+      (not ok) and "초과다" in m,
+      "%d GB over; physical is 256 GB, so it fits the machine but not the "
+      "rule" % (total - MEM_BUDGET_GB))
+    t("  while the allocation itself is left for the user to decide",
+      "바꾸지 않았다" in m,
+      "the table is theirs; the manifest reports, it does not overrule")
 
     print("\n E. a broken matrix would actually be caught")
     # sabotage: give one severity's C deck a different cycle count, the way a

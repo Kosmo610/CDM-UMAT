@@ -129,7 +129,7 @@ CASES = [
      count_plain, 28),
     ("matrix_audit.py --check",
      "python3 abaqus/matrix_audit.py --check",
-     count_bracketed, 47),
+     count_bracketed, 56),
     ("make_rve_conductivity.py --check",
      "python3 abaqus/make_rve_conductivity.py --check",
      count_bracketed, 41),
