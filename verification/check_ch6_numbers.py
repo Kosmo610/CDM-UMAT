@@ -253,6 +253,27 @@ def main():
         check("the M8 bundle is named by file",
               "LTH_M8_0818_1231.zip" in seg)
 
+        # a3 R23-1.  The ban above is scoped to 6.6.2's BODY, because seg
+        # stops at the 6.6.2-a heading.  A subsection written on the old
+        # baseline slipped through exactly there: 6.6.2-a cited "the
+        # limitation in 6.6.2's body (residual strength = UPPER bound)" while
+        # the body says LOWER.  a1's ruling: widen the ban to the subsection,
+        # but do not ban the WORD -- 6.6.2-a has to be able to say what it
+        # used to say and why that was wrong.  Ban the CLAIM: the subsection
+        # may not attribute an upper bound to 6.6.2, and must attribute a
+        # lower one.
+        sub = txt.split("#### 6.6.2-a")[1].split("## 6.7")[0] \
+            if "#### 6.6.2-a" in txt else ""
+        check("subsection 6.6.2-a exists", bool(sub))
+        check("6.6.2-a does not attribute an UPPER bound to 6.6.2's body",
+              "잔여강도 **상한**) 하나다" not in sub,
+              "the R23-1 gap")
+        check("...and attributes the LOWER bound instead",
+              "잔여강도 **하한**) 하나다" in sub)
+        check("...while still recording that it once said the other thing",
+              "「상한」이라 적었던" in sub,
+              "a correction that erases its own history repeats itself")
+
     print("\n" + "=" * 78)
     if _BAD:
         print("ROUND 1 (CH.6) FAIL -- %d of %d: %s"

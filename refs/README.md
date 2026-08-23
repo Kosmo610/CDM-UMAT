@@ -175,6 +175,32 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 
 ---
 
+### ★ 4차 입고분 `[74]`–`[75]` (2026-08-23) — 네트워크가 열려 직접 받은 OA 2편
+
+| # | 서지 | 용도 | 분위기 | 등급 |
+|---|---|---|---|---|
+| **74** | **Li Longbiao**, *Temperature-dependent proportional limit stress of C/SiC CMCs*, **Ceramics-Silikáty 63(3) (2019) 330–337**, doi:`10.13168/cs.2019.0028` | **PLS 를 TRS 지표로 쓰는 논리의 방법론 원전.** PLS 가 온도에 따라 오르고 그 원인이 계면 전단 증가 + TRS 완화라고 원문이 적는다 (973→1273 K, 48→82 MPa) | *(해당 없음 — 이론)* | `fulltext` |
+| **75** | **Q. Xu, X. Jin, L. Liu, C. Hou, N. Hu, J. Chen, S. Zhao, T. J. Marrow, X. Fan**, *Thermal shock and residual strength testing of SiC/SiC composite braided tubes*, **Exp. Mech. 63(5) (2023) 955–964**, doi:`10.1007/s11340-023-00962-x` | **사이클 대 잔여강도 경향 대조 전용.** 선형 열화식 $\sigma_{CTS}=597.0-0.224N$ MPa (1000 사이클 잔존 62.5 %), 취성→의사소성 전이 | 공기 | `fulltext` (Oxford ORA 저자수용본) |
+
+> **둘 다 카드 입력 금지이며, 이유가 서로 다르다.** `[74]` 는 이론 모델이라
+> 절대값이 우리 시편의 것이 아니고, `[75]` 는 **SiC/SiC 편조관**이라 재료도
+> 구조도 다르다. 심사 전문은 **[`../docs/REFS_74_75_ASSESSMENT.md`](../docs/REFS_74_75_ASSESSMENT.md)**.
+>
+> **★ 두 편을 나란히 놓아야 보이는 것 — PLS(T) 의 부호가 재료계마다 다르다.**
+> `[74]` 의 C/SiC 는 973→1273 K 에서 PLS 가 **+71 %** 오르고, `[75]` Table 1 의
+> SiC/SiC 는 25→900 °C 에서 **−31 %** 내린다. C/SiC 는 섬유·기지 CTE 차가 커서
+> 가열하면 기지의 인장 TRS 가 풀리지만, SiC/SiC 는 그 이득이 작아 계면 열화가
+> 이긴다. **`[75]` 를 사이클 곡선 때문에 들여오면서 그 PLS 방향까지 들여오면
+> 부호가 뒤집힌 검증 표적을 세우게 된다.** 판정기가 이것을 막는다:
+> `python3 data/literature/refs_74_75.py --check`
+>
+> **`[75]` 는 Springer 에서 OA 가 아니다.** 다운로드 목록이 "Springer PDF" 로
+> 적어 두었으나 실측하면 `<meta name="access" content="No">` 를 돌려준다.
+> 실제로 열리는 것은 Oxford ORA 사본(저자수용본)이며, 쪽번호는 발행본을 쓰되
+> 인용 문장은 ORA 사본에서 읽은 것이다.
+
+---
+
 ### 노벨티 포지셔닝 (1차 입고분)
 
 | # | 파일 | 서지 | 우리와의 차이 | 분위기 |

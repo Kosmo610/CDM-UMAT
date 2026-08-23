@@ -156,7 +156,7 @@ CASES = [
      count_plain, 119),
     ("check_ch6_numbers.py",
      "python3 verification/check_ch6_numbers.py",
-     count_plain, 68),
+     count_plain, 72),
     ("check_ch4_numbers.py",
      "python3 verification/check_ch4_numbers.py",
      count_plain, 174),
@@ -184,6 +184,9 @@ CASES = [
     ("zhang5_provenance.py --check",
      "python3 data/literature/zhang5_provenance.py --check",
      count_bracketed, 30),
+    ("refs_74_75.py --check",
+     "python3 data/literature/refs_74_75.py --check",
+     count_bracketed, 33),
     ("refs_audit.py --check",
      "python3 data/literature/refs_audit.py --check",
      count_bracketed, 134),
@@ -195,7 +198,7 @@ CASES = [
      count_bracketed, 26),
     ("pls_validation.py --check",
      "python3 data/literature/pls_validation.py --check",
-     count_bracketed, 43),
+     count_bracketed, 53),
     ("cte_composite_targets.py --check",
      "python3 data/literature/cte_composite_targets.py --check",
      count_bracketed, 32),
@@ -211,9 +214,12 @@ CASES = [
     ("atmosphere_census.py --check",
      "python3 data/literature/atmosphere_census.py --check",
      count_bracketed, 30),
+    ("atmosphere_verdicts.py --check",
+     "python3 data/literature/atmosphere_verdicts.py --check",
+     count_bracketed, 52),
     ("thermal_cycling_dataset.py --check",
      "python3 data/literature/thermal_cycling_dataset.py --check",
-     count_bracketed, 59),
+     count_bracketed, 69),
     ("cycle_jump_provenance.py --check",
      "python3 data/literature/cycle_jump_provenance.py --check",
      count_bracketed, 40),
@@ -282,7 +288,7 @@ CASES = [
 #: How many rows the ledger has.  Pinned so that a merge cannot silently
 #: shorten it -- see the note at the top of main().  Raising this is a
 #: conscious act; a row disappearing is not.
-EXPECTED_CASES = 72  # 2026-08-18: +atmosphere_census (a2, the test atmosphere of every load-bearing source) -- a conscious raise, as designed
+EXPECTED_CASES = 74  # 2026-08-23: +atmosphere_verdicts (a1's classification verdicts on a2's census) -- a conscious raise, as designed
 
 
 def main():

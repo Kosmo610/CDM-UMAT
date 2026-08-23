@@ -119,7 +119,10 @@ EXACT = [
     ("RVE volume [mm^3]", "5.390", ["Ch.1", "Ch.4"]),
     ("Biot for refs/[2], literature properties", "0.0277",
      ["Ch.1", "Ch.4", "Ch.5"]),
-    ("automated verification item count", "3559", ["Ch.1", "Ch.3", "Ch.7"]),
+    ("automated verification item count", "3711", ["Ch.1", "Ch.3", "Ch.7"]),
+    # §6.6.2's floor bounds are cross-checked Ch.6 <-> Ch.7 in
+    # check_ch7_numbers section D -- Ch.6 is not in THIS net (see FILES).
+    ("residual-strength floor, T1000 A bound", "\\le 0.25", ["Ch.7"]),
     # The [28] page range was once corrupted to "1784-1597" by a blind
     # replace of the verification counter (1784 was the counter's value at
     # the time; 1586 had been an EARLIER value of the same counter, which is

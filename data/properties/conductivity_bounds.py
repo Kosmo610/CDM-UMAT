@@ -82,6 +82,27 @@ KBAR3_TARGET = 6.29        # W/(m.K), refs/[12], stated in the text
 KBAR3_TARGET_NOTE = ("refs/[12]: 'Kcs is thermal conductivity of C/SiC "
                      "composites measured as 6.29 W/m.k' (through-thickness)")
 
+#: ASSUMPTION, a1 2026-08-23 (atmosphere_verdicts.py section D).  refs/[12]
+#: states neither the ATMOSPHERE nor the TEMPERATURE of the 6.29 measurement.
+#: Everything it is compared against here is room temperature -- Zhang [17]
+#: CVI SiC 25.0, Pradere [09] @296 K -- so this file has always read 6.29 as a
+#: room-temperature value.  That reading was never written down.  It is
+#: written down now, because it is load-bearing: C/SiC conductivity roughly
+#: halves from RT to 1273 K, so a mis-set anchor temperature moves the
+#: porosity solve rather than a decimal place.  The atmosphere, by contrast,
+#: is the smaller exposure -- an LFA shot is short and the value is read at
+#: the low-temperature end of the sweep.
+#:
+#: This does NOT change [12]'s trust grade.  The grade records how WE got a
+#: number (fulltext / digitized / abstract / secondary), not whether the
+#: measurement suits our model; folding applicability into it would make one
+#: tag mean two things.  Scope lives here and in the census.
+KBAR3_TARGET_TEMPERATURE_ASSUMED = 296.0   # K
+KBAR3_TARGET_TEMPERATURE_NOTE = (
+    "refs/[12] does not state the temperature of 6.29 W/(m.K); read as room "
+    "temperature because every comparison value in this file is. assumption, "
+    "not a measurement -- see data/literature/atmosphere_verdicts.py section D")
+
 
 # ==========================================================================
 # Two-phase bounds

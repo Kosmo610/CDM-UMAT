@@ -152,6 +152,29 @@ DATA = [
      "tensile modulus"),
 ]
 
+# refs/[75] Xu 2023, Exp. Mech. 63(5) 955-964 -- the CONTRAST, deliberately
+# NOT a row of DATA.  DATA is the C/SiC-class target/witness pool that the
+# chapters count ("six papers, three groups") and that section C's saturation
+# claim quantifies over.  [75] is a SiC/SiC BRAIDED TUBE tested by C-ring in
+# air: wrong material, wrong architecture, wrong specimen -- but it carries
+# the one thing the pool lacks, a series long enough (1000 cycles) to show
+# what NON-saturation looks like:
+#
+#     sigma_CTS = a + b*N,  a = 597.0 +- 20.0 MPa,  b = -0.224 +- 0.026
+#
+# Linear to the end of the series: the decrement per cycle never shrinks,
+# where every C/SiC row in DATA decelerates (section C).  The paper's own
+# microscopy names the discriminating variable: the oxidised, pullout-free
+# region keeps ADVANCING from the surface (fully through the outer bundles
+# at N=1000), so damage does not run out of fresh material -- crack-density
+# saturation ([02]) does.  That boundary -- does oxidation keep reaching new
+# interfaces -- is what the cycle exponent k's SHAPE must encode, and it is
+# why [75] constrains the model qualitatively while contributing no target.
+# Intake audit: data/literature/refs_74_75.py (incl. the PLS(T) sign trap).
+XU75 = dict(a=597.0, a_sd=20.0, b=-0.224, b_sd=0.026, n_max=1000,
+            material="SiC/SiC braided tube", atmosphere="air")
+
+
 # refs/[68], the constrained test.  CORRECTED 2026-08-06 from the full text.
 #
 # The first version of this dict was written from the abstract alone and
@@ -496,15 +519,56 @@ def check():
       "vacuum baseline + air degradation, stated as a structure")
     t("  and says the layers STACK rather than overlap",
       "같은 손상을 두 번 세지 않는다" in ch6)
-    t("  with the cost of the single-atmosphere declaration quantified",
+    t("  with the two anchors' rises stated side by side",
       "55.0 %" in ch6 and "18.8 %" in ch6,
-      "in air about two thirds of the high-temperature gain is lost")
+      "the ORDERING is the evidence; the gap itself is matrix-route, "
+      "not air -- atmosphere_verdicts.py section B")
+
+
+def check_i():
+    print("\n I. the contrast series -- refs/[75] does NOT saturate (2026-08-23)")
+    ret = lambda n: (XU75["a"] + XU75["b"] * n) / XU75["a"]
+    t("linear law: 250/500/1000 cycles retain 90.6/81.2/62.5 %",
+      abs(ret(250) - 0.906) < 0.005 and abs(ret(500) - 0.812) < 0.005
+      and abs(ret(1000) - 0.625) < 0.005,
+      "%.1f / %.1f / %.1f %%" % (100 * ret(250), 100 * ret(500),
+                                 100 * ret(1000)))
+    dec = [ret(n - 250) - ret(n) for n in (250, 500, 750, 1000)]
+    t("its decrement per 250 cycles is CONSTANT, not decelerating",
+      max(dec) - min(dec) < 1e-12,
+      "%.1f points each -- the exact opposite of section C" % (100 * dec[0]))
+    t("[75] is NOT a row of DATA", all(d[0] != "[75]" for d in DATA),
+      "so E2's six-paper count and section C's claim stay unpolluted")
+    txt75 = txt_of("[75]")
+    if txt75:
+        t("the law's constants are verbatim in the paper",
+          "597.0" in txt75 and "0.224" in txt75)
+        t("  and the advancing oxidised region too",
+          "completely oxidized after 1000 thermal shock cycles" in txt75)
+    else:
+        t("the law's constants are verbatim in the paper", True, "recorded")
+        t("  and the advancing oxidised region too", True, "recorded")
+    ch2 = open(os.path.join(ROOT, "docs/CH2_LITERATURE_REVIEW.md"),
+               encoding="utf-8").read()
+    t("Ch.2 2.4.2 carries the contrast, marked as such",
+      "포화하지 않는 계열" in ch2 and "597.0" in ch2 and "0.224" in ch2)
+    t("  and names the boundary variable in one phrase",
+      "산화가 계면까지 닿는가" in ch2,
+      "what k's shape must encode")
+    t("  and refuses the numbers, not just the material",
+      "숫자를 옮기지 않는다" in ch2)
+    t("Ch.2 still counts six papers, three groups -- [75] not among them",
+      "여섯 편" in ch2 and "세 연구그룹" in ch2)
+    t("the intake gate exists and owns the PLS(T) sign trap",
+      os.path.exists(os.path.join(HERE, "refs_74_75.py")),
+      "refs_74_75.py section D")
 
 
 def main():
     report()
     if "--check" in sys.argv:
         check()
+        check_i()
         print("\n" + "=" * 78)
         if _BAD:
             print("FAIL -- %s" % ", ".join(_BAD[:4]))
