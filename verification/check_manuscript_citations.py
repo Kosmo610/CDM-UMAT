@@ -256,6 +256,58 @@ def main():
     check("it explains why refs_audit's own orphan check is not enough",
           "concatenates ALL of docs/*.md" in flat)
 
+    # ---------------------------------------------------------------- G
+    # G. numbered tables (a3 R24, 2026-08-23).  Every caption "**표 N.M**"
+    # must sit ON a table, carry its own chapter's N, ascend in order of
+    # appearance (R24-0 rule 3 -- which is why Ch.2's dataset table is 2.1
+    # and the comparison table 2.2, the reverse of R24-1's draft assignment),
+    # and be CALLED by number somewhere in the body -- a numbered table
+    # nobody cites is exactly the orphan this file exists to catch.  The
+    # reverse holds too: a body reference to a table that does not exist is
+    # a dead pointer.  References may cross chapters.
+    print("\n G. numbered tables sit on tables, ascend, and are called by number")
+    cap_re = re.compile(r"^\s*\*\*표 (\d+)\.(\d+)\*\*", re.M)
+    # a bare "표 N.M" must not match inside words like 목표 0.4349 or
+    # 지표 0.82 -- require the char before 표 to be non-Hangul.
+    ref_re = re.compile(r"(?<![가-힣])표 (\d+)\.(\d+)")
+    captions = {}
+    for tag, body in sorted(ch.items()):
+        chno = int(tag[1])
+        caps = []
+        lines = body.splitlines()
+        for i, ln in enumerate(lines):
+            m = cap_re.match(ln)
+            if not m:
+                continue
+            n, mth = int(m.group(1)), int(m.group(2))
+            caps.append((n, mth))
+            captions[(n, mth)] = tag
+            check("%s: 표 %d.%d carries this chapter's number" % (tag, n, mth),
+                  n == chno)
+            nxt = [x for x in lines[i + 1:i + 5] if x.strip()
+                   and not x.strip().startswith("<!--")]
+            check("  ...and sits on a table", bool(nxt)
+                  and nxt[0].lstrip().startswith("|"),
+                  (nxt[0][:40] if nxt else "nothing follows"))
+        if caps:
+            check("%s: its %d numbered tables ascend in order" % (tag, len(caps)),
+                  caps == sorted(caps), " ".join("%d.%d" % c for c in caps))
+    check("the submission has numbered tables at all", bool(captions),
+          "%d captions" % len(captions))
+    for (n, mth), tag in sorted(captions.items()):
+        body = ch[tag]
+        uses = len(ref_re.findall(body)) and sum(
+            1 for b in ch.values()
+            for x in ref_re.findall(b) if (int(x[0]), int(x[1])) == (n, mth))
+        ncap = len(cap_re.findall(body))
+        check("표 %d.%d is called by number beyond its caption" % (n, mth),
+              uses >= 2, "%d occurrences" % uses)
+    for tag, body in sorted(ch.items()):
+        dead = [(int(a), int(b)) for a, b in ref_re.findall(body)
+                if (int(a), int(b)) not in captions]
+        check("%s: no reference points at a table that does not exist" % tag,
+              not dead, " ".join("%d.%d" % d for d in dead))
+
     print("\n" + "=" * 78)
     if _BAD:
         print("MANUSCRIPT AUDIT FAILED -- %d of %d: %s"
