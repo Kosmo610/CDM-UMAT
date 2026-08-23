@@ -350,6 +350,35 @@ def check():
       abs(r_xy - 1.0) < abs(r6 - 1.0) / 5.0,
       "fixing X(T) removes it; fixing E(T) does not")
 
+    print("\n C5. C2-C4 are conditional on Yang being the right anchor")
+    # Found hours after C2-C4 were written, while pre-computing the ripple
+    # (insitu_yarn_strength.py section J): the repository's OTHER composite
+    # anchor -- Zhang Table 3, the M-series validation target itself -- rises
+    # 55.0 % over the same range.  That is STEEPER than the card, and 2.9x
+    # Yang's slope.  "The measurement" in C2-C4 is therefore ONE of two
+    # measurements that disagree with each other, and every C2-C4 verdict
+    # (2.26x too steep, 39.4 % non-conservative, single-factor X(T)) holds
+    # only on the branch where Yang is the right anchor.  Which branch is
+    # right -- material, atmosphere, method -- is a1's call, asked in
+    # a2-0049.  An incomplete-evidence judgement nearly shipped here, which
+    # is the a3-Round-1 failure class this project keeps checks against.
+    z_rise = 199.15 / 128.45 - 1.0
+    y_rise = YANG_T1[2][2] / YANG_T1[0][2] - 1.0
+    card_rise = M6_CARD[1000][1] / M6_CARD[23][1] - 1.0
+    t("Zhang Table 3 rises 55.0 % over the same range",
+      abs(z_rise - 0.550) < 0.005, "%.1f %%" % (100 * z_rise))
+    t("  which is 2.9x Yang's 18.8 %",
+      abs(z_rise / y_rise - 2.9) < 0.1,
+      "two composite anchors, same material class, 2.9x apart")
+    t("  and the CARD sits between them, nearer Zhang",
+      y_rise < card_rise < z_rise,
+      "42.5 %: so 'too steep' and 'too shallow' are both live verdicts")
+    t("C2-C4's verdicts are marked conditional in this file's own text",
+      "conditional on Yang" in open(__file__, encoding="utf-8").read(),
+      "a single-source judgement must say it is one")
+    t("  and the arbitration is routed to a1, not decided here",
+      "a1's call" in open(__file__, encoding="utf-8").read())
+
     print("\n D. the matrix card sits inside Snead's own band")
     t("Gm_t = 0.031 N/mm is 31 J/m2", abs(GM_T * 1000.0 - 31.0) < 0.5,
       "%.0f J/m2" % (GM_T * 1000.0))

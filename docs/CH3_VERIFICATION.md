@@ -46,7 +46,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `cte_r11_envelope.py --check` | refs/[11] 복합재 CTE의 판정 가능성(음성 결과) | 27 |
 | `trs_configuration.py --check` | CONFIG_V / CONFIG_P 결정과 두 관문 | 33 |
 | `m6_calibration.py --check` | M6 보정 knob 우선순위와 ROM 상한 (M5 T1000 곡선은 2026-08-06부터 저장소에 커밋되어 27이 어디서나 재현된다) | 27 |
-| `insitu_yarn_strength.py --check` | 얀 $X_t$의 in-situ 출처·Weibull 구간·온도형상 | 51 |
+| `insitu_yarn_strength.py --check` | 얀 $X_t$의 in-situ 출처·Weibull 구간·온도형상 + **Yang 반사실 파급 사전계산**(필요 얀값이 출처 띠 아래 83~123 MPa·두 복합재 앵커의 2.9배 기울기 불일치) | 61 |
 | `porosity_stiffness.py --check` | 공극률 결정(CVI 하한)·강성 정합·공정 귀속 | 56 |
 | `make_property_workbook.py --check` | 물성 현황표가 덱·감사와 어긋나지 않는지 | 22 |
 | `msg_residual_census.py --check` | `.msg` 잔차의 상(phase) 분류·드라이버 구분 + **판정 CSV**(값·근거·판정 동행) + **허용치 대조**(잔차가 허용치의 몇 배인가 → TOLERANCE / EQUILIBRIUM) | 29 |
@@ -63,7 +63,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `digitize.py --check` | 문헌 그림 디지타이즈 재현성 | 5 |
 | `zhang5_provenance.py --check` | Zhang[5]의 밀도·공극률 진술 유무와 기지 $E$ 정합 | 30 |
 | `refs_audit.py --check` | refs/ 전수 — 폐번·고분자기지·인용↔목록·기법 원전·Chamis 식 검증 + 고아 분류 + [S12]·[S13]·C5–C7 미보유 검증 | 134 |
-| `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 + **재소싱된 M6 카드는 g0가 39.4 % 상승**(옛 카드는 5.9 % 하락 — 부호가 반대)·**Gf 거부 시 오차 방향이 비보수적으로 뒤집힘**·**39 %의 단일 원인이 X(T)임을 인자별 교체로 확정** | 44 |
+| `gf_temperature.py --check` | $G_f(T)$ 방향(Snead Fig.14)과 $A$ 표류 한계 + **재소싱된 M6 카드는 g0가 39.4 % 상승**(옛 카드는 5.9 % 하락 — 부호가 반대)·**Gf 거부 시 오차 방향이 비보수적으로 뒤집힘**·**39 %의 단일 원인이 X(T)임을 인자별 교체로 확정**·**단 그 판정은 [10] 앵커 조건부 — [5] Zhang은 55 %로 카드보다 가파름(2.9배 불일치)** | 49 |
 | `pls_validation.py --check` | 비례한도의 TRS 민감도·정의 취약성·선형구간 비 | 43 |
 | `cte_composite_targets.py --check` | refs/[61]의 복합재 CTE 4점과 그 한계 | 32 |
 | `cte_rve_verdict.py --check` | RVE 실물 $\bar\alpha$ 대 절대 표적 — 4단 사다리·상별 상하한·남은 세 어긋남 | 38 |
@@ -104,7 +104,7 @@ L1이 통과된 상태에서 발생하였으므로 구성식 구현의 오류가
 | `homogenize.py --selftest` | 거시 카드 조립 — 드라이버→히스토리 영역 해결(집합명 아닌 절점번호)·치환 방지 검사·반력 부호 규약 자기결정·**연화 관문(멈춘 곡선 ≠ 연화한 곡선)**·**손상 상한 단일 상수** | 27 |
 | `lengthen_tension.py --check` | 인장 스텝 연장 — **3줄만 바뀌는가**(변형률·최대증분·증분예산, 전부 인장 스텝 안), 냉각 블록 바이트 동일, 실제 M7 덱 3개에 대한 대조 | 21 |
 | `check_printed_commands.py` | 스크립트가 **인쇄하는 명령**의 실행 가능성 — 파일 존재·`abaqus python`/일반 `python` 적합성·상대 파서 대비 인자 개수 (자기 예외는 1개로 고정) | 25 |
-| **합계** | | **3476** |
+| **합계** | | **3491** |
 
 전부 통과하며, 커밋 전 통과가 프로젝트 규칙으로 강제된다.
 
