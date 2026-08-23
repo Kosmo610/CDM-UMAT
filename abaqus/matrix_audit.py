@@ -197,12 +197,48 @@ def audit(d, t):
       "5 checkpoints per case, restart-continued, never recomputed")
 
 
+UMAT = "UMAT_CSIC_THERMSHOCK_V3_0.for"
+
+#: The CSVs the post-processing writes and the user is asked to upload.
+#: CLAUDE.md 3-2: the CSV is the deliverable, not a screenshot of a console.
+#: Per-job entries are written as real globs against the real prefix, not as
+#: "<잡>_probe.csv" -- a placeholder is something the user has to resolve,
+#: and a glob is something they can paste.
+UPLOAD_GLOB = ("_probe.csv", "_damage_map.csv", "_drivers.csv")
+UPLOAD_ONCE = ("damage_ceiling_summary.csv", "cyclejump_summary.csv")
+
+
+def restart_parent(path):
+    """The MECH job a RESID deck restarts from, read from the deck itself.
+
+    The name is recoverable from the filename too, but the deck states it --
+    "(restart from TSM_MECH_SL_TRSA)" -- and reading the statement means a
+    renamed file cannot desync the command from the deck it describes.
+    """
+    m = re.search(r"restart from ([A-Za-z0-9_]+)", open(path).read())
+    return m.group(1) if m else None
+
+
 def manifest(d):
-    """RUN_MANIFEST.md -- generated from the decks that are actually there."""
+    """RUN_MANIFEST.md -- generated from the decks that are actually there.
+
+    Every command is COMPLETE.  It used to hand over `<RESID이름>` and
+    `<부모MECH이름>` for the user to fill in, which is the blank-filling that
+    CLAUDE.md forbids as of 2026-08-18: a value I do not supply is one the
+    user has to derive, and if they derive it wrong it propagates through
+    every following command.  The generator knows all 45 parent pairs -- it
+    reads them out of the decks -- so it prints them.
+    """
     files = sorted(os.listdir(d))
     heats = [f[:-4] for f in files if "_HEAT_" in f and f.endswith(".inp")]
     mechs = [f[:-4] for f in files if "_MECH_" in f and f.endswith(".inp")]
     resids = [f[:-4] for f in files if "_RESID_" in f and f.endswith(".inp")]
+    # N5 must come before N10.  Sorting the names alphabetically puts N10,
+    # N20, N40, N5, N60 -- a list of checkpoints out of cycle order, which
+    # is the one property a reader scans it for.
+    resids.sort(key=lambda n: (n.rsplit("_N", 1)[0],
+                               int(n.rsplit("_N", 1)[1])
+                               if n.rsplit("_N", 1)[-1].isdigit() else 0))
     L = ["# RUN_MANIFEST — 9케이스 매트릭스 실행 계획 (이 파일은 생성물이다)",
          "",
          "의존성: **열 잡 → 같은 심각도의 역학 잡** (역학이 열 ODB를 읽음).",
@@ -221,30 +257,63 @@ def manifest(d):
           "",
           "**자기 심각도의 열 잡이 끝난 것부터 바로 시작한다** — 셋 다 기다릴 "
           "필요 없다.", ""]
-    for j in mechs:
-        L.append("    abaqus job=%s input=%s.inp user=%s double "
-                 "cpus=%d memory=\"%s\""
-                 % (j, j, "UMAT_CSIC_THERMSHOCK_V3_0.for",
-                    ALLOC_9["cpus"], ALLOC_9["memory"]))
+    # Grouped by severity, because the dependency is per severity: the
+    # three TRS cases of one severity become runnable the moment THAT
+    # severity's heat job lands.  An alphabetical list hides that.
+    for sev in SEVS:
+        mine = [j for j in mechs if ("_S%s_" % sev) in j]
+        if not mine:
+            continue
+        L += ["", "**%s_HEAT_S%s 가 끝나면 이 셋**:" % (PREFIX, sev)]
+        for j in mine:
+            L.append("    abaqus job=%s input=%s.inp user=%s double "
+                     "cpus=%d memory=\"%s\""
+                     % (j, j, UMAT, ALLOC_9["cpus"], ALLOC_9["memory"]))
     L += ["",
           "## 3단계 — 잔여강도 (restart, 부모 역학 잡 **이후**, 필요한 "
           "체크포인트만)",
           "",
-          "%d개가 준비되어 있으나 전부 돌리는 것이 아니다 — E(N) 프로브 "
+          "%d개가 준비되어 있으나 **전부 돌리는 것이 아니다** — E(N) 프로브 "
           "곡선을 보고 고른다." % len(resids),
-          "",
-          "    abaqus job=<RESID이름> input=<RESID이름>.inp "
-          "user=UMAT_CSIC_THERMSHOCK_V3_0.for double oldjob=<부모MECH이름> "
-          "cpus=%d memory=\"%s\"" % (ALLOC_3["cpus"], ALLOC_3["memory"]),
-          "",
-          "## 완료 후 (후처리는 cpus/memory 불필요)",
-          "",
-          "    abaqus python extract_probe.py <MECH잡>.odb",
-          "    abaqus python damage_map.py <MECH잡>.odb",
-          "    abaqus python driver_audit.py <MECH잡>.odb   ← ALLSD/ALLIE "
-          "5 % 관문",
-          "    python compare_cyclejump.py ...              ← 점프 오차 판정",
+          "아래는 **완성된 명령**이다. 고른 줄만 그대로 복사하면 된다 — "
+          "부모 잡 이름은 각 덱이 스스로 적어 둔 것을 읽어 채웠다.",
           ""]
+    for j in resids:
+        parent = restart_parent(os.path.join(d, j + ".inp"))
+        if parent is None:
+            L.append("    ** %s: 부모 잡을 덱에서 찾지 못했다 — 확인 필요" % j)
+            continue
+        L.append("    abaqus job=%s input=%s.inp user=%s double oldjob=%s "
+                 "cpus=%d memory=\"%s\""
+                 % (j, j, UMAT, parent, ALLOC_3["cpus"], ALLOC_3["memory"]))
+    L += ["",
+          "## 완료 후 (후처리는 cpus/memory 불필요, 잡 하나 끝날 때마다 바로)",
+          "",
+          "역학 잡 하나가 끝나면 그 잡에 대해 세 줄. 아래는 첫 잡의 완성 "
+          "명령이고, 나머지 %d개는 **잡 이름만** 바꾸면 된다."
+          % max(0, len(mechs) - 1),
+          ""]
+    if mechs:
+        j0 = mechs[0]
+        L += ["    abaqus python extract_probe.py %s.odb" % j0,
+              "    abaqus python damage_map.py %s.odb" % j0,
+              "    abaqus python driver_audit.py %s.odb"
+              "   ← ALLSD/ALLIE 5 %% 관문. 이거 없이는 피크 인용 불가" % j0,
+              ""]
+    L += ["", "%d개가 다 끝난 뒤 한 번씩:" % len(mechs), ""]
+    if len(mechs) >= 2:
+        L.append("    python compare_cyclejump.py %s_probe.csv %s_probe.csv"
+                 "   ← 점프 오차 판정 (기준, 점프 두 개를 받는다)"
+                 % (mechs[0], mechs[1]))
+    L += ["    python damage_ceiling.py %s_MECH_*_damage_map.csv" % PREFIX,
+          "",
+          "## 채팅에 올릴 파일 (콘솔 캡처가 아니라 **CSV**)",
+          ""]
+    for g in UPLOAD_GLOB:
+        L.append("- `%s_MECH_*%s`  (%d개)" % (PREFIX, g, len(mechs)))
+    for u in UPLOAD_ONCE:
+        L.append("- `%s`" % u)
+    L.append("")
     path = os.path.join(d, "RUN_MANIFEST.md")
     with open(path, "w") as f:
         f.write("\n".join(L))
@@ -307,6 +376,38 @@ def check():
       "ALLSD/ALLIE" in m)
     t("  restarts are marked choose-after-probing, not run-all",
       "전부 돌리는 것이 아니다" in m)
+
+    print("\n D2. the manifest hands over NO blanks (CLAUDE.md, 2026-08-18)")
+    # It used to print `<RESID이름>`, `<부모MECH이름>`, `<MECH잡>.odb` and a
+    # bare `...` for the user to resolve.  A value I do not supply is one
+    # they have to derive, and a wrong derivation propagates through every
+    # command after it -- which is exactly the rule the user added today.
+    blanks = re.findall(r"<[^>\n]{1,20}>", m)
+    t("no <placeholder> survives anywhere in the manifest", not blanks,
+      "found %s" % blanks[:4])
+    t("  every restart line names its real parent job", m.count("oldjob=") == 45
+      and "oldjob=<" not in m,
+      "%d oldjob= lines, all resolved from the decks themselves"
+      % m.count("oldjob="))
+    t("  and the parent really is that deck's own MECH job",
+      all(("oldjob=%s_MECH_S%s_TRS%s" % (PREFIX, s, r)) in m
+          for s in SEVS for r in TRS),
+      "read from '(restart from ...)' in the deck, not guessed from the name")
+    t("  checkpoints are listed in CYCLE order, not alphabetical",
+      m.find("_TRSA_N5 ") < m.find("_TRSA_N10 ") < m.find("_TRSA_N20 "),
+      "N5 before N10; sorting names alphabetically hid the ordering")
+    t("  the mech jobs are grouped by the heat job they wait for",
+      all(("%s_HEAT_S%s 가 끝나면" % (PREFIX, s)) in m for s in SEVS),
+      "the dependency is per severity, so the list is too")
+    t("  the post-run example is a real job name, not <잡>",
+      ("extract_probe.py %s_MECH_" % PREFIX) in m)
+    t("  and compare_cyclejump gets the two inputs its parser wants",
+      len([ln for ln in m.splitlines()
+           if "compare_cyclejump.py" in ln and ln.count("_probe.csv") == 2]),
+      "it reads argv[0] and argv[1]; one argument would crash")
+    t("the upload list is globs against the real prefix, not placeholders",
+      ("%s_MECH_*_probe.csv" % PREFIX) in m and "<잡>" not in m,
+      "a glob can be pasted; a placeholder has to be resolved")
 
     print("\n E. a broken matrix would actually be caught")
     # sabotage: give one severity's C deck a different cycle count, the way a
