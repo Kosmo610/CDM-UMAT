@@ -213,7 +213,7 @@ CASES = [
      count_bracketed, 30),
     ("atmosphere_verdicts.py --check",
      "python3 data/literature/atmosphere_verdicts.py --check",
-     count_bracketed, 42),
+     count_bracketed, 52),
     ("thermal_cycling_dataset.py --check",
      "python3 data/literature/thermal_cycling_dataset.py --check",
      count_bracketed, 59),

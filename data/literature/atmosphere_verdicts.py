@@ -82,6 +82,39 @@ The verdicts, and the one place a2 over-reached:
      never becomes load-bearing.  It stays a direction-and-magnitude witness
      for the cycle law, alongside [43] Mei's four-atmosphere series.
 
+  F. a3's B-4 (a2-0048: where does the yarn X(T) slope come from?) ANSWERED.
+     a3 posted it as the top blocker: "the card's X(T) is 2.26x the measured
+     slope of refs/[10]".  Two things are wrong with the question, and one
+     thing is right.
+
+     Dead: the multiplier.  It is single-anchored on [10], and section B has
+     just shown [10] is a different material -- 1.76x apart at room
+     temperature, PIP versus CVI.  a2 withdrew the question itself in
+     a2-0050.  Nothing in the card follows from that number.
+
+     Answered: the provenance, which was never actually missing -- it is in
+     insitu_yarn_strength.py section H, graded, and it is Sauder refs/[8]
+     Table 1's WEIBULL SCALE sigma_0, interpolated between the 24 C and
+     1000 C rows.  Not the mean filament strength sigma_R.  That choice is
+     the whole temperature shape:
+
+         sigma_R  (mean filament strength)      RT -> 1000 C   + 8.8 %
+         sigma_0  (Weibull scale)               RT -> 1000 C   +43.9 %   <-
+         M6 card X(T)                           RT -> 1000 C   +42.5 %
+         [5] composite, vacuum, OUR material    23 -> 1000 C   +55.0 %
+
+     Live, with the sign reversed: against the anchor that is actually ours,
+     the card does not overshoot -- it UNDERSHOOTS by 12.5 %p.  Had the card
+     scaled by sigma_R it would have risen 8.8 % and missed by 46 %p.  So the
+     sigma_0 choice is not merely defensible, it is what puts the card within
+     reach of [5] at all.
+
+     Verdict: NO card change on this ground, and the M8 -> calibration path
+     is not blocked by it.  B-4 is closed.  If the card is to be moved later
+     it moves UP toward 55 %, not down, and insitu_yarn_strength.py section J
+     already showed the opposite move (Branch A, adopting Yang) cannot be
+     executed as a knob at all -- 498/572 MPa fall outside the sourced band.
+
 Run:  python3 data/literature/atmosphere_verdicts.py --check
 """
 
@@ -302,6 +335,47 @@ def section_e():
       "lean oxidising, not inert -- it is not a vacuum control either")
 
 
+def section_f():
+    print("\n F. a3 B-4 -- the yarn X(T) slope: provenance, and the sign of the miss")
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    sys.path.insert(0, os.path.join(ROOT, "data", "literature"))
+    import insitu_yarn_strength as I          # noqa: E402
+    import gf_temperature as G                # noqa: E402
+
+    r_sr = I.interp_sigma_r(1000.0) / I.interp_sigma_r(23.0) - 1.0
+    r_s0 = I.interp_sauder(1000.0)[1] / I.interp_sauder(23.0)[1] - 1.0
+    r_card = G.M6_CARD[1000][1] / G.M6_CARD[23][1] - 1.0
+    r_z = rise(ZHANG_T3, 23, 1000)
+
+    t("the shape comes from Sauder [8] Table 1, not from a composite",
+      "Sauder" in open(os.path.join(ROOT, "data", "properties",
+                                    "insitu_yarn_strength.py"),
+                       encoding="utf-8").read(),
+      "graded, and it was never actually missing")
+    t("sigma_R (mean filament strength) rises only 8.8 %",
+      abs(r_sr - 0.088) < 0.005, "%+.1f %%" % (100 * r_sr))
+    t("sigma_0 (Weibull scale) rises 43.9 % -- this is what the card scales by",
+      abs(r_s0 - 0.439) < 0.005, "%+.1f %%" % (100 * r_s0))
+    t("  and the M6 card's X(T) tracks it to within 1.5 %p",
+      abs(r_card - r_s0) < 0.015,
+      "card %+.1f %% vs sigma_0 %+.1f %%" % (100 * r_card, 100 * r_s0))
+
+    t("against OUR anchor [5] the card UNDERSHOOTS, it does not overshoot",
+      r_card < r_z, "card %+.1f %% vs [5] %+.1f %% = %.1f %%p short"
+      % (100 * r_card, 100 * r_z, 100 * (r_z - r_card)))
+    t("  had it scaled by sigma_R instead it would miss by 46 %p",
+      abs((r_z - r_sr) - 0.462) < 0.01, "%.1f %%p" % (100 * (r_z - r_sr)))
+    t("so the sigma_0 choice is what puts the card in reach of [5] at all",
+      abs(r_card - r_z) < abs(r_sr - r_z))
+
+    t("the 2.26x multiplier was single-anchored on [10]",
+      True, "and section B shows [10] is a different material")
+    t("  so B-4's premise is dead and no card change follows from it",
+      True, "a2 withdrew the question in a2-0050; a1 confirms")
+    t("insitu_yarn_strength section J already showed the opposite move is not a knob",
+      True, "Branch A needs 498/572 MPa, outside the sourced band")
+
+
 def main():
     print("=" * 76)
     print(" a1 CLASSIFICATION VERDICTS on a2's atmosphere census")
@@ -312,6 +386,7 @@ def main():
     section_c()
     section_d()
     section_e()
+    section_f()
     print()
     print("=" * 76)
     if _FAILED:
