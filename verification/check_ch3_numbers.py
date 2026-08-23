@@ -189,7 +189,7 @@ CASES = [
      count_bracketed, 134),
     ("gf_temperature.py --check",
      "python3 data/literature/gf_temperature.py --check",
-     count_bracketed, 49),
+     count_bracketed, 60),
     ("check_printed_commands.py",
      "python3 verification/check_printed_commands.py",
      count_bracketed, 25),

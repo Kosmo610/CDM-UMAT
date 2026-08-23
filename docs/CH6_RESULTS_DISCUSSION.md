@@ -329,22 +329,55 @@ Bažant와 Oh[S1]는 재료의 균열대 폭을 $w_c = 3d_a$로 두었다($d_a$�
 > 돌아가야 하며, 본 장은 **한계로 적고 넘어간다.**
 > 판정기: `python3 data/literature/gf_temperature.py --check` §C2–C4
 
-**★ 단, 위 문단의 "실측"은 [10] 하나다 — 두 실측이 서로 다르다 (2026-08-18 추가).**
+**★ 위 문단은 철회한다 — 원문이 앵커를 갈랐다 (2026-08-18, 같은 날).**
 
-1. 본 연구의 검증 표적인 **[5] Zhang Table 3은 같은 구간에서 55.0 % 상승**한다
-   — 카드(42.5 %)보다 **가파르다.** [10]의 18.8 %와는 **2.9배** 차이다.
-2. 따라서 "카드가 2.26배 가파르다"와 "+39 % 비보수"는 **[10]이 옳은 앵커일
-   때만** 성립한다. [5]가 앵커면 카드는 오히려 **완만한 쪽**이다.
-3. 어느 앵커가 옳은가(재료·분위기·시험법)는 출처 판정이며 **이 장이 정할 수
-   없다.** 판정 전까지 본 절은 **두 갈래를 모두 한계로** 적는다:
-   - [10] 앵커 → 잔여강도 과대예측(비보수) 39 %.
-   - [5] 앵커 → 카드가 상승을 12 %p 덜 반영(보수 쪽), 위 문단은 철회.
-4. 갈래별 파급은 미리 계산되어 있다 — [10] 채택 시 얀 카드는 498/572 MPa로
-   **출처 띠보다 83~123 MPa 아래**여야 하므로 knob 이동이 아니라 **띠
-   재소싱**이 필요하고, Zhang 대비는 1.43× → 1.19×로 **개선**되며, 균열대
-   허용성은 $l_e^{max}$가 1.36~1.47배로 **안전해진다.**
-> 판정기: `python3 data/properties/insitu_yarn_strength.py --check` §J,
-> `python3 data/literature/gf_temperature.py --check` §C5
+위 비교의 "실측"은 [10] 하나였다. 본 연구의 검증 표적인 **[5] Zhang은 같은
+구간에서 55.0 % 상승**하여 카드(42.5 %)보다 **가파르다.** 두 실측이 **2.9배**
+갈리므로 어느 쪽이 앵커인지가 판정을 뒤집는다. **그 판정은 두 논문이 각자
+본문에 적어 놓았다.**
+
+| | [5] Zhang | [10] Yang |
+|---|---|---|
+| 시험 분위기 | **진공** | **대기 중** |
+| 시험 온도 | **23 / 500 / 1000 °C** | 300 / 973 / 1273 / 1473 K |
+| 공정 | PIP, 1050 °C | CVI |
+| $X$ 상승 (→1000 °C) | **55.0 %** | 18.8 % |
+
+<details><summary>원문 (클릭)</summary>
+
+[5]: *"the properties of the composites under tensile load were tested at
+three different temperatures **in vacuum**"* / *"The tensile properties of the
+composites were measured **in vacuum** at 23 °C, 500 °C and 1000 °C"*
+
+[10]: *"The uniaxial tensile experiments were performed **in air**"* /
+*"the edges of specimen were **obviously oxidized during heating up** even
+though the SiC coatings were deposited on the surfaces. Meanwhile, **with
+higher test temperature the heating up time is longer and the oxidation
+recession is worse**. **Slight internal erosion** is also observed for samples
+exposed at or beyond **1273 K**"*
+
+</details>
+
+1. **[10]의 시편은 산화되었고, 온도가 높을수록 더 심하다** — 기울기를 정하는
+   바로 그 끝점(1273 K = 1000 °C)에서 가장 심하다.
+2. 산화는 강도를 **깎을 뿐 올리지 못한다.** 따라서 [10]의 18.8 %는
+   손상되지 않은 재료의 상승률에 대한 **하한**이다.
+3. **본 모델은 산화가 없는 한 분위기짜리로 선언되어 있다**(§6.6). 그러므로
+   대기 중 기울기는 이 모델의 표적이 아니다 — **진공 기울기가 표적이다.**
+4. 게다가 **본 모델의 재료는 [5]의 것이다** — RVE가 [5]의 RVC로 만들어졌고
+   덱의 무응력 온도 1050 °C가 [5]의 PIP 공정 온도다. 시험 온도 세 점도 같다.
+
+**결론 — 위 문단의 판정을 뒤집는다.** 카드의 $X(T)$는 "2.26배 가파른" 것이
+아니라 [5] 대비 **12 %p 완만**하다. 따라서 $g_0$의 +39.4 %는 **비보수가
+아니라 보수 쪽**이며, "잔여강도 과대예측"은 **철회**한다. 남는 한계는
+§6.6.2 본문의 것($G_f$ 미측정 → 잔여강도 **상한**) 하나다.
+
+> **[10]을 버리는 것이 아니다.** [10]은 **대기 중 성능의 하한**으로서 여전히
+> 유효하며, 본 모델이 산화를 포함하지 않는다는 §6.6의 선언에 **정량적 근거**를
+> 준다 — 대기 중에서는 1000 °C 강도 상승이 55 %가 아니라 19 %에 그칠 수 있다.
+> 이것은 적용범위 진술이지 카드 결함이 아니다.
+> 판정기: `python3 data/literature/gf_temperature.py --check` §C5–C6,
+> `python3 data/properties/insitu_yarn_strength.py --check` §J
 
 ## 6.7 소결 (골격)
 
