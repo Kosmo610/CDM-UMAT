@@ -712,6 +712,46 @@ Yan 등[35]은 C/SiC의 면내 전단강도(IPSS)를 293–1873 K에서 측정�
 > 1273 K가 아니라 1323 K 근처에 와야 한다.** 이는 우연의 일치로 설명할 수 없는
 > 정량적 예측이며, 검증의 강도를 크게 높인다.
 
+#### 2.6.3-a 이 상승은 **진공에서 잰 것이다** — 대기 중에서는 2/3가 사라진다
+
+앞 절의 기구(제조온도에 가까워질수록 TRS가 풀려 강도가 오른다)를 뒷받침하는
+데이터가 **모두 진공 시험**이라는 점을 여기서 못박는다. 산화가 없는 조건이기
+때문에 TRS 완화 효과만 깨끗하게 드러난 것이다.
+
+| 출처 | 물성 | 분위기 | 23 °C → 1000 °C 상승 |
+|---|---|---|---|
+| [35] Yan | 면내 전단강도 | **진공** | +38.9 % (1273 K 피크) |
+| [5] Zhang | 인장강도 (본 연구 보정 표적) | **진공** | **+55.0 %** |
+| **[10] Yang** | 인장강도 | **대기 중** | **+18.8 %** |
+
+**[10]은 같은 2D C/SiC를 대기 중에서 쟀고, 시편이 산화되었다고 본문에 명시한다**
+— 그리고 **온도가 높을수록 더 심하게** 산화되었다고 적는다. 즉 기울기를 정하는
+끝점이 가장 크게 손상된 점이다.
+
+<details><summary>원문 (클릭)</summary>
+
+*"The uniaxial tensile experiments were performed **in air**"* /
+*"the edges of specimen were **obviously oxidized during heating up** even
+though the SiC coatings were deposited on the surfaces. Meanwhile, **with
+higher test temperature the heating up time is longer and the oxidation
+recession is worse**. **Slight internal erosion** is also observed for samples
+exposed at or beyond **1273 K**"*
+
+</details>
+
+1. 산화는 강도를 **깎을 뿐 올리지 못하므로**, [10]의 18.8 %는 손상되지 않은
+   재료 상승률의 **하한**이다. 두 값의 모순이 아니라 **같은 재료의 두 조건**이다.
+2. 따라서 [10]의 역할은 **인장 물성 온도의존의 주 앵커가 아니라
+   「대기 중 성능의 하한」**이다. 본 연구의 카드는 산화를 담지 않으므로
+   기준선은 진공([5])이어야 한다.
+3. 그 대가는 **고온 강도 이득의 약 2/3**다(55.0 % → 18.8 %). 이것이 제6장 §6.6의
+   「한 분위기짜리 모델」 선언에 붙는 정량 근거가 된다.
+
+> **본 연구의 두 절반이 서로 다른 분위기에 묶여 있다는 뜻이기도 하다** —
+> 단조 카드는 진공([5]), 사이클 손상 법칙은 공기([2]·[3]·[65]). 이는 결함이
+> 아니라 구조다: **기준선은 손상되지 않은 재료, 열화는 환경 법칙이 얹는다.**
+> 상세와 판정기는 제6장 §6.6-0.
+
 ---
 
 ## 2.7 다중스케일 균질화
@@ -994,7 +1034,7 @@ Hashin / Tsai–Wu / D-criterion을 병렬 평가한다.
 | [07] | **C. Pradère, C. Sauder**, *Transverse and longitudinal coefficient of thermal expansion of carbon fibers at high temperatures (300–2500 K)*, **Carbon 46 (2008) 1874–1884**, doi:`10.1016/j.carbon.2008.07.035` — 제3·4장 섬유 CTE |
 | [08] | **C. Sauder, J. Lamon, R. Pailler**, *Thermomechanical properties of carbon fibres at high temperatures (up to 2000 °C)*, **Compos. Sci. Technol. 62 (2002) 499–504**, PII `S0266-3538(01)00140-3` (DOI 미확인) — 제3·4장 섬유 $E(T)$·강도 비율, 스트랜드 대 단섬유 구분 |
 | [09] | C. Pradère, J.-C. Batsale, J.-M. Goyhénèche, R. Pailler, S. Dilhaire, *Thermal properties of carbon fibers at very high temperature*, **Carbon 47 (2009) 737–743** |
-| **[10]** | **C.-P. Yang, L. Zhang, B. Wang, T. Huang, G.-Q. Jiao**, *Tensile behavior of 2D-C/SiC composites at elevated temperatures: Experiment and modeling*, **J. Eur. Ceram. Soc. 37 (2017) 1281–1290** — 한 재료·한 시험 시리즈·네 온도(300/973/1273/1473 K)의 PLS·모듈러스·강도·파괴변형률(Table 1). 인장 물성 온도 의존의 **주 앵커**이자 유일하게 산포(±)를 싣는 모듈러스 출처 — 제6장 허용치(1 %/3 %)의 근거. 서지는 보유 원문 1면에서 전사(2026-08-06) |
+| **[10]** | **C.-P. Yang, L. Zhang, B. Wang, T. Huang, G.-Q. Jiao**, *Tensile behavior of 2D-C/SiC composites at elevated temperatures: Experiment and modeling*, **J. Eur. Ceram. Soc. 37 (2017) 1281–1290** — 한 재료·한 시험 시리즈·네 온도(300/973/1273/1473 K)의 PLS·모듈러스·강도·파괴변형률(Table 1). **대기 중 성능의 하한** — 같은 2D C/SiC를 **대기 중**에서 쟀고 시편 산화를 본문에 명시하므로, 본 연구(산화 없음)의 기준선 앵커는 [5]이고 [10]은 분위기 대가를 재는 자다(§2.6.3-a). 유일하게 산포(±)를 싣는 모듈러스 출처 — 제6장 허용치(1 %/3 %)의 근거. 서지는 보유 원문 1면에서 전사(2026-08-06) |
 | [13] | **Y. Katoh, T. Nozawa, L. L. Snead, T. Hinoki, A. Kohyama**, *Property tailorability for advanced CVI silicon carbide composites for fusion*, **Fusion Eng. Des. 81 (2006) 937–944**, doi:`10.1016/j.fusengdes.2005.08.045` — 제4장 $\bar k$ 대조 |
 | [15] | S. Zhang, D. Zhang, J. Zhou, F. Du, K. Guan, Z. Guan, W. J. Cantwell, *Quantification of thermal residual stresses and their effects on the mechanical behavior of 3D C/SiC composites*, **Compos. Part A 207 (2026) 109796** |
 | [17] | P. Zhang, L. Zhu, Y. Tong, Y. Li, Y. Xing, H. Lan, Y. Sun, X. Liang, *Revealing thermal shock behaviors and damage mechanism of 3D needled C/C–SiC composites based on multi-scale analysis*, **J. Mater. Res. Technol. 29 (2024) 2016–2034** |
