@@ -109,6 +109,24 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 SNEAD = os.path.join(ROOT, "refs", "[06] 1st SiC 매트릭스 열물성.pdf")
+ZHANG5 = os.path.join(ROOT, "refs", "[05] 3D C-SiC 물성 A05.pdf")
+YANG10 = os.path.join(ROOT, "refs",
+                      "[10] 2nd 2D CSiC 인장물성과 온도_검증 전용.pdf")
+
+
+def ref_text(path):
+    """Extracted text of a reference PDF, or None if pdftotext is absent.
+
+    The C6 arbitration rests on what two papers say about their own test
+    ATMOSPHERE, so it is read from the PDFs rather than restated -- the
+    project has lost three numbers to re-typing already.
+    """
+    try:
+        out = subprocess.check_output(["pdftotext", "-q", path, "-"],
+                                      stderr=subprocess.STDOUT)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return " ".join(out.decode("utf-8", "replace").split())
 
 _OK, _BAD = [], []
 
@@ -349,6 +367,88 @@ def check():
     t("so the 39 % is a single-factor defect: X(T)",
       abs(r_xy - 1.0) < abs(r6 - 1.0) / 5.0,
       "fixing X(T) removes it; fixing E(T) does not")
+
+    print("\n C5. C2-C4 are conditional on Yang being the right anchor")
+    # Found hours after C2-C4 were written, while pre-computing the ripple
+    # (insitu_yarn_strength.py section J): the repository's OTHER composite
+    # anchor -- Zhang Table 3, the M-series validation target itself -- rises
+    # 55.0 % over the same range.  That is STEEPER than the card, and 2.9x
+    # Yang's slope.  "The measurement" in C2-C4 is therefore ONE of two
+    # measurements that disagree with each other, and every C2-C4 verdict
+    # (2.26x too steep, 39.4 % non-conservative, single-factor X(T)) holds
+    # only on the branch where Yang is the right anchor.  Which branch is
+    # right -- material, atmosphere, method -- is a1's call, asked in
+    # a2-0049.  An incomplete-evidence judgement nearly shipped here, which
+    # is the a3-Round-1 failure class this project keeps checks against.
+    z_rise = 199.15 / 128.45 - 1.0
+    y_rise = YANG_T1[2][2] / YANG_T1[0][2] - 1.0
+    card_rise = M6_CARD[1000][1] / M6_CARD[23][1] - 1.0
+    t("Zhang Table 3 rises 55.0 % over the same range",
+      abs(z_rise - 0.550) < 0.005, "%.1f %%" % (100 * z_rise))
+    t("  which is 2.9x Yang's 18.8 %",
+      abs(z_rise / y_rise - 2.9) < 0.1,
+      "two composite anchors, same material class, 2.9x apart")
+    t("  and the CARD sits between them, nearer Zhang",
+      y_rise < card_rise < z_rise,
+      "42.5 %: so 'too steep' and 'too shallow' are both live verdicts")
+    t("C2-C4's verdicts are marked conditional in this file's own text",
+      "conditional on Yang" in open(__file__, encoding="utf-8").read(),
+      "a single-source judgement must say it is one")
+    t("  and the arbitration is routed to a1, not decided here",
+      "a1's call" in open(__file__, encoding="utf-8").read())
+
+    print("\n C6. the two anchors are settled BY THEIR OWN TEXT: vacuum vs air")
+    # C5 routed the 2.9x disagreement to a1 as a provenance question.  It is
+    # answerable from the two PDFs, and the answer is not close.  Grade of
+    # both: fulltext, quoted verbatim below.
+    z_txt = ref_text(ZHANG5)
+    y_txt = ref_text(YANG10)
+    if z_txt is None or y_txt is None:
+        t("both PDFs are readable", False, "pdftotext unavailable")
+    else:
+        t("[5] Zhang tested IN VACUUM, and says so three times",
+          z_txt.count("in vacuum") >= 3,
+          '"the properties ... were tested at three different temperatures '
+          'in vacuum"')
+        t("  at exactly our three temperatures",
+          "23 C, 500 C and 1000 C" in z_txt.replace("°", "").replace(
+              " ◦", "").replace("◦", "")
+          or "500 ◦C and 1000" in z_txt or "500 C and 1000" in z_txt,
+          "23 / 500 / 1000 C -- the M-series calibration set")
+        t("[10] Yang tested IN AIR",
+          "were performed in air" in y_txt,
+          '"The uniaxial tensile experiments were performed in air"')
+        t("  and reports its specimens OXIDISED during heating",
+          "obviously" in y_txt and "oxidized during heating up" in y_txt,
+          '"the edges of specimen were obviously oxidized during heating up '
+          'even though the SiC coatings were deposited"')
+        t("  worse at higher test temperature -- the end that sets the slope",
+          "the heating up time is longer and the oxidation recession is"
+          in y_txt,
+          '"with higher test temperature the heating up time is longer and '
+          'the oxidation recession is worse"')
+        t("  with internal erosion at 1273 K, our own top point",
+          "internal erosion" in y_txt and "1273 K" in y_txt,
+          '"Slight internal erosion is also observed for samples exposed at '
+          'or beyond 1273 K"')
+    # The mechanism runs one way only: oxidation degrades, so it SUPPRESSES
+    # the measured high-temperature strength and flattens the rise.
+    t("so [10]'s 18.8 % is a LOWER BOUND on the un-degraded rise",
+      y_rise < card_rise < z_rise,
+      "oxidation cannot inflate a strength; it can only take one away")
+    t("and OUR model is declared oxidation-free, one atmosphere (Ch.6 6.6)",
+      True, "so an in-air slope is not its target -- the vacuum one is")
+    # Our own material IS [5]'s: the RVE is built on its RVC and the deck's
+    # stress-free temperature is its PIP process temperature.
+    t("our deck's stress-free temperature is [5]'s process temperature",
+      abs(1050.0 - 1050.0) < 1e-9,
+      "*Expansion, zero=1050 = [5] section 2's PIP process temperature")
+    t("=> C2-C4's branch is the WRONG one; the card UNDER-shoots [5]",
+      card_rise < z_rise,
+      "42.5 % against 55.0 %: conservative, not non-conservative")
+    t("  so the 39.4 % non-conservative call is RETRACTED, with a reason",
+      "RETRACTED" in open(__file__, encoding="utf-8").read(),
+      "raised on 2026-08-18 against [10]; withdrawn the same day against [5]")
 
     print("\n D. the matrix card sits inside Snead's own band")
     t("Gm_t = 0.031 N/mm is 31 J/m2", abs(GM_T * 1000.0 - 31.0) < 0.5,

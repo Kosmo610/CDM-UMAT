@@ -655,6 +655,7 @@ python3 data/literature/cte_rve_verdict.py --check    # RVE 실물 CTE 대 절�
 python3 data/literature/modulus_definition.py --check  # 대조 모듈러스 정의 (접선 vs 할선)
 python3 data/literature/crack_band_simplex.py --check   # refs/[47]의 2D 사면체 배수 (a2 kappa 검증)
 python3 data/literature/thermal_cycling_dataset.py --check # 반복 열충격 전 데이터 + 심각도 역설
+python3 data/literature/atmosphere_census.py --check   # 하중지지 출처 전수의 시험 분위기 (인용 고정)
 python3 data/literature/cycle_jump_provenance.py --check # cycle jump 기준 출처 [57]/[58]
 python3 data/literature/digitize_ref28_fig17.py --check # refs/[28] Fig.17 TRS (Table 1로 검산)
 python3 data/literature/cte_r11_envelope.py --check    # refs/[11] 복합재 CTE가 판정선이 되는지

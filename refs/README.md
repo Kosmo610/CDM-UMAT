@@ -40,31 +40,48 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 
 ## 1. 색인
 
+> **「분위기」 열은 시험 분위기다** (2026-08-18 신설). 정본은
+> `data/literature/atmosphere_census.py` 이고 이 열은 그 **렌더링**이다 —
+> 검사(§F)가 둘이 어긋나면 죽는다. 읽는 법:
+>
+> | 표기 | 뜻 |
+> |---|---|
+> | 진공 · 공기 · 아르곤 흐름 … | **원문에 적혀 있다** (인용문이 census에 고정) |
+> | *(추론)* | 원문 미기재이나 물리적으로 강제됨 — 추론임을 밝힌다 |
+> | **미기재** | 원문이 말하지 않는다. **추측하지 않았다** |
+> | *(상온 전용)* | 노(爐)가 없으므로 산화 문제 자체가 없다 |
+> | 미조사 | 이 조사가 다루지 않은 행. **빈칸이 아니라 미조사다** |
+>
+> **왜 필요한가.** 본 모델은 산화를 담지 않으므로 **진공 출처만이 기준선
+> 앵커가 될 수 있다.** 실제로 [5]가 진공이라는 사실이 기록되지 않은 채
+> 남아 있었고, 그 때문에 대기 중 출처([10])와 2.9배 어긋난 것을 카드 결함으로
+> **잘못 판정할 뻔했다.** 상세는 제6장 §6.6-0·§6.6.2-a.
+
 ### 입력 데이터 (구성재 → UMAT 카드) — 추출 완료
 
-| # | 파일 | 서지 | 뽑은 것 | 상태 |
-|---|---|---|---|---|
-| 06 | `[06] 1st SiC 매트릭스 열물성.pdf` | **Snead, Nozawa, Katoh, Byun, Kondo, Petti**, *Handbook of SiC properties for fuel performance modeling*, **J. Nucl. Mater. 371 (2007) 329–377** | Eq.10 `Cp(T)`, Eq.12 `k(T)`, Eq.16 `α(T)`, Eq.18 `E(T)`, ρ=3.21 g/cm³ | ✅ 코드화 + 검산 |
-| 07 | `[07] 1st T300 탄소섬유 열팽창 물성.pdf` | **Pradère & Sauder**, *Transverse and longitudinal CTE of carbon fibers at high temperatures (300–2500 K)*, **Carbon 46 (2008) 1874–1884** | Table 3/4 열변형률 다항식 (PANEX 33) | ✅ 코드화 + 검산 |
-| 08 | `[08] 1st T300 탄소섬유 고온 역학 물성.pdf` | **Sauder, Lamon, Pailler**, *Thermomechanical properties of carbon fibres at high temperatures (up to 2000 °C)*, **Compos. Sci. Technol. 62 (2002) 499–504** | Table 1: `E/E₀(T)`, `σ_R(T)` (PAN계) | ✅ 코드화 |
-| 09 | `[09] 1st T300 탄소섬유 열전도비열 물성.pdf` | **Pradère, Batsale, Goyhénèche, Pailler, Dilhaire**, *Thermal properties of carbon fibers at very high temperature*, **Carbon 47 (2009) 737–743** | Table 1: ρ=1.75 g/cm³, k∥=75 W/(m·K) @1500 K · Fig. 5a `Cp(T)` · Fig. 5b 확산도 | ✅ 코드화 + 검산 2종. **단 측정범위 800–2000 K, 횡방향 k 미측정** (아래 §2-7,8) |
+| # | 파일 | 서지 | 뽑은 것 | 상태 | 분위기 |
+|---|---|---|---|---|---|
+| 06 | `[06] 1st SiC 매트릭스 열물성.pdf` | **Snead, Nozawa, Katoh, Byun, Kondo, Petti**, *Handbook of SiC properties for fuel performance modeling*, **J. Nucl. Mater. 371 (2007) 329–377** | Eq.10 `Cp(T)`, Eq.12 `k(T)`, Eq.16 `α(T)`, Eq.18 `E(T)`, ρ=3.21 g/cm³ | ✅ 코드화 + 검산 | 미조사 |
+| 07 | `[07] 1st T300 탄소섬유 열팽창 물성.pdf` | **Pradère & Sauder**, *Transverse and longitudinal CTE of carbon fibers at high temperatures (300–2500 K)*, **Carbon 46 (2008) 1874–1884** | Table 3/4 열변형률 다항식 (PANEX 33) | ✅ 코드화 + 검산 | 비산화 *(추론)* |
+| 08 | `[08] 1st T300 탄소섬유 고온 역학 물성.pdf` | **Sauder, Lamon, Pailler**, *Thermomechanical properties of carbon fibres at high temperatures (up to 2000 °C)*, **Compos. Sci. Technol. 62 (2002) 499–504** | Table 1: `E/E₀(T)`, `σ_R(T)` (PAN계) | ✅ 코드화 | 진공 |
+| 09 | `[09] 1st T300 탄소섬유 열전도비열 물성.pdf` | **Pradère, Batsale, Goyhénèche, Pailler, Dilhaire**, *Thermal properties of carbon fibers at very high temperature*, **Carbon 47 (2009) 737–743** | Table 1: ρ=1.75 g/cm³, k∥=75 W/(m·K) @1500 K · Fig. 5a `Cp(T)` · Fig. 5b 확산도 | ✅ 코드화 + 검산 2종. **단 측정범위 800–2000 K, 횡방향 k 미측정** (아래 §2-7,8) | 비산화 *(추론)* |
 
 ### 검증 데이터 (복합재 → 모델 출력과 대조, **입력 금지**)
 
-| # | 파일 | 서지 | 쓸 곳 |
-|---|---|---|---|
-| 10 | `[10] 2nd 2D CSiC 인장물성과 온도_검증 전용.pdf` | **Yang, Zhang, Wang, Huang, Jiao**, *Tensile behavior of 2D-C/SiC composites at elevated temperatures: Experiment and modeling*, **J. Eur. Ceram. Soc. 37 (2017) 1281–1290** | Ch.6.1 — E(T), σu(T). 초록이 TRS 지배를 명시 |
-| 11 | `[11] 2nd 2D CSiC 열팽창과 온도_검증 전용.pdf` | **Q. Zhang, Cheng, L. Zhang, Xu**, *Thermal expansion behavior of C/SiC from RT to 1400 °C*, **Mater. Lett. 60 (2006) 3245–3247** | Ch.4.3 — 균질화 ᾱ(T) 대조 |
-| 12 | `[12] 2nd CSiC 열전도율_검증 전용.pdf` | **Cao, Liu, Zhang, Wang, Chen**, *Enhancing thermal conductivity of C/SiC composites containing heat transfer channels*, **J. Eur. Ceram. Soc. 40 (2020) 3520–3527** | Ch.4.3 — k̄ 대조 |
-| 13 | `[13] 2nd CSiC 열전도율_검증 전용.pdf` | **Katoh, Nozawa, Snead, Hinoki, Kohyama**, *Property tailorability for advanced CVI SiC composites for fusion*, **Fusion Eng. Des. 81 (2006) 937–944** | Ch.4.3 — 축방향 tow가 k를 지배한다는 결론 |
-| 14 | `[14] 2nd 보조_검증전용.pdf` | **Longbiao Li**, *Modeling Temperature-Dependent Vibration Damping in C/SiC*, **Materials (2020)** | 보조 |
+| # | 파일 | 서지 | 쓸 곳 | 분위기 |
+|---|---|---|---|---|
+| 10 | `[10] 2nd 2D CSiC 인장물성과 온도_검증 전용.pdf` | **Yang, Zhang, Wang, Huang, Jiao**, *Tensile behavior of 2D-C/SiC composites at elevated temperatures: Experiment and modeling*, **J. Eur. Ceram. Soc. 37 (2017) 1281–1290** | Ch.6.1 — E(T), σu(T). 초록이 TRS 지배를 명시 | 공기 |
+| 11 | `[11] 2nd 2D CSiC 열팽창과 온도_검증 전용.pdf` | **Q. Zhang, Cheng, L. Zhang, Xu**, *Thermal expansion behavior of C/SiC from RT to 1400 °C*, **Mater. Lett. 60 (2006) 3245–3247** | Ch.4.3 — 균질화 ᾱ(T) 대조 | 미조사 |
+| 12 | `[12] 2nd CSiC 열전도율_검증 전용.pdf` | **Cao, Liu, Zhang, Wang, Chen**, *Enhancing thermal conductivity of C/SiC composites containing heat transfer channels*, **J. Eur. Ceram. Soc. 40 (2020) 3520–3527** | Ch.4.3 — k̄ 대조 | **미기재** |
+| 13 | `[13] 2nd CSiC 열전도율_검증 전용.pdf` | **Katoh, Nozawa, Snead, Hinoki, Kohyama**, *Property tailorability for advanced CVI SiC composites for fusion*, **Fusion Eng. Des. 81 (2006) 937–944** | Ch.4.3 — 축방향 tow가 k를 지배한다는 결론 | 미조사 |
+| 14 | `[14] 2nd 보조_검증전용.pdf` | **Longbiao Li**, *Modeling Temperature-Dependent Vibration Damping in C/SiC*, **Materials (2020)** | 보조 | 미조사 |
 
 ### 반복 열충격 검증 — ★ 여기에 큰 수확이 있었습니다
 
-| # | 파일 | 서지 | 내용 |
-|---|---|---|---|
-| 02 | `[02] yin2002 S.pdf` | **Yin, Cheng, Zhang, Xu**, *Thermal shock behavior of 3-dimensional C/SiC composite*, **Carbon 40 (2002) 905–910** | **3D** C/SiC, CVI, 공기 급랭 1300→300 °C. 100회 후 잔여 굽힘강도 83 %, 임계 N≈50, 이후 균열밀도 포화 |
-| 03 | `[03] zhang2012 S.pdf` | **C. Zhang, Wang, Wang, Liu, Han, Qiao, Guo**, *Thermal Shock Properties of a 2D-C/SiC Composite Prepared by CVI*, **JMEPEG 22 (2013) 1680–1687** | **2D** C/SiC, 900↔300 °C 반복. **20 사이클까지 인장강도 유지, 그러나 탄성계수는 사이클에 따라 점진 감소** |
+| # | 파일 | 서지 | 내용 | 분위기 |
+|---|---|---|---|---|
+| 02 | `[02] yin2002 S.pdf` | **Yin, Cheng, Zhang, Xu**, *Thermal shock behavior of 3-dimensional C/SiC composite*, **Carbon 40 (2002) 905–910** | **3D** C/SiC, CVI, 공기 급랭 1300→300 °C. 100회 후 잔여 굽힘강도 83 %, 임계 N≈50, 이후 균열밀도 포화 | 연소가스 + 공기 |
+| 03 | `[03] zhang2012 S.pdf` | **C. Zhang, Wang, Wang, Liu, Han, Qiao, Guo**, *Thermal Shock Properties of a 2D-C/SiC Composite Prepared by CVI*, **JMEPEG 22 (2013) 1680–1687** | **2D** C/SiC, 900↔300 °C 반복. **20 사이클까지 인장강도 유지, 그러나 탄성계수는 사이클에 따라 점진 감소** | 공기 |
 
 > **[03]이 [02]보다 우리 논문에 더 잘 맞습니다.** 이유: (1) **2D** — 우리 아키텍처와 동일,
 > (2) **잔여 탄성계수 vs 사이클 수** — 우리 모델의 주 출력, (3) 굽힘이 아닌 **인장**.
@@ -160,11 +177,11 @@ python3 abaqus/build_temperature_tables.py             # -> UMAT 카드 블록
 
 ### 노벨티 포지셔닝 (1차 입고분)
 
-| # | 파일 | 서지 | 우리와의 차이 |
-|---|---|---|---|
+| # | 파일 | 서지 | 우리와의 차이 | 분위기 |
+|---|---|---|---|---|
 | 01a | `[01] A continuum damage mechanics model...pdf` | **Yang & Liu**, *A CDM model for 2-D woven ox/ox CMC under cyclic thermal shocks*, **Ceram. Int. 46 (2020) 6029–6037** | 산화물/산화물 CMC, 단일 스케일 |
 | 01b | `[01] yang2020 S.pdf` | **Yang & Liu**, *A continuum fatigue damage model for the cyclic thermal shocked CMC*, **Int. J. Fatigue 134 (2020) 105507** | 열충격은 "전처리"이고 손상은 기계적 피로로 부여. 다중스케일 아님, TRS 비교 없음 |
-| 04 | `[04] NiU 2022 A.pdf` | **Niu, Chen, Li, Xiao, Yang, Tong, Almeida**, *A damage constitutive model for the nonlinear mechanical behavior of C/SiC during mechanical cyclical loading/unloading*, **Compos. Part A 161 (2022) 107072** | **기계적** 반복하중, 열충격 아님 |
+| 04 | `[04] NiU 2022 A.pdf` | **Niu, Chen, Li, Xiao, Yang, Tong, Almeida**, *A damage constitutive model for the nonlinear mechanical behavior of C/SiC during mechanical cyclical loading/unloading*, **Compos. Part A 161 (2022) 107072** | **기계적** 반복하중, 열충격 아님 | 미조사 |
 | 05a | `[05] 3D C-SiC 물성 A05.pdf` | **Zhang, Ge, Zhang, He, Wu, Liang**, **Ceram. Int. 48 (2022) 3109–3124** | 본 연구의 기반. 단조 인장 1회, 거시 스케일 없음 |
 | 05b | `[05] skinner2021 A.pdf` | **Skinner & Chattopadhyay**, *Multiscale temperature-dependent CMC damage model with thermal residual stresses and manufacturing-induced damage*, **Compos. Struct. 268 (2021) 114006** | ⚠️ **우리 노벨티에 가장 가까움.** 다중스케일 + 온도의존 + TRS + 제조유발손상. **반복 열충격과 TRS 처리방식 비교가 없다**는 점이 우리 차별점 — 반드시 정독하고 §3.1 표에 넣으세요 |
 

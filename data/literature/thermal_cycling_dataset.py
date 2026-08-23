@@ -445,6 +445,61 @@ def check():
     t("and refs/[15] and refs/[03] are shown not to conflict",
       "both are right" in " ".join(__doc__.split()))
 
+    print("\n H. the model is calibrated in TWO atmospheres, and says so")
+    # Ch.6 6.6 said "fix the targets to the air family" for years.  That is
+    # true of the cycling half and false of the monotonic half: the strength
+    # and modulus card is calibrated against refs/[5] Zhang Table 3, which
+    # that paper states was measured IN VACUUM.  The split is not a defect --
+    # a constitutive card should carry PRISTINE properties and let the cycle
+    # law add environmental degradation on top -- but it was nowhere written
+    # down, so 6.6 read as if Ch.4 had broken its own rule.
+    z5 = os.path.join(ROOT, "refs", "[05] 3D C-SiC 물성 A05.pdf")
+    y10 = os.path.join(ROOT, "refs",
+                       "[10] 2nd 2D CSiC 인장물성과 온도_검증 전용.pdf")
+
+    def txt(p):
+        try:
+            return " ".join(subprocess.check_output(
+                ["pdftotext", "-q", p, "-"],
+                stderr=subprocess.STDOUT).decode("utf-8", "replace").split())
+        except (OSError, subprocess.CalledProcessError):
+            return None
+    z, y = txt(z5), txt(y10)
+    if z is None or y is None:
+        t("both anchor PDFs are readable", False, "pdftotext unavailable")
+    else:
+        t("the MONOTONIC anchor refs/[5] was measured in vacuum",
+          "in vacuum" in z, "the strength/modulus card's own source")
+        t("the MONOTONIC air counterpart refs/[10] was measured in air",
+          "were performed in air" in y, "same 2D C/SiC, oxidising")
+    t("every CYCLING target in this table is air",
+      all(d[4] == "air" for d in DATA if d[0] in ("[02]", "[03]", "[65]")),
+      "%d rows" % sum(1 for d in DATA if d[0] in ("[02]", "[03]", "[65]")))
+    # refs/[43] is not a target at all -- it is the SENSITIVITY source, and
+    # it earns that by holding the material and the cycle fixed while varying
+    # only the atmosphere.  Four of them, which is where the 9.98 pp comes
+    # from.  Asserting it carries one atmosphere was my error and would have
+    # hidden the very structure this section is about.
+    a43 = sorted(d[4] for d in DATA if d[0] == "[43]")
+    t("  refs/[43] is the sensitivity source: ONE material, FOUR atmospheres",
+      len(a43) == 4 and "argon" in a43 and "wet O2" in a43,
+      ", ".join(a43))
+    r43 = dict((d[4], d[6]) for d in DATA if d[0] == "[43]")
+    t("  and its spread is the 9.98 pp Ch.6 6.6 opens with",
+      abs((r43["argon"] - r43["wet O2"]) - 9.98) < 0.01,
+      "%.2f - %.2f = %.2f pp, argon least damaging"
+      % (r43["argon"], r43["wet O2"], r43["argon"] - r43["wet O2"]))
+    ch6 = open(os.path.join(ROOT, "docs", "CH6_RESULTS_DISCUSSION.md"),
+               encoding="utf-8").read()
+    t("Ch.6 6.6 now splits the two halves instead of claiming one family",
+      "모델의 두 절반에서 서로 다르다" in ch6,
+      "vacuum baseline + air degradation, stated as a structure")
+    t("  and says the layers STACK rather than overlap",
+      "같은 손상을 두 번 세지 않는다" in ch6)
+    t("  with the cost of the single-atmosphere declaration quantified",
+      "55.0 %" in ch6 and "18.8 %" in ch6,
+      "in air about two thirds of the high-temperature gain is lost")
+
 
 def main():
     report()
