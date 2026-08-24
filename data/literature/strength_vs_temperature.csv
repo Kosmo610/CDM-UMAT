@@ -1,0 +1,54 @@
+# SiC and carbon-fibre STRENGTH vs TEMPERATURE -- the last constituent gap.
+#
+# READ data/literature/README.md.  `role`:
+#   input       may go on a UMAT card
+#   validation  a COMPOSITE measurement the model must PREDICT
+#
+# The quantity is STRENGTH RETENTION = strength(T) / strength(room T), which
+# is exactly the fX / fY / fS multiplier of the V3_0 temperature table.  No
+# conversion is involved, which is why this closes the gap cleanly.
+#
+# Units: retention dimensionless, T in K.
+source_key,material,quantity,T_K,value,role,confidence,note
+# --------------------------------------------------------------------------
+# [06] Snead et al., J. Nucl. Mater. 371 (2007) 329-377, Fig. 15.
+#      "Tensile, flexural and ring compression strengths of SiC at elevated
+#      temperatures.  The relative strength is defined as high-temperature
+#      strength normalized by room-temperature strength."
+#      Three trend curves are drawn through the scatter, one per process
+#      route.  Digitized by tracing the curves; +-0.02 reading scatter.
+# --------------------------------------------------------------------------
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,300,1.000,input,digitized,"Fig. 15 solid trend curve. THE BASELINE for our PIP matrix"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,700,1.001,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,900,1.005,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1000,1.010,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1100,1.019,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1200,1.045,input,digitized,"Fig. 15 solid trend curve; markers overlap the line here, +-0.02"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1300,1.065,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1400,1.111,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1500,1.192,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1600,1.242,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1700,1.260,input,digitized,"Fig. 15 solid trend curve"
+SNEAD2007,SiC sintered/CVD/fluidized bed,strength_retention,1800,1.267,input,digitized,"Fig. 15 solid trend curve; plateau"
+SNEAD2007,SiC hot-pressed/HIP,strength_retention,300,1.000,input,digitized,"Fig. 15 dashed trend curve. PESSIMISTIC BOUND -- degrades because of oxide grain-boundary phases from the sintering aids"
+SNEAD2007,SiC hot-pressed/HIP,strength_retention,900,0.962,input,digitized,"Fig. 15 dashed trend curve"
+SNEAD2007,SiC hot-pressed/HIP,strength_retention,1100,0.946,input,digitized,"Fig. 15 dashed trend curve"
+SNEAD2007,SiC hot-pressed/HIP,strength_retention,1200,0.930,input,digitized,"Fig. 15 dashed trend curve"
+SNEAD2007,SiC hot-pressed/HIP,strength_retention,1300,0.900,input,digitized,"Fig. 15 dashed trend curve"
+SNEAD2007,SiC hot-pressed/HIP,strength_retention,1400,0.860,input,digitized,"Fig. 15 dashed trend curve"
+SNEAD2007,SiC reaction-bonded/CVD+excess Si,strength_retention,1200,1.346,input,digitized,"Fig. 15 dash-dot trend curve. EXCLUDED from our card on chemistry: it fails through free silicon, which a PIP matrix does not contain. Kept only to show the spread"
+SNEAD2007,SiC reaction-bonded/CVD+excess Si,strength_retention,1700,0.200,input,digitized,"Fig. 15 dash-dot trend curve: COLLAPSE. This is why no single multiplier is defensible above ~1400 K"
+SNEAD2007,SiC,weibull_modulus_T_dependence,,0.0,input,fulltext,"Section 2.7.4.1: 'no systematic temperature-dependence has yet been determined. Therefore, a constant Weibull modulus is assumed over the wide temperature range of interest.' We do the same"
+# --------------------------------------------------------------------------
+# [08] Sauder, Lamon, Pailler, Compos. Sci. Technol. 62 (2002) 499, Table 1.
+#      Already implemented in eval_correlations.py (SAUDER_SIG); listed here
+#      so the fibre and matrix gaps can be seen side by side.
+# --------------------------------------------------------------------------
+SAUDER2002,T300-class PAN carbon fibre,strength_retention,297,1.000,input,fulltext,"Table 1 sigma_R = 2107 MPa at 24 C"
+SAUDER2002,T300-class PAN carbon fibre,strength_retention,1273,1.088,input,fulltext,"2292 MPa at 1000 C -- the fibre GAINS strength too"
+SAUDER2002,T300-class PAN carbon fibre,strength_retention,1473,1.140,input,fulltext,"2401 MPa at 1200 C"
+SAUDER2002,T300-class PAN carbon fibre,strength_retention,2273,1.114,input,fulltext,"2348 MPa at 2000 C"
+# --------------------------------------------------------------------------
+# What is still NOT sourced, stated so it is not forgotten
+# --------------------------------------------------------------------------
+NONE,SiC matrix,shear_strength_retention,,,input,secondary,"NO SOURCE. The matrix law uses a von Mises yield surface so it has no independent shear strength, but the YARN card's fS multiplier is still held at 1.0 with no constituent source. refs/[35] measures the COMPOSITE in-plane shear strength rising 39 % to 1273 K, but that is a validation target -- it must be PREDICTED from TRS relaxation, not fed in"

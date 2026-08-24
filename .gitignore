@@ -22,4 +22,19 @@ __pycache__/
 *.pac
 *.sel
 *_ss.csv
+# ...except this one.  m6_calibration.py and extract_pls.py both read it, so
+# a clean checkout that does not have it reports a DIFFERENT number of checks
+# than the workstation does -- and a check count that depends on the machine
+# is not a check.  It is a verification input, not an analysis leftover.
+!data/properties/M5_c26k_T1000_ss.csv
+# ...and these three, for the same reason and one more.  a1 asked for them so
+# figure 4.6 (b)(c) can be a real curve instead of a verdict bar (a1-0039).
+# They then became a verification input too: m6_report and m6_verdict fit the
+# settled tangent on them and assert that the rejected fractional definition
+# drifts +9.1 % under truncation.  Without the files that is not a check, it
+# is a check that skips itself on a clean checkout.
+!data/results/M6/LTH_M6_RT23_ss.csv
+!data/results/M6/LTH_M6_T500_ss.csv
+!data/results/M6/LTH_M6_T1000_ss.csv
 ss_curves_by_temperature.png
+dist/*.pdf
