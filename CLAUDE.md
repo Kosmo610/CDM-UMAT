@@ -245,3 +245,43 @@ zip 안 문서는 참고용 사본일 뿐이다.
 | HOM | 손상 후 재료 전체 강성을 재는 스텝 |
 | 연화 (softening) | 최대점을 지나 힘이 줄어드는 구간 |
 | 재경화 | 줄었다가 다시 올라가는 것 (논문엔 없음) |
+
+
+## 11. CSV 요청은 **zip 한 번에** (사용자 지정, 2026-08-25)
+
+파일을 하나씩 올리게 하면 시간이 낭비된다. **CSV 를 달라고 할 때는
+개수를 먼저 세고, 규칙대로 요청한다.**
+
+| 요청할 파일 수 | 어떻게 |
+|---|---|
+| **1개** | 그냥 그 csv 를 달라고 한다 |
+| **2개 이상** | **반드시 PowerShell zip 명령을 같이 준다** |
+
+### 지켜야 할 것
+
+- zip 이름에도 `_MMDD_HHMM` 을 붙인다 (§1 과 같은 규칙). 단,
+  사용자가 만드는 시각을 내가 모르므로 **PowerShell 이 스스로
+  시각을 찍게 한다** (`Get-Date -Format "MMdd_HHmm"`).
+- 같은 이름의 csv 가 여러 폴더에 있으면 (`damage_hist_f100.csv` 가
+  `Try_P3T1000\` 과 `Try_P4T1000\` 양쪽에 있는 식) **폴더 이름을
+  접두어로 붙여** 충돌을 막는다. `Compress-Archive` 는 파일 목록을
+  주면 폴더 구조를 납작하게 만들기 때문에 그냥 넣으면 하나가 사라진다.
+- **가능하면 넓게 쓸어 담는다.** 어차피 한 번 만드는 zip 이면
+  `Try_P*\*.csv` 처럼 전부 담는 편이 §5(해석 1회당 정보 최대화)에
+  맞는다. csv 는 작다.
+- 명령 끝에 **만들어진 zip 경로를 찍게** 해서 무엇을 올릴지
+  사용자가 바로 알게 한다. 그 줄은 **ASCII 로만** 쓴다 — 콘솔이
+  cp949 라 한글 출력이 깨진 적이 있다.
+- §9-1 대로 **코드블록 안에는 명령만** 넣는다.
+
+### 표준 형태 (그대로 재사용)
+
+```
+$t = Get-Date -Format "MMdd_HHmm"
+$s = "E:\LTH\_send"
+Remove-Item $s -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $s -Force | Out-Null
+Get-ChildItem -Path "E:\LTH\Try_P*" -Filter "*.csv" -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName -Destination (Join-Path $s ($_.Directory.Name + "_" + $_.Name)) -Force }
+Compress-Archive -Path "$s\*" -DestinationPath "E:\LTH\ALLCSV_$t.zip" -Force
+Write-Host "ZIP: E:\LTH\ALLCSV_$t.zip"
+```
