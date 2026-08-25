@@ -46,6 +46,11 @@ RUNS = [
 XT_SLOT = 11
 XT_FROM = '421.0'
 XT_TO = '2835.0'
+
+# *Step 서술줄 라벨. 해석에 안 들어가는 화면 표시용이지만, P2 문구가
+# 복사로 딸려와 컨투어가 XT=421 로 돈 것처럼 보이는 사고가 났다
+# (§5.31A). ASCII 만 쓴다.
+STEP_LABEL = 'P3: XT=2835 MPa, A1T=2.0, Depvar=17, UMAT V2_7D'
 GF_SLOT = 32
 
 
@@ -179,6 +184,25 @@ def preflight():
     return 0
 
 
+def stamp_labels(decks, label):
+    """덱의 *Step 서술줄을 이 배치 이름으로 새로 찍는다.
+
+    Abaqus 뷰포트 라벨일 뿐 해석에 안 들어간다. 이미 돌린 결과는
+    바뀌지 않고 재실행도 필요 없다.
+    """
+    n = 0
+    for d in decks:
+        lines = PROP.read_lines(d)
+        k = PROP.stamp_step_label(lines, label)
+        if k:
+            if not os.path.isfile(d + '.bak'):
+                shutil.copyfile(d, d + '.bak')
+            PROP.write_lines(d, lines)
+            n += k
+        print('  %-46s 스텝 라벨 %d 개' % (os.path.basename(d), k))
+    return n
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='P3 배치 준비')
     ap.add_argument('--root', default='.', help='E:\\LTH (기본: 현재 폴더)')
@@ -261,6 +285,11 @@ def main(argv=None):
                   % XT_FROM)
             return 1
 
+    print('')
+    print('  [c] 스텝 라벨 (화면 표시용, 해석엔 영향 없음)')
+    print('      %s' % STEP_LABEL)
+    stamp_labels(decks, STEP_LABEL)
+
     head('4) 발사 전 최종 확인')
     show(decks, XT_SLOT, 'XT — 세 줄 모두 %s' % XT_TO)
     print('')
@@ -322,6 +351,16 @@ def _deck(matrix_depvar, yarn_constants):
 16,
 *User Material, constants=%d
 %s
+*Step, name=Cooling, nlgeom=YES, inc=16000
+STAGE9 1000C: XT=421 MPa, eta=0.5x, V2_4 criterion
+*Static
+0.001, 1.0, 1e-08, 0.01
+*End Step
+*Step, name=Tension, nlgeom=YES, inc=16000
+STAGE9 1000C: XT=421 MPa, eta=0.5x, V2_4 criterion
+*Static
+0.001, 2.0, 1e-08, 0.01
+*End Step
 """ % (matrix_depvar, yarn_constants, '\n'.join(yarn))
 
 
@@ -395,6 +434,15 @@ def selftest():
             c('apply-no-gf1t-slot', '0.03962' not in body, out)
         else:
             c('apply-keeps-gf1t', body.count('0.03962') == 2, out)
+        # 스텝 라벨: P2 문구가 사라지고 P3 라벨이 두 스텝 모두에.
+        # 해석 데이터줄은 그대로여야 한다. (§5.31A)
+        c('apply-steplabel-stamped', body.count(STEP_LABEL) == 2, out)
+        c('apply-steplabel-old-gone', 'XT=421 MPa' not in body, out)
+        c('apply-steplabel-keeps-static', body.count('*Static') == 2, out)
+        c('apply-steplabel-keeps-data',
+          '0.001, 1.0, 1e-08, 0.01' in body
+          and '0.001, 2.0, 1e-08, 0.01' in body, out)
+        c('apply-steplabel-keeps-endstep', body.count('*End Step') == 2, out)
         c('apply-leaves-bak', os.path.isfile(d23 + '.bak'), out)
         c('apply-prints-launch', 'abaqus job=CSIC_t23_p3' in out, out)
 
@@ -422,6 +470,8 @@ def selftest():
                      encoding='utf-8', newline='') as fh:
             p2 = fh.read()
         c('p2-source-untouched', '421.0' in p2 and '\r\n16,\r\n' in p2)
+        c('p2-source-label-untouched',
+          'XT=421 MPa' in p2 and STEP_LABEL not in p2)
 
         shutil.rmtree(tmp)
 

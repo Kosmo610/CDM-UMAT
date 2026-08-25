@@ -55,6 +55,46 @@ def write_lines(path, lines):
         fh.writelines(lines)
 
 
+def is_step_kw(line):
+    """`*Step` 키워드 줄인가.  `**` 주석과 `*Static` 은 아니다."""
+    t = line.strip()
+    if not t.startswith('*') or t.startswith('**'):
+        return False
+    return t[1:].split(',')[0].strip().lower() == 'step'
+
+
+def stamp_step_label(lines, label):
+    """*Step 바로 다음의 자유서술 줄을 label 로 바꾼다. 바꾼 개수 반환.
+
+    이 줄은 Abaqus 뷰포트에 그대로 찍히는 **라벨일 뿐 해석에 안
+    들어간다** (UMAT 도 솔버도 안 읽는다). 그런데 P2 시절 문구
+    "XT=421 MPa, eta=0.5x, V2_4 criterion" 이 복사를 타고 P3/P4 덱까지
+    딸려와서, P4 컨투어를 열면 XT=421 로 돈 것처럼 보인다. 2026-08-25
+    에 실제로 그 오해가 났다 (§5.31A). 그래서 배치마다 새로 찍는다.
+
+    서술줄이 아예 없으면(다음 줄이 또 키워드면) 새로 끼워 넣는다.
+    """
+    n = 0
+    i = 0
+    while i < len(lines):
+        if not is_step_kw(lines[i]):
+            i += 1
+            continue
+        eol = '\r\n' if lines[i].endswith('\r\n') else '\n'
+        j = i + 1
+        # 서술줄 자리: *Step 다음 줄. 주석(**)은 건너뛰지 않는다 --
+        # Abaqus 는 *Step 바로 다음 비주석 줄을 서술로 읽는다.
+        while j < len(lines) and lines[j].strip().startswith('**'):
+            j += 1
+        if j < len(lines) and lines[j].strip() and \
+                not lines[j].strip().startswith('*'):
+            lines[j] = label + eol          # 기존 서술줄 교체
+        else:
+            lines.insert(j, label + eol)    # 서술줄이 없었다
+        n += 1
+        i = j + 1
+    return n
+
 def find_usermat(lines, want):
     """[(줄번호, 재료이름), ...] — 이름에 want 가 들어간 재료의 *User Material."""
     hits = []
@@ -260,6 +300,49 @@ def selftest():
         print('  %-26s FAIL  (--show 는 rc 0 이어야 한다)'
               % 'show-missing-rc0')
         fails.append('show-missing-rc0')
+
+    # 8) *Step 서술줄 도장 (해석에 안 들어가는 라벨. §5.31A)
+    def ck(tag, cond):
+        print('  %-26s %s' % (tag, 'PASS' if cond else 'FAIL'))
+        if not cond:
+            fails.append(tag)
+
+    LB = 'P4: XT=2835 MPa, A1T=50.0'
+    L = ['*Step, name=Tension, nlgeom=YES, inc=16000\n',
+         'STAGE9 1000C: XT=421 MPa, eta=0.5x, V2_4 criterion\n',
+         '*Static\n', '0.001, 2.0, 1e-08, 0.01\n', '*End Step\n']
+    ck('step-label-replaced', stamp_step_label(L, LB) == 1)
+    ck('step-label-text', L[1] == LB + '\n')
+    ck('step-label-keeps-static', L[2] == '*Static\n')
+    ck('step-label-keeps-data', L[3] == '0.001, 2.0, 1e-08, 0.01\n')
+
+    # 서술줄이 없던 덱: 끼워 넣어야 하고 *Static 을 밀면 안 된다
+    L2 = ['*Step, name=T, inc=100\n', '*Static\n', '1.0, 1.0\n']
+    ck('step-label-inserted', stamp_step_label(L2, LB) == 1)
+    ck('step-label-insert-pos', L2[1] == LB + '\n' and L2[2] == '*Static\n')
+
+    # 여러 스텝 전부, CRLF 보존, 주석줄 건너뛰기
+    L3 = ['*Step, name=Cool\r\n', 'old one\r\n', '*Static\r\n',
+          '*End Step\r\n',
+          '*Step, name=Tension\r\n', '** comment\r\n', 'old two\r\n',
+          '*Static\r\n']
+    ck('step-label-all-steps', stamp_step_label(L3, LB) == 2)
+    ck('step-label-crlf', L3[1] == LB + '\r\n')
+    ck('step-label-past-comment',
+       L3[5] == '** comment\r\n' and L3[6] == LB + '\r\n')
+
+    # 키워드 판별: *Static / **Step / *Step 만 골라야
+    ck('step-kw-static-no', not is_step_kw('*Static\n'))
+    ck('step-kw-comment-no', not is_step_kw('** *Step fake\n'))
+    ck('step-kw-steadystate-no', not is_step_kw('*Steady State Dynamics\n'))
+    ck('step-kw-yes', is_step_kw('*Step, name=X\n'))
+    ck('step-kw-bare-yes', is_step_kw('*STEP\n'))
+    ck('step-kw-indent-yes', is_step_kw('  *Step, name=X\n'))
+
+    # 도장은 멱등이어야 한다 (두 번 찍어도 줄이 안 늘어난다)
+    before = len(L)
+    stamp_step_label(L, LB)
+    ck('step-label-idempotent', len(L) == before and L[1] == LB + '\n')
 
     shutil.rmtree(tmp)
     print('')

@@ -58,6 +58,11 @@ XT_SLOT = 11
 XT_WANT = '2835.0'      # P3 계보 확인용 -- 이게 아니면 P3 덱이 아니다
 GF_SLOT = 32            # 있으면 크랙밴드가 A1T 를 무시한다 -- 반드시 없어야
 
+# *Step 서술줄에 찍을 라벨. 해석에 안 들어가는 화면 표시용이지만,
+# P2 문구("XT=421 MPa, eta=0.5x")가 복사로 딸려와 P4 컨투어가 XT=421
+# 로 돈 것처럼 보이는 사고가 실제로 났다 (§5.31A). ASCII 만 쓴다.
+STEP_LABEL = 'P4: XT=2835 MPa, A1T=50.0, Depvar=17, UMAT V2_7D'
+
 
 def head(t):
     print('')
@@ -266,6 +271,26 @@ def fix_names(decks):
     return n
 
 
+def stamp_labels(decks, label):
+    """덱의 *Step 서술줄을 이 배치 이름으로 새로 찍는다.
+
+    해석에 안 들어간다 -- Abaqus 뷰포트 라벨일 뿐이다. 이미 돌린
+    결과는 바뀌지 않고 재실행도 필요 없다. 다음에 컨투어를 열었을 때
+    어느 카드로 돈 것인지 화면이 스스로 말하게 하는 것이 목적이다.
+    """
+    n = 0
+    for d in decks:
+        lines = PROP.read_lines(d)
+        k = PROP.stamp_step_label(lines, label)
+        if k:
+            if not os.path.isfile(d + '.bak'):
+                shutil.copyfile(d, d + '.bak')
+            PROP.write_lines(d, lines)
+            n += k
+        print('  %-46s 스텝 라벨 %d 개' % (os.path.basename(d), k))
+    return n
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='P4 배치 준비')
     ap.add_argument('--root', default='.', help='E:\\LTH (기본: 현재 폴더)')
@@ -322,6 +347,10 @@ def main(argv=None):
 
     head('4) 얀 SDV 이름배치 정정 (해석엔 영향 없음, 추출 사고 예방)')
     fix_names(decks)
+    print('')
+    print('  스텝 라벨을 이 배치 이름으로 다시 찍는다 (화면 표시용):')
+    print('    %s' % STEP_LABEL)
+    stamp_labels(decks, STEP_LABEL)
 
     head('5) 적용 — 얀 A1T %s -> %s' % (A_FROM, A_TO))
     state, vals = slot_state(decks, A_SLOT, A_FROM, A_TO)
@@ -401,6 +430,19 @@ def _deck(named):
              '26431.5, 15876.6, 2835.0, 1956.0, 50.0, 350.0, 120.0, 120.0',
              '100.0, 2.0, 2.0, 2.0, 2.0, 0.99, 0.99, 0.02',
              '0.10, 3.0, 0.25, 1.0, 1.15, 0.75, 0.50']
+    # 실제 덱처럼 스텝을 붙인다. 서술줄이 P2 문구인 것까지 그대로
+    # 재현해야 stamp_labels 가 정말 갈아치우는지 시험할 수 있다.
+    # (붙이기 전에는 합성 덱에 *Step 이 없어 도장이 무시험이었다.)
+    body += ['*Step, name=Cooling, nlgeom=YES, inc=16000',
+             'STAGE9 1000C: XT=421 MPa, eta=0.5x, V2_4 criterion',
+             '*Static',
+             '0.001, 1.0, 1e-08, 0.01',
+             '*End Step',
+             '*Step, name=Tension, nlgeom=YES, inc=16000',
+             'STAGE9 1000C: XT=421 MPa, eta=0.5x, V2_4 criterion',
+             '*Static',
+             '0.001, 2.0, 1e-08, 0.01',
+             '*End Step']
     return '\r\n'.join(body) + '\r\n'
 
 
@@ -485,6 +527,15 @@ def selftest():
             c('apply-names-repaired', '2, DYTT,' in body
               and '3, DY1C,' in body and '2, DY1C,' not in body, out)
             c('apply-slot17-name-kept', '17, YSHR1T,' in body, out)
+        # 스텝 라벨: P2 문구가 사라지고 P4 라벨이 두 스텝 모두에
+        # 찍혀야 한다. 해석 데이터줄은 그대로여야 한다. (§5.31A)
+        c('apply-steplabel-stamped', body.count(STEP_LABEL) == 2, out)
+        c('apply-steplabel-old-gone', 'XT=421 MPa' not in body, out)
+        c('apply-steplabel-keeps-static', body.count('*Static') == 2, out)
+        c('apply-steplabel-keeps-data',
+          '0.001, 1.0, 1e-08, 0.01' in body
+          and '0.001, 2.0, 1e-08, 0.01' in body, out)
+        c('apply-steplabel-keeps-endstep', body.count('*End Step') == 2, out)
         c('apply-leaves-bak', os.path.isfile(d23 + '.bak'), out)
         c('apply-prints-launch', 'abaqus job=CSIC_t23_p4' in out, out)
 
