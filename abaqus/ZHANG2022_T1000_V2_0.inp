@@ -219474,10 +219474,27 @@ TexGenOrientationVectors
 ** V2_0 FULL MODEL: longitudinal Xt=2835, Xc=1956 (= Vf*3580, Vf*2470,
 ** T300 rule of mixtures at verified yarn Vf=0.792); longitudinal crack-band
 ** G1t=G1c=12.5 N/mm (Ge Table 3); Eq.18 mixed law ON (X_PO=700, rF=3, K1=8000).
+**
+** !! STALE CARD -- THIS DECK DOES NOT RUN WITH V2_6 OR LATER UMATs !!
+** PROPS(32)=12.5 above was written when slot 32 meant "G1t". V2_6
+** redefined slot 32 as GF1T, the yarn longitudinal crack-band fracture
+** energy, and V2_7 added a sanity guard that rejects anything outside
+** 0 < GF1T <= 0.5 N/mm. So V2_6/V2_7/V2_7P/V2_7D call XIT on the first
+** increment with:
+**     YARN PROPS(32)=GF1T out of range:  12.5
+** That is the guard working as designed, not a bug.
+**
+** These decks are kept as the PROVENANCE BASELINE (the V1_0 -> V2_0 card
+** swap). The decks actually used for the P0/P1/P2/P2T batches live on the
+** analysis machine and carry GF1T=0.03962; see docs/RUN_LAYOUT.md.
+** Fixing the value here is a physics decision, so it is left as found.
+** To make this deck runnable, decide the value first, then:
+**     python verification/patch_material_prop.py --material YARN \
+**            --slot 32 --value 0.03962 --expect 12.5 --apply <deck>.inp
 ** Transverse Yt=80,Yc=350 and shears S=120/120/100 are calibration knobs.
 *Material, Name=CSIC_YARN_DAMAGE
 *Depvar
-16,
+17,
 1, DY1T, Yarn longitudinal tensile damage
 2, DY1C, Yarn longitudinal compressive damage
 3, DYTT, Yarn transverse tensile damage
@@ -219494,6 +219511,7 @@ TexGenOrientationVectors
 14, YCUTREQ, Yarn minimum historical PNEWDT factor
 15, YTEND, Temperature at maximum yarn damage jump
 16, YRFAC, Criterion at maximum yarn damage jump
+17, YSHR1T, Shear share of longitudinal tensile criterion
 *User Material, constants=38
 1.0, 254967.228042, 44321.737572, 44321.737572, 0.247516386, 0.247516386, 0.395813581, 26431.515264
 26431.515264, 15876.667974, 2835.0, 1956.0, 80.0, 350.0, 120.0, 120.0
