@@ -28,8 +28,8 @@ Vf = 0.79194
 
 # V2_0 full-model yarn card (mirrors abaqus/*_V2_0.inp)
 YARN_V2 = list(YARN)
-YARN_V2[10] = Vf * 3580.0     # Xt = 2835 (micromechanics)
-YARN_V2[11] = Vf * 2470.0     # Xc = 1956
+YARN_V2[10] = 2835.0          # Xt = round(Vf*3580) -- matches the deck card exactly
+YARN_V2[11] = 1956.0          # Xc = round(Vf*2470) -- matches the deck card exactly
 YARN_V2[31] = 12.5            # G1t (Ge Table 3)
 YARN_V2[32] = 12.5            # G1c
 YARN_V2[35] = 700.0           # X_PO  (Eq.18 on)

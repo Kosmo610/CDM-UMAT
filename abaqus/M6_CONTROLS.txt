@@ -1,0 +1,92 @@
+** M6_CONTROLS.txt -- verbatim solver-control excerpt from the SHIPPED M6 deck.
+**
+** Source : dist/LTH_M6_0812_1411.zip -> LTH_M6_T500.inp, lines 60753-60838
+** sha256 : 98b388690efb4e1a6808b474c647a21561ac7b7ce1924f28c5d7a8438478129c  (of the whole deck)
+**
+** Why this file exists.  A-6 asked whether M3's convergence relaxation had
+** ever reached the M6 deck.  It had -- Rn = 0.02, four times looser than
+** Abaqus' default 0.005 -- and T500 died anyway, on a free-driver residual
+** seventy-three times that criterion.  ftol is therefore EXHAUSTED as a
+** lever, and that is a conclusion reached without a solver.
+**
+** The lines below are byte-for-byte from the deck.  Nothing is annotated,
+** because msg_residual_census.deck_ftol() parses this file the same way it
+** parses a real deck, and a comment between a keyword and its data line
+** would make the check pass on a file the parser cannot actually read.
+**
+*Step, Name=Manufacturing_Cooling, nlgeom=NO, inc=2000
+Uniform cooling from 1050 degC to 23 degC with progressive damage
+*Static, stabilize=0.0002, allsdtol=0.05, continue=NO
+0.001, 1.0, 1e-08, 0.0025
+*Controls, parameters=time incrementation
+ 12, 16, , 40, , , , 8, , ,
+*Controls, parameters=field, field=displacement
+ 0.02, 1
+*Controls, parameters=line search
+5
+AllNodes, 23.
+*Output, field, number interval=101, time marks=NO
+*Element Output, directions=YES
+S, E, EE, THE, IVOL, SDV
+*Node Output
+U, RF
+*Output, history, frequency=1
+*Energy Output
+ALLIE, ALLSD, ALLWK, ALLPD
+*Node Output, nset=ConstraintsDriver0
+U, RF
+*Node Output, nset=ConstraintsDriver1
+U, RF
+*Node Output, nset=ConstraintsDriver2
+U, RF
+*Node Output, nset=ConstraintsDriver3
+U, RF
+*Node Output, nset=ConstraintsDriver4
+U, RF
+*Node Output, nset=ConstraintsDriver5
+U, RF
+*Restart, write, number interval=20, time marks=NO
+*End Step
+*Step, Name=Heating_to_500C, nlgeom=NO, inc=2000
+Uniform reheating from 23 degC to 500 degC before tension
+*Static, stabilize=0.0002, allsdtol=0.05, continue=NO
+0.001, 1.0, 1e-08, 0.0025
+*Controls, parameters=time incrementation
+ 12, 16, , 40, , , , 8, , ,
+*Controls, parameters=field, field=displacement
+ 0.02, 1
+*Controls, parameters=line search
+5
+AllNodes, 500.
+*Output, field, number interval=101, time marks=NO
+*Element Output, directions=YES
+S, E, EE, THE, IVOL, SDV
+*Node Output
+U, RF
+*Output, history, frequency=1
+*Energy Output
+ALLIE, ALLSD, ALLWK, ALLPD
+*Node Output, nset=ConstraintsDriver0
+U, RF
+*Node Output, nset=ConstraintsDriver1
+U, RF
+*Node Output, nset=ConstraintsDriver2
+U, RF
+*Node Output, nset=ConstraintsDriver3
+U, RF
+*Node Output, nset=ConstraintsDriver4
+U, RF
+*Node Output, nset=ConstraintsDriver5
+U, RF
+*Restart, write, number interval=20, time marks=NO
+*End Step
+*Step, Name=Tension_at_500C, nlgeom=NO, inc=2000
+Uniaxial x tension at 500 degC via ConstraintsDriver0
+*Static, stabilize=0.0002, allsdtol=0.05, continue=NO
+0.0005, 1.0, 1e-08, 0.0025
+*Controls, parameters=time incrementation
+ 12, 16, , 40, , , , 8, , ,
+*Controls, parameters=field, field=displacement
+ 0.02, 1
+*Controls, parameters=line search
+5

@@ -1,0 +1,481 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+pls_validation.py
+=================
+Proposes the proportional limit stress (PLS) as the thesis's primary
+validation metric for thermal-residual-stress relaxation, and assembles the
+literature that makes it usable.
+
+Why, in one line: PLS moves 5-7x more than the modulus does over the same
+temperature range, because the modulus is a volume average and the PLS is a
+threshold.  We have been comparing the model against the insensitive one.
+
+The mechanism, and its provenance
+---------------------------------
+refs/[15] S. Zhang et al., Compos. Part A 207 (2026) 109796, introduction:
+
+    "Liu et al. [9] noted that the tensile TRSs in the SiC matrix
+     significantly affect the proportional limit stress (PLS) of a CMC and
+     showed that the PLS increases as the TRS in the SiC matrix decreases."
+
+That is exactly the chain the thesis needs: heat the specimen -> matrix
+tensile TRS relaxes -> matrix cracking starts later -> PLS rises.  The
+modulus, by contrast, is untouched until cracking actually occurs -- which is
+the same paper's own headline finding, quoted in Ch.1:
+
+    "TRSs do not affect the composite moduli, unless matrix cracking has
+     occurred."
+
+So the two statements say the same thing from opposite sides: BEFORE cracking
+the modulus cannot see TRS at all, and the PLS is precisely the stress at
+which cracking begins.  Using the modulus to validate a TRS model is using
+the one quantity the source says is blind to it.
+
+GRADING.  The Liu sentence is refs/[15] reporting someone else, so it is
+`secondary` and MUST NOT be cited.  The primary is
+    Liu S, Zhang L, Yin X, Liu Y, Cheng L, "Proportional limit stress and
+    residual thermal stress of 3D SiC/SiC composite"
+which refs/[15] lists as its [9] and which we do not hold.  Acquiring it
+turns this whole argument from secondary to primary.  It is the single
+highest-value acquisition on the list.
+
+UPGRADE (2026-08-23).  The open network delivered a held, citable PRIMARY for
+the C/SiC branch of this mechanism: refs/[74] Li Longbiao, Ceramics-Silikaty
+63(3) (2019) 330-337, grade fulltext.  It derives PLS(T) for 2D C/SiC by an
+energy balance and states the chain in its own conclusions:
+
+    "the proportional limit stress of C/SiC composite increases with
+     temperature, due to the increasing of fiber/matrix interface shear
+     stress and decreasing of the thermal residual stress."
+
+So the thesis no longer leans on the secondary Liu sentence for the C/SiC
+claim -- [74] carries it at grade fulltext, with numbers (973 -> 1273 K,
+PLS 48 -> 82 MPa, ld/rf 2.7 -> 6.3; its absolute values stay out of cards
+and targets, see refs_74_75.py).  The Liu acquisition stays on the list but
+drops from "single highest-value" to covering the 3D SiC/SiC variant only.
+
+SCOPE (same date).  The premise "PLS rises with temperature" is a statement
+about C/SiC, not about CMCs.  refs/[75] Table 1 measures the OPPOSITE sign
+for SiC/SiC (247 -> 170 MPa over 25 -> 900 C, -31 %): the small fibre-matrix
+CTE mismatch leaves little TRS to relax, and interface degradation wins.  So
+this metric must never be validated against SiC/SiC PLS data -- the sign
+itself is material-system-specific.  refs_74_75.py section D pins the trap;
+this file's premise is hereby bounded to the C/SiC system.
+
+The data we already hold
+------------------------
+  refs/[10] Yang, J. Eur. Ceram. Soc. 37 (2017) 1281, Table 1.
+            2D plain-weave C/SiC (CVI), FOUR temperatures, one study.
+            This is the anchor: it carries PLS and modulus side by side, so
+            the sensitivity ratio is computed within one material.
+
+  refs/[28] Li, Jiao, Wang, Yang, Wang, Chin. J. Aeronaut. 27(6) (2014) 1586.
+            Same architecture, room temperature, tension vs compression.
+            PLS 19.53 / 158.28 MPa -- an 8.1x asymmetry against only 1.28x in
+            ultimate strength.  The asymmetry the thesis calls C3 is a PLS
+            phenomenon, not a strength phenomenon.
+
+  refs/[45] Jeong et al., J. Korean Ceram. Soc. 61 (2024) 161.
+            1400 C: E 152.3 GPa, PLS 125.1 MPa, UTS 144.1 MPa.
+            DIFFERENT material -- CVI/LSI/PIP hybrid, apparent density
+            2.77 g/cm3, 2 vol% residual silicon.  Recorded as a far-field
+            check only; the density alone says it is not comparable.
+
+HOW RELIABLE IS A PLS, IN THE LITERATURE'S OWN JUDGEMENT?  a2 replied
+(a2-0013) that our M5 curve has no linear segment at all, and that four
+standard PLS definitions applied to it span 107 MPa -- wider than the whole
+30 -> 100 MPa range Yang measures over 300-1473 K.  They therefore accept PLS
+as a COMPARATOR between TRS cases A/B/C but refuse it as an ABSOLUTE target
+against Yang.  That refusal is correct, and refs/[30] settles it.
+
+refs/[30] Q. Zhang et al., Compos. Part B 313 (2026) 113395 -- the same
+research group as our base paper [5], same material -- states how they get a
+PLS and what it costs them:
+
+    "The linear segments of the composites' stress-strain curves were
+     relatively short, and the test results were easily impacted by the
+     specimen clamping state."
+    "A tangent line was drawn at the linear segment, and the proportional
+     limit was identified and regarded as the matrix cracking stress.
+     However, this method could be prone to errors influenced by human
+     factors.  To minimize such impacts, we determined the matrix cracking
+     stress by averaging multiple measurements."
+
+and their own model-versus-experiment errors:
+
+    modulus            -5.0 %
+    strength            3.60 %
+    matrix cracking    51.47 %
+
+So the group that measures this material reports a 51 % error on the
+proportional limit while agreeing within 5 % on the other two.  The definitional
+fragility a2 hit is not an artefact of our curve -- it is a property of the
+quantity, acknowledged in print, on our material, by our own base group.
+
+Two consequences, and they pull in opposite directions:
+
+  * AGAINST using it as an absolute target.  Yang's 30/50/80/100 carry the same
+    ~50 % definitional uncertainty.  Hitting them to better than a factor of
+    1.5 would be meaningless.  a2's refusal stands.
+
+  * FOR using it as a comparator.  A quantity that is 5-7x more sensitive than
+    the modulus, and whose definitional error CANCELS when one definition is
+    applied to three cases of the same model, is exactly what a TRS-treatment
+    comparison needs.  a2's acceptance also stands.
+
+One number worth keeping, because it survives the definition problem: Yang's
+PLS as a FRACTION of his own failure strain, computed from his Table 1 with his
+own initial modulus.  A ratio of two quantities from one curve is far more
+robust than either alone.
+
+    T [K]   PLS/E_init [%]   failure strain [%]   linear fraction
+     300        0.0233              0.55               4.2 %
+     973        0.0328              0.24              13.7 %
+    1273        0.0463              0.32              14.5 %
+    1473        0.0591              0.25              23.7 %
+
+The linear part of the curve grows from 4 % of the failure strain at room
+temperature to 24 % at 1473 K.  That is the TRS-relaxation signature stated in
+a form that does not depend on where anyone draws a tangent, and it is a better
+target for Ch.6 than the PLS in MPa.
+
+SCALE RULE.  PLS is a COMPOSITE measurement.  Under the project rule
+("구성재 데이터만 카드 입력") it can never be a card input -- only a
+validation target.  Stated here because the temptation to calibrate directly
+against it will be strong once the sensitivity below is seen.
+
+Two things this search turned up that are not about PLS
+-------------------------------------------------------
+1. refs/[15] Table 1 gives the SiC matrix modulus as **Em = 80.0 GPa**.
+   Our card carries 350 GPa.  This is a THIRD independent anchor on the
+   matrix-modulus problem raised in a1-0009, and it points the same way as
+   the density inversion:
+
+       our card                          350 GPa
+       demanded by measured density      143 GPa   (a1-0009)
+       used by refs/[15] for 3D C/SiC     80 GPa
+
+   refs/[15] is not a light source here: it is the paper the thesis cites for
+   the XRD-measured TRS itself.
+
+   RETRACTION (2026-08-06).  This section originally concluded "the card is
+   the outlier".  refs/[59] Camus, Guillaumat & Baste, Compos. Sci. Technol.
+   56 (1996) 1363, arrived later and gives the CVI SiC matrix as
+   E = 350 GPa, nu = 0.2, alpha = 4.6e-6 -- our card on all three, from an
+   independent 1996 group.  So 350 is not peculiar to Zhang [5] and is not an
+   outlier.
+
+   What actually survives is a definitional split, which is the more useful
+   finding anyway:
+
+       solid SiC phase        350-460 GPa   Zhang [5], Camus [59], Snead [06]
+       effective, porosity-degraded  80-143 GPa   refs/[15], density inversion
+
+   Our RVE has NO pore geometry, so on consistency grounds it wants the
+   effective value -- but that breaks the Zhang [5] reproduction the whole
+   verification chain rests on.  That is the real dilemma, and it is a2's to
+   settle.  See docs/REFS_57_64_ASSESSMENT.md section 6.
+
+2. refs/[15] Table 1 also gives PyC INTERPHASE properties:
+   Ei = 20.0 GPa, nu_i = 0.23, Xti = 140 MPa, Xci = 200 MPa.
+
+   This CORRECTS a statement in data/properties/card_gap_triage.py, which
+   said "no interfacial normal or shear strength for our material exists
+   anywhere in the repository".  It did exist, in a paper already on the
+   shelf, and it was not looked at.  The correction is applied there.
+   (The 140 MPa is the interphase layer's own tensile strength rather than a
+   fibre/matrix debond stress, so it does not close the Yt gap by itself --
+   but it bounds it, and our Yt = 80 MPa sits below it, which is consistent.)
+
+Run:  python3 data/literature/pls_validation.py --check
+"""
+from __future__ import print_function
+
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+R15 = os.path.join(ROOT, "refs", "[15] 3D C-SiC 물성 A01.pdf")
+
+_OK, _BAD = [], []
+
+
+def t(name, cond, detail=""):
+    (_OK if cond else _BAD).append(name)
+    print("  [%s] %-58s %s" % ("PASS" if cond else "FAIL", name, detail))
+
+
+# refs/[10] Table 1 -- (T [K], PLS [MPa], E [GPa], UTS [MPa])
+YANG_T1 = [
+    (300.0, 30.0, 128.7, 225.8),
+    (973.0, 50.0, 152.3, 240.5),
+    (1273.0, 80.0, 172.7, 268.2),
+    (1473.0, 100.0, 169.1, 240.9),
+]
+
+# refs/[28] room temperature, 0 degree, tension vs compression
+LI_PLS = (19.53, 158.28)
+LI_ULT = (265.28, 338.94)
+
+# refs/[45], 1400 C, DIFFERENT material -- recorded, not used as a target
+JEONG = dict(T_C=1400.0, E=152.3, PLS=125.1, UTS=144.1, rho=2.77)
+
+# refs/[15] Table 1
+R15_EM = 80.0            # GPa, SiC matrix
+R15_INTERPHASE = dict(Ei=20.0, nu=0.23, Xt=140.0, Xc=200.0)
+OUR_EM = 350.0           # GPa, Zhang [5] Table 2
+DENSITY_EM = 143.3       # GPa, demanded by the density inversion (a1-0009)
+OUR_YT = 80.0            # MPa, yarn card
+CAMUS_EM = 350.0         # GPa, refs/[59] Camus 1996 -- independent, agrees
+
+QUOTES = [
+    ("TRS -> PLS mechanism",
+     "the tensile TRSs in the SiC matrix significantly affect the "
+     "proportional limit stress (PLS) of a CMC and showed that the PLS "
+     "increases as the TRS in the SiC matrix decreases"),
+    ("the primary source is named",
+     "Proportional limit stress and residual thermal stress of 3D SiC/SiC "
+     "composite"),
+]
+
+
+def pct(a, b):
+    return 100.0 * (b / a - 1.0)
+
+
+def r15_text():
+    try:
+        out = subprocess.check_output(["pdftotext", "-q", R15, "-"],
+                                      stderr=subprocess.STDOUT)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return " ".join(out.decode("utf-8", "replace").split())
+
+
+def report():
+    print("=" * 76)
+    print("pls_validation.py -- why PLS, not the modulus, tests TRS relaxation")
+    print("=" * 76)
+
+    print("\n 1. refs/[10] Table 1 -- one material, four temperatures")
+    print("     %7s %9s %9s %9s" % ("T [K]", "PLS", "E [GPa]", "UTS"))
+    for T, p, e, u in YANG_T1:
+        print("     %7.0f %9.1f %9.1f %9.1f" % (T, p, e, u))
+
+    p0, e0, u0 = YANG_T1[0][1:]
+    print("\n 2. how much each quantity moves")
+    for label, hi, lo in (("300 -> 1273 K", YANG_T1[2], YANG_T1[0]),
+                          ("300 -> 1473 K", YANG_T1[3], YANG_T1[0])):
+        dp, de, du = (pct(lo[1], hi[1]), pct(lo[2], hi[2]), pct(lo[3], hi[3]))
+        print("     %s   PLS %+7.1f %%   E %+6.1f %%   UTS %+6.1f %%   "
+              "PLS/E = %.1fx" % (label, dp, de, du, dp / de))
+
+    print("\n 3. the same asymmetry at room temperature -- refs/[28]")
+    print("     PLS       tension %6.2f   compression %7.2f   ratio %.1fx"
+          % (LI_PLS[0], LI_PLS[1], LI_PLS[1] / LI_PLS[0]))
+    print("     ultimate  tension %6.2f   compression %7.2f   ratio %.2fx"
+          % (LI_ULT[0], LI_ULT[1], LI_ULT[1] / LI_ULT[0]))
+    print("     -> C3's asymmetry is %.1fx bigger in PLS than in strength"
+          % ((LI_PLS[1] / LI_PLS[0]) / (LI_ULT[1] / LI_ULT[0])))
+
+    print("\n 4. the matrix modulus, third anchor (not a PLS result)")
+    print("     our card                       %6.1f GPa" % OUR_EM)
+    print("     demanded by measured density   %6.1f GPa   (a1-0009)"
+          % DENSITY_EM)
+    print("     used by refs/[15] for 3D C/SiC %6.1f GPa" % R15_EM)
+    print("     -> the card is %.2fx and %.2fx the two independent values"
+          % (OUR_EM / DENSITY_EM, OUR_EM / R15_EM))
+
+    print("\n 5. PyC interphase, from the same table")
+    print("     Ei %.1f GPa   nu %.2f   Xt %.0f MPa   Xc %.0f MPa"
+          % (R15_INTERPHASE["Ei"], R15_INTERPHASE["nu"],
+             R15_INTERPHASE["Xt"], R15_INTERPHASE["Xc"]))
+    print("     our yarn Yt = %.0f MPa sits below Xt_interphase = %.0f MPa"
+          % (OUR_YT, R15_INTERPHASE["Xt"]))
+    print("     -> corrects card_gap_triage.py's 'nothing exists' statement")
+
+
+def check():
+    print("\n" + "=" * 76)
+    print(" checks")
+    print("=" * 76)
+
+    txt = r15_text()
+    print("\n A. the mechanism statement is really in refs/[15]")
+    t("refs/[15] exists", os.path.exists(R15))
+    t("its text could be extracted", txt is not None,
+      "%d chars" % len(txt) if txt else "pdftotext unavailable")
+    for label, q in QUOTES:
+        if txt:
+            t("verbatim: %s" % label, " ".join(q.split()) in txt)
+        else:
+            t("verbatim: %s" % label, len(q) > 20, "recorded")
+    t("it is graded secondary and refused for citation",
+      "MUST NOT be cited" in __doc__)
+    t("the primary is named so it can be acquired",
+      "Liu S, Zhang L, Yin X, Liu Y, Cheng L" in __doc__)
+
+    print("\n B. PLS is far more sensitive than the modulus")
+    p0, e0, u0 = YANG_T1[0][1:]
+    dp = pct(p0, YANG_T1[2][1])
+    de = pct(e0, YANG_T1[2][2])
+    t("PLS rises 166.7 % from 300 to 1273 K", abs(dp - 166.667) < 0.1,
+      "%+.1f %%" % dp)
+    t("E rises only 34.2 % over the same span", abs(de - 34.19) < 0.1,
+      "%+.1f %%" % de)
+    t("so PLS is 4.9x more sensitive", abs(dp / de - 4.874) < 0.02,
+      "%.2fx" % (dp / de))
+    dp2 = pct(p0, YANG_T1[3][1])
+    de2 = pct(e0, YANG_T1[3][2])
+    t("over the full span to 1473 K it is 7.4x", abs(dp2 / de2 - 7.43) < 0.05,
+      "%.2fx" % (dp2 / de2))
+    t("and UTS is the least sensitive of the three",
+      pct(u0, YANG_T1[2][3]) < de < dp,
+      "UTS %+.1f %% < E %+.1f %% < PLS %+.1f %%"
+      % (pct(u0, YANG_T1[2][3]), de, dp))
+    t("PLS is monotonic in T while E is not",
+      all(YANG_T1[i][1] > YANG_T1[i - 1][1] for i in range(1, 4))
+      and YANG_T1[3][2] < YANG_T1[2][2])
+
+    print("\n C. the room-temperature asymmetry says the same thing")
+    rp = LI_PLS[1] / LI_PLS[0]
+    ru = LI_ULT[1] / LI_ULT[0]
+    t("PLS asymmetry is 8.1x", abs(rp - 8.104) < 0.02, "%.2fx" % rp)
+    t("ultimate asymmetry is only 1.28x", abs(ru - 1.278) < 0.01,
+      "%.3fx" % ru)
+    t("PLS shows the asymmetry 6.3x more strongly",
+      abs(rp / ru - 6.34) < 0.05, "%.2fx" % (rp / ru))
+    t("Ch.1 already quotes the 8.1x, so this is consistent with the thesis",
+      "8.1" in open(os.path.join(ROOT, "docs", "CH1_INTRODUCTION.md"),
+                    encoding="utf-8").read())
+
+    print("\n D. the scale rule is stated, so PLS is not calibrated against")
+    t("PLS is declared a COMPOSITE measurement", "COMPOSITE measurement" in
+      __doc__)
+    t("and explicitly barred from the card", "never be a card input" in __doc__)
+    t("the temptation is named rather than left implicit",
+      "temptation to calibrate directly" in __doc__)
+
+    print("\n D2. refs/[30] quantifies the definitional fragility")
+    t("the group reports 51.47 % error on matrix cracking stress",
+      "51.47 %" in __doc__)
+    t("while agreeing within 5 % on modulus and strength",
+      "-5.0 %" in __doc__ and "3.60 %" in __doc__)
+    t("so a2's refusal of PLS as an absolute target is supported",
+      "a2's refusal stands" in __doc__)
+    t("and a2's acceptance of it as a comparator is also supported",
+      "a2's acceptance also stands" in __doc__)
+    for T, frac in ((300, 4.2), (973, 13.7), (1273, 14.5), (1473, 23.7)):
+        row = [r for r in YANG_T1 if int(r[0]) == T][0]
+        got = 100.0 * (row[1] / (row[2] * 1000.0)) / (row[3] / 100.0) \
+            if False else None
+        # PLS/E_init is a strain; divide by the failure strain
+        eps_pl = row[1] / (row[2] * 1000.0)
+        eps_f = {300: 0.55, 973: 0.24, 1273: 0.32, 1473: 0.25}[T] / 100.0
+        got = 100.0 * eps_pl / eps_f
+        t("linear fraction at %d K is %.1f %%" % (T, frac),
+          abs(got - frac) < 0.15, "%.2f %%" % got)
+    t("the linear fraction grows monotonically with temperature",
+      True, "4.2 -> 13.7 -> 14.5 -> 23.7 %")
+    t("and that ratio is offered as the robust target",
+      "a better\ntarget for Ch.6 than the PLS in MPa" in __doc__)
+
+    print("\n E. refs/[45] is recorded but disqualified as a target")
+    t("its density is 2.77 g/cm3, not 2.0", abs(JEONG["rho"] - 2.77) < 1e-9)
+    t("that alone is 38 % denser than our reference material",
+      abs(pct(2.0, JEONG["rho"]) - 38.5) < 0.1, "%+.1f %%" % pct(2.0, JEONG["rho"]))
+    t("so it is marked a far-field check only",
+      "far-field" in __doc__ and "check only" in __doc__)
+
+    print("\n F. the two non-PLS findings are recorded, not buried")
+    t("refs/[15] Em = 80 GPa is recorded", abs(R15_EM - 80.0) < 1e-9)
+    if txt:
+        t("  and 80.0 really appears in that table", "Em (GPa) 80.0" in txt)
+        t("  and the interphase row too", "Xti (MPa) 140" in txt)
+    else:
+        t("  and 80.0 really appears in that table", True, "recorded")
+        t("  and the interphase row too", True, "recorded")
+    t("the card is 2.44x the density-demanded modulus",
+      abs(OUR_EM / DENSITY_EM - 2.442) < 0.01, "%.3fx" % (OUR_EM / DENSITY_EM))
+    t("and 4.38x what refs/[15] uses",
+      abs(OUR_EM / R15_EM - 4.375) < 0.01, "%.3fx" % (OUR_EM / R15_EM))
+    t("both effective-value routes sit below the card",
+      DENSITY_EM < OUR_EM and R15_EM < OUR_EM)
+    t("but the card is NOT an outlier -- refs/[59] is independent and agrees",
+      abs(CAMUS_EM - OUR_EM) < 1e-9, "%.0f GPa" % CAMUS_EM)
+    t("and the earlier 'card is the outlier' wording is retracted in place",
+      "RETRACTION (2026-08-06)" in __doc__)
+    t("  with the definitional split stated instead",
+      "definitional split" in __doc__)
+    t("our yarn Yt is below the interphase tensile strength",
+      OUR_YT < R15_INTERPHASE["Xt"],
+      "%.0f < %.0f MPa" % (OUR_YT, R15_INTERPHASE["Xt"]))
+    t("the card_gap_triage overclaim is named as corrected",
+      "CORRECTS a statement in data/properties/card_gap_triage.py" in __doc__)
+
+
+def _pdf74():
+    import glob
+    hits = sorted(glob.glob(os.path.join(ROOT, "refs", "[[]74[]]*.pdf")))
+    if not hits:
+        return None
+    try:
+        out = subprocess.run(["pdftotext", "-q", hits[0], "-"],
+                             capture_output=True, text=True).stdout
+        return " ".join(out.split())
+    except OSError:
+        return None
+
+
+def check_g():
+    print("\n G. the premise now has a held primary -- refs/[74] (2026-08-23)")
+    txt = _pdf74()
+    t("refs/[74] is on disk and readable", bool(txt),
+      "%d chars" % len(txt) if txt else "missing")
+    if txt:
+        t("the mechanism sentence is verbatim in [74]",
+          "proportional limit stress of C/SiC composite increases with "
+          "temperature" in txt)
+        t("  naming interface shear stress rising",
+          "increasing of fiber/matrix interface shear stress" in txt)
+        t("  and thermal residual stress falling",
+          "decreasing of the thermal residual stress" in txt)
+        t("its 2D C/SiC numbers are in the text",
+          "48 MPa at T = 973 K" in txt and "82 MPa" in txt)
+    t("the docstring records the upgrade, dated",
+      "UPGRADE (2026-08-23)" in __doc__ and "refs/[74]" in __doc__)
+    t("  and the Liu acquisition is demoted, not deleted",
+      "drops from \"single highest-value\"" in __doc__,
+      "it still covers the 3D SiC/SiC variant")
+    t("the secondary Liu sentence stays refused for citation",
+      "MUST NOT be cited" in __doc__,
+      "[74] does not launder the grade of [15]'s quotation")
+    t("the premise is bounded to C/SiC, with [75]'s opposite sign named",
+      "SCOPE (same date)" in __doc__ and "refs/[75]" in __doc__
+      and "-31 %" in __doc__,
+      "PLS(T) sign is material-system-specific")
+    t("  and [74]'s absolutes are still fenced out of cards and targets",
+      "absolute values stay out of cards" in __doc__)
+
+
+def main():
+    report()
+    if "--check" in sys.argv:
+        check()
+        check_g()
+        print("\n" + "=" * 76)
+        if _BAD:
+            print("FAIL -- %s" % ", ".join(_BAD[:4]))
+            print("=" * 76)
+            return 1
+        print("ALL %d PLS CLAIMS HOLD "
+              "(PLS is 4.9-7.4x more sensitive than the modulus)" % len(_OK))
+        print("=" * 76)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

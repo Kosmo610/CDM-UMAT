@@ -1,0 +1,12 @@
+kind,label,count,pct,value,basis,verdict
+phase,TRANSVERSE yarn + matrix,144,36.00,,,
+phase,matrix only,84,21.00,,,
+phase,MACRO DRIVER,80,20.00,,,
+phase,TRANSVERSE yarn only,55,13.75,,,
+phase,axial yarn + matrix,37,9.25,,,
+summary,transverse-yarn involvement,199,49.75,,41-57 % was the M5 signature that motivated turning the yarn crack band on,dominant
+driver,ConstraintsDriver1 (eps_yy),75,,,,
+driver,ConstraintsDriver2 (eps_zz),5,,,,
+summary,worst driver residual,,,4.081633e-02,"MPa of macro stress = R/V_RVE, V=5.3900 mm^3",significant
+summary,mesh-node residual median,,,7.413000e-03,N.mm; R/V does NOT apply to a mesh node,
+summary,mesh-node residual max,,,4.581000e-02,N.mm,

@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+check_ch5_numbers.py  --  ROUND 1 for Chapter 5
+===============================================
+Chapter 5 describes decks that a script generates.  That makes its failure mode
+specific and nasty: the prose can be perfectly self-consistent and still
+describe a deck the script no longer writes.  Nothing in rounds 2 or 3 would
+catch it -- round 2 compares chapters to each other, round 3 only checks that
+named files exist and named commands exit 0.
+
+So this round reads the numbers out of abaqus/make_macro_thermalshock.py and
+abaqus/quench_calibration.py and asserts the chapter quotes those, not numbers
+that were true when the chapter was written.
+
+  A. severity ladder: film coefficients and Biot numbers match SEVERITIES
+  B. specimen geometry, mesh and checkpoints match SPECIMENS
+  C. the calibrated film coefficients match what quench_calibration.py solves
+  D. deck mechanics the chapter claims -- probe strain, cycle-jump field,
+     freeze_step slot, restart, SDV history list -- are really in the generator
+  E. cycle-jump accuracy figures match verify_thermshock.py T6
+  F. the chapter does not claim any of it has been run
+
+Run:  python3 verification/check_ch5_numbers.py
+"""
+from __future__ import print_function
+
+import os
+import re
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+DOCS = os.path.join(ROOT, "docs")
+
+_OK, _BAD = [], []
+
+
+def check(name, cond, detail=""):
+    (_OK if cond else _BAD).append(name)
+    print("  %s  %-58s %s" % ("PASS" if cond else "FAIL", name, detail))
+
+
+def run(cmd):
+    p = subprocess.Popen(cmd, cwd=ROOT, shell=True, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    out, _ = p.communicate()
+    return out.decode("utf-8", "replace"), p.returncode
+
+
+def main():
+    print("=" * 78)
+    print("ROUND 1 -- check_ch5_numbers.py: does Ch.5 describe the real decks?")
+    print("=" * 78)
+
+    path = os.path.join(DOCS, "CH5_MACRO_THERMALSHOCK.md")
+    if not os.path.exists(path):
+        check("CH5_MACRO_THERMALSHOCK.md exists", False)
+        return 1
+    ch5 = open(path).read()
+    check("CH5_MACRO_THERMALSHOCK.md exists", True)
+    flat = re.sub(r"(?<=\d)[  ](?=\d)", "", ch5)
+
+    gen_path = os.path.join(ROOT, "abaqus", "make_macro_thermalshock.py")
+    gen = open(gen_path).read()
+
+    # Import the generator so the dicts are read as data, not scraped as text.
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    import importlib
+    mts = importlib.import_module("make_macro_thermalshock")
+
+    # ------------------------------------------------------------------ A
+    print("\n A. the severity ladder matches SEVERITIES in the generator")
+    sev = mts.SEVERITIES
+    check("generator defines 5 severities (3 ladder + 2 validation)",
+          len(sev) == 5, ", ".join(sorted(sev)))
+
+    # Bi is no longer stored -- it is DERIVED from the deck's own kbar_3 and
+    # the specimen's own thickness, so the chapter has to agree with what
+    # severity() computes, not with a dictionary entry.  ZHANG2013's plate is
+    # the one the ladder is quoted on.
+    LZ = mts.SPECIMENS["ZHANG2013"]["dims"][2]
+    for key, bi_txt in (("L", "0.05"), ("M", "1"), ("H", "5")):
+        h, bi = mts.severity(key, mts.KBAR3_MEASURED, LZ)
+        check("severity %s Bi = %s in both" % (key, bi_txt),
+              abs(bi - float(bi_txt)) < 1e-9 and bi_txt in flat,
+              "generator %g" % bi)
+        # The chapter quotes h in W/(m^2.K) as well as in card units, because
+        # a reader who only sees the card units cannot tell a 1000x unit slip
+        # from a different quench.
+        check("severity %s film coefficient %.1f W/(m^2.K) in the chapter"
+              % (key, h * 1e3), "%.1f" % (h * 1e3) in flat,
+              "generator h=%g mW/(mm^2.K)" % h)
+    check("the chapter states the card's conductivity unit",
+          "mW/(mm·K)" in ch5 or "mW/(mm^2·K)" in ch5 or "mW/(mm²·K)" in ch5)
+    for key, bi_txt in (("Z", "0.0445"), ("Y", "0.0260")):
+        lz = mts.SPECIMENS[mts.SEVERITIES[key]["spec"]]["dims"][2]
+        h, bi = mts.severity(key, mts.KBAR3_MEASURED, lz)
+        check("published test %s: Bi = %s, re-solved on OUR card"
+              % (key, bi_txt),
+              abs(bi - float(bi_txt)) < 5e-4 and bi_txt in flat,
+              "generator %.4f, h = %.1f W/(m^2.K)" % (bi, h * 1e3))
+
+    check("the ladder is stated as 0.05 / 1 / 5 in the chapter",
+          bool(re.search(r"0\.05\s*/\s*1\s*/\s*5", flat)))
+    # The whole point of the ladder is that only h changes.
+    check("all three ladder levels share one temperature amplitude",
+          len({(sev[k]["T_hi"], sev[k]["T_lo"]) for k in "LMH"}) == 1,
+          "%g -> %g" % (sev["L"]["T_hi"], sev["L"]["T_lo"]))
+    check("chapter says the amplitude is held fixed",
+          "온도 진폭을 고정" in ch5 or "진폭을 고정" in ch5)
+
+    # ------------------------------------------------------------------ B
+    print("\n B. specimen geometry and checkpoints match SPECIMENS")
+    for name, dims, mesh, cps in (
+            ("ZHANG2013", (12.5, 6.0, 3.0), (10, 6, 12), (20, 40, 60)),
+            ("YIN2002", (20.0, 6.0, 4.0), (12, 6, 14), (20, 50, 100))):
+        sp = mts.SPECIMENS[name]
+        check("%s dims match the generator" % name,
+              tuple(sp["dims"]) == dims, str(sp["dims"]))
+        check("%s mesh matches the generator" % name,
+              tuple(sp["mesh"]) == mesh, str(sp["mesh"]))
+        check("%s checkpoints match the generator" % name,
+              tuple(sp["checkpoints"]) == cps, str(sp["checkpoints"]))
+        for v in cps:
+            check("%s checkpoint %d quoted in Ch.5" % (name, v),
+                  str(v) in flat)
+    # the through-thickness dimension is the quenched one -- if the chapter
+    # quotes the wrong one the whole Biot discussion is wrong
+    check("Ch.5 marks 3.0 mm as ZHANG2013 thickness", "**3.0**" in ch5)
+    check("Ch.5 marks 4.0 mm as YIN2002 thickness", "**4.0**" in ch5)
+
+    # ------------------------------------------------------------------ C
+    print("\n C. calibrated film coefficients match quench_calibration.py")
+    out, rc = run("python3 abaqus/quench_calibration.py")
+    check("quench_calibration.py runs", rc == 0)
+    # These are the LITERATURE-property answers: solved on refs/[03]'s rho,
+    # refs/[20]'s cp and refs/[12]'s k.  The chapter still quotes them, but as
+    # the comparison row -- what the deck runs on is the row below.
+    for label, h_si, bi in (("ZHANG2013", "199.0", "0.0475"),
+                            ("YIN2002", "87.0", "0.0277")):
+        check("%s h = %s W/(m^2.K) solved on the literature card"
+              % (label, h_si), h_si in out)
+        check("%s Bi = %s solved" % (label, bi), bi in out)
+    check("Ch.5 keeps the literature row for comparison",
+          "199.0" in flat and "0.0475" in flat)
+    # and the row the deck actually runs on, re-solved on OUR homogenised
+    # rho, cp and kbar_3.  Mixing their h with our k gives 0.0548, which
+    # belongs to no material -- the chapter names that number as the trap.
+    for label, h_si, bi in (("ZHANG2013", "161.7", "0.0445"),
+                            ("YIN2002", "70.8", "0.0260")):
+        check("%s h = %s quoted in Ch.5, on our own card" % (label, h_si),
+              h_si in flat)
+        check("%s Bi = %s quoted in Ch.5" % (label, bi), bi in flat)
+    check("Ch.5 names the mixed-provenance Biot number as the trap",
+          "0.0548" in flat)
+    # the gradient percentages the chapter uses to justify C2: the literature
+    # row's 3.3/1.7 and our own card's 3.1/1.6.  Both must survive, and both
+    # must stay well below the 25 % that would break the uniform assumption.
+    for frac in ("3.3", "1.7"):
+        check("literature gradient fraction %s %% appears in both" % frac,
+              frac in out and frac in flat)
+    for frac in ("3.1", "1.6"):
+        check("our own gradient fraction %s %% quoted in Ch.5" % frac,
+              frac in flat)
+
+    # ------------------------------------------------------------------ C2
+    print("\n C2. the MEASURED gradient ladder matches data/results/")
+    lad = os.path.join(ROOT, "data", "results", "macro_heat_ladder.csv")
+    check("macro_heat_ladder.csv exists", os.path.exists(lad),
+          "written by the S2 runs, read by extract_thermal_profile.py")
+    if os.path.exists(lad):
+        import csv as _csv
+        rows = {r["severity"]: r for r in _csv.DictReader(open(lad))}
+        check("it carries all three severities",
+              set(rows) == {"L", "M", "H"}, ", ".join(sorted(rows)))
+        # The chapter must quote the MEASURED fractions, not a prediction.
+        # These are the numbers C2 rests on, so they are read from the file
+        # rather than typed here -- a hard-coded 36.9 in this checker would
+        # only prove the checker and the chapter were typed by the same hand.
+        for sev in ("L", "M", "H"):
+            r = rows.get(sev)
+            if not r:
+                continue
+            pct = "%.1f" % float(r["grad_pct"])
+            check("severity %s gradient %s %% quoted in Ch.5" % (sev, pct),
+                  pct in flat, "Bi = %s, %s K" % (r["bi"], r["peak_grad_K"]))
+            check("  and its peak gradient %s K" % r["peak_grad_K"],
+                  "%.1f" % float(r["peak_grad_K"]) in flat)
+            check("  and the CSV's own uniform-assumption verdict is %s"
+                  % r["uniform_assumption"], bool(r["uniform_assumption"]))
+        # The whole point of the ladder is that the assumption survives at
+        # the low end and fails at the high end.  If a future run made those
+        # the same the ladder would have stopped being a ladder.
+        lo = float(rows["L"]["grad_pct"]) if "L" in rows else 0.0
+        hi = float(rows["H"]["grad_pct"]) if "H" in rows else 0.0
+        check("the ladder actually brackets the crossover",
+              lo < 15.0 < hi and hi > 50.0,
+              "%.1f %% at Bi=0.05 vs %.1f %% at Bi=5" % (lo, hi))
+        check("Ch.5 presents these as MEASURED, not predicted",
+              "예측이 아니라 측정" in ch5)
+        check("  and names the CSV as the authority",
+              "macro_heat_ladder.csv" in ch5)
+        check("severity H is cross-referenced to the severity paradox",
+              "심각도 역설" in ch5 and "TWMAX" in ch5)
+
+    # ------------------------------------------------------------------ D
+    print("\n D. deck mechanics claimed by the chapter exist in the generator")
+    check("probe strain 1e-6 in the generator",
+          abs(mts.PROBE_STRAIN - 1.0e-6) < 1e-15, "%g" % mts.PROBE_STRAIN)
+    check("probe strain quoted as 1e-6 in Ch.5",
+          "10^{-6}" in ch5 or "1e-6" in ch5 or "10⁻⁶" in ch5)
+    check("residual-strength target 1 %% in the generator",
+          abs(mts.FAIL_STRAIN - 0.010) < 1e-12, "%g" % mts.FAIL_STRAIN)
+    check("stress-free temperature 1050 in the generator",
+          abs(mts.STRESS_FREE_C - 1050.0) < 1e-9)
+    check("mesh grading bias defaults below 1 (refines at the surfaces)",
+          "bias=0.55" in gen)
+    check("Ch.5 quotes the grading bias 0.55", "0.55" in flat)
+    check("generator rejects bias >= 1", "bias must be < 1" in gen)
+    check("Ch.5 says bias >= 1 is rejected",
+          "거부" in ch5 and "0.55" in ch5)
+
+    check("cycle rate is field variable 1", "*Field, variable=1" in gen)
+    check("Ch.5 shows the field-variable card",
+          "*Field, variable=1" in ch5)
+    check("probe zeroes the cycle rate", "_mech_field(0.0)" in gen)
+    check("probe uses op=NEW", "*Boundary, op=NEW" in gen)
+    check("Ch.5 explains why op=NEW is needed",
+          "op=NEW" in ch5 and ("유지" in ch5 or "살아남" in ch5))
+
+    check("freeze_step is card slot 26 in the generator",
+          "patch_card(card, 26, 1.0) if trs ==" in gen)
+    check("Ch.5 names slot 26 as freeze_step",
+          "PROPS(26)" in ch5 and "freeze_step" in ch5)
+    check("only case B is patched", 'if trs == "B" else card' in gen)
+    check("Ch.5 says only B is patched",
+          "케이스 B에" in ch5 or "B에\n   대해서만" in ch5 or
+          "B에 대해서만" in ch5.replace("\n", " ").replace("  ", " "))
+
+    check("restart written at probes", "*Restart, write, overlay" in gen)
+    check("restart read by the residual job", "*Restart, read, step=" in gen)
+    check("temperature is read from the shared heat odb",
+          "*Temperature, file=%s.odb" in gen)
+    check("Ch.5 shows the temperature mapping card",
+          "*Temperature, file=" in ch5)
+    check("deltmx=25 in the heat steps", "deltmx=25." in gen)
+    check("Ch.5 quotes deltmx = 25", "deltmx" in ch5 and "25" in flat)
+
+    # the SDV history list -- C4 needs all three indices every frame
+    m = re.search(r"SDV9, SDV10, SDV17, SDV18, SDV19, SDV23, SDV24, SDV25",
+                  gen)
+    check("generator writes the 8 history SDVs", bool(m))
+    # The chapter groups 23/24 into one row ("23 / 24"), so test the SDV table
+    # region for each number rather than assuming one row per variable.
+    tbl = ch5[ch5.find("| SDV |"):] if "| SDV |" in ch5 else ""
+    tbl = tbl[:tbl.find("\n\n")] if "\n\n" in tbl else tbl
+    check("Ch.5 has an SDV table", bool(tbl.strip()))
+    for s in ("9", "10", "17", "18", "19", "23", "24", "25"):
+        check("Ch.5 lists SDV%s" % s,
+              bool(re.search(r"(?<![0-9])%s(?![0-9])" % s, tbl)))
+
+    # ------------------------------------------------------------------ E
+    print("\n E. cycle-jump accuracy matches verify_thermshock.py T6")
+    out6, rc6 = run("python3 verification/verify_thermshock.py")
+    check("verify_thermshock.py runs", rc6 == 0)
+    check("T5 shakedown drift is exactly zero", "drift=0.00e+00" in out6)
+    check("Ch.5 quotes the zero drift",
+          "0.00e+00" in ch5 or "정확히 0" in ch5)
+    check("T6 linear-case jump error 1.53e-16 reported", "1.53e-16" in out6)
+    check("Ch.5 quotes 1.53e-16", "1.53" in flat and "10⁻¹⁶" in ch5)
+    check("T6 nonlinear jump error 0.03 %% reported",
+          "rel.err=0.03 %" in out6)
+    check("Ch.5 quotes 0.03 %", "0.03 %" in ch5 or "0.03 %" in ch5)
+
+    # ------------------------------------------------------------------ F
+    print("\n F. the chapter does not claim results it does not have")
+    check("Ch.5 states no deck has been run yet",
+          "아직 실행되지 않았다" in ch5)
+    check("Ch.5 defers the macro card to Ch.4's calibration",
+          "확정되기 전에는" in ch5 and "실행하지 않는다" in ch5)
+    check("Ch.5 lists the cycle-damage coefficients as uncalibrated",
+          "미보정" in ch5)
+    check("Ch.5 flags the YIN2002 flexural-probe gap",
+          "굽힘" in ch5 and ("구현되어 있지 않" in ch5
+                            or "구현되지 않았다" in ch5))
+    check("Ch.5 does not present a residual-strength number",
+          not re.search(r"잔여강도[^\n]{0,40}[0-9]+\.[0-9]+\s*MPa", ch5))
+    check("Ch.5 declares the three pre-run checks",
+          all(s in ch5 for s in ("열경계층", "온도 매핑", "사이클 점프")))
+
+    # ------------------------------------------------------------------ G
+    # 5.4.3-a rules that k(T)'s SHAPE is derived, not borrowed (a2-0027 (2)).
+    # The ruling lives in a module; the deck generator is expected to call it.
+    # These checks exist so that the day the deck changes -- in either
+    # direction -- the gate says so instead of the chapter quietly drifting.
+    print("\n G. the k(T) shape is the derived one, in the chapter AND the deck")
+    sys.path.insert(0, os.path.join(ROOT, "data", "properties"))
+    sys.path.insert(0, os.path.join(ROOT, "abaqus"))
+    import conductivity_temperature as ct
+    lo, hi = ct.derived_bracket()
+    check("the derived ratio is what 5.4.3-a quotes",
+          "0.779" in ch5 and "0.840" in ch5,
+          "%.4f-%.4f" % (lo, hi))
+    check("the chapter's 900 C scale factor is the module's",
+          "0.8556" in ch5, "%.4f" % ct.k_scale(900.0))
+    k900 = ct.KBAR3_FE * ct.k_scale(900.0)
+    check("the chapter's 900 C conductivity is the module's",
+          "%.3f" % k900 in ch5, "%.3f" % k900)
+    # the 5.4.3 table re-solves h for each k (that is what quench_calibration
+    # does), so compare against the re-solved pair, not against a frozen h.
+    import quench_calibration as _qc
+    _spec = _qc.SPECIMENS["ZHANG2013"]
+    _mat = dict(_qc.MATERIALS["ours"]); _mat["k3"] = k900
+    _h, _ = _qc.solve_h(_spec, _mat)
+    _bi = _h * 0.5 * _spec["thickness"] / k900
+    check("the chapter's 900 C film coefficient is the re-solved one",
+          "%.1f" % _h in ch5, "%.1f W/(m2.K)" % _h)
+    check("the chapter's 900 C Biot is the re-solved one",
+          "%.4f" % _bi in ch5, "%.4f" % _bi)
+    check("the two Biot routes agree to within 1 %",
+          abs(_bi / ct.biot(900.0) - 1.0) < 0.01,
+          "re-solved %.4f vs fixed-h %.4f" % (_bi, ct.biot(900.0)))
+    check("the chapter still names the rejected borrowed ratio",
+          "0.5845" in ch5)
+    check("the chapter records the direction of the rejected shape",
+          "23.9" in ch5, "%+.1f %%"
+          % (100.0 * (ct.biot(900.0, model="ref20_linear_k")
+                      / ct.biot(900.0) - 1.0)))
+    check("the chapter no longer calls the borrowed hot row physically right",
+          "고온 행이 물리적으로 옳은" not in ch5
+          or "그 문장은 삭제한다" in ch5)
+    check("5.4.3 separates the shape rows from the magnitude rows",
+          "크기 하한 대용" in ch5 and "형상 행과 크기 행" in ch5)
+    # the deck generator: whichever way a2 wires it, the two must agree
+    import make_macro_thermalshock as _mac
+    src = open(_mac.__file__.replace(".pyc", ".py")).read()
+    wired = "conductivity_temperature" in src
+    if wired:
+        blk = _mac.homogenised_thermal()[1]
+        got = [r for r in blk["rows"] if abs(r["T_C"] - 1000.0) < 1.0]
+        ok = bool(got) and abs(got[0]["k3"] / _mac.KBAR_MEASURED[2]
+                               - ct.k_scale(1000.0)) < 1e-6
+        check("the deck's k(T) comes from the ruling module", ok,
+              "deck scale %.4f vs module %.4f"
+              % ((got[0]["k3"] / _mac.KBAR_MEASURED[2]) if got else -1,
+                 ct.k_scale(1000.0)))
+    else:
+        # not yet rewired: assert the chapter says so, so the gap is visible
+        check("the deck still carries the borrowed ratio, and the chapter "
+              "does not pretend otherwise",
+              "REF20_K_RATIO" in src and "5.4.3-a" in ch5,
+              "a1-0031 (1)) is outstanding with a2")
+
+    # the generator's own list-checks must still name those three
+    outc, rcc = run("python3 abaqus/make_macro_thermalshock.py --list-checks")
+    check("--list-checks runs", rcc == 0)
+    for k in ("THERMAL BOUNDARY LAYER", "TEMPERATURE MAPPING",
+              "CYCLE-JUMP ERROR"):
+        check("--list-checks still names %s" % k, k in outc)
+
+    print("\n" + "=" * 78)
+    if _BAD:
+        print("ROUND 1 FAIL -- %d of %d: %s"
+              % (len(_BAD), len(_OK) + len(_BAD), ", ".join(_BAD[:4])))
+        print("=" * 78)
+        return 1
+    print("ROUND 1 PASS -- ALL %d CH.5 CLAIMS MATCH THE GENERATOR" % len(_OK))
+    print("=" * 78)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
